@@ -1,0 +1,32 @@
+# GitLab CI/CD configuration file for ngen repository
+stages:
+  - build
+  - unit_test
+  - sonarqube
+  - deploy
+  - ver_test
+
+build-job:
+  stage: build
+  script:
+    - echo "Building NGEN..."
+
+unit-test-job:
+  stage: unit_test
+  script:
+    - echo "Running unit tests..."
+
+sonarqube-job:
+  stage: sonarqube
+  script:
+    - echo "Running Sonarqube scan..."
+
+deploy-job:
+  stage: deploy
+  script:
+    - echo "Deploying NGEN..."
+
+ver-test-job:
+  stage: ver_test
+  script:
+    - echo "Running verification tests..."
