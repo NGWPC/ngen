@@ -10,12 +10,12 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-    - sudo chmod 777 ./submodule_update.sh ./build.sh
-    - ./submodule_update.sh
+    - sudo chmod 777 ./scripts/submodule_update.sh ./scripts/build.sh
+    - ./scripts/submodule_update.sh
     - cd ..
     - tar -czf ngen.tar.gz ngen
     - cd ngen
-    - ./build.sh
+    - ./scripts/build.sh
     - echo "Build complete."
 
 unit-test-job:
@@ -62,7 +62,7 @@ deploy-job:
         tar -xzf ngen.tar.gz &&
         rm ngen.tar.gz &&
         cd ngen &&
-        ./build.sh"
+        ./scripts/build.sh"
     - echo "NGEN deployed to NGEN-Test"
 
 ver-test-job:
