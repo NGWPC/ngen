@@ -10,11 +10,26 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
+    - sudo chmod 777 ./submodule_update.sh ./build.sh
+    - ./submodule_update.sh
+    - cd ..
+    - tar -czf ngen.tar.gz ngen
+    - cd ngen
+    - ./build.sh
+    - echo "Build complete."
 
 unit-test-job:
   stage: unit_test
+  variables:
+    GIT_STRATEGY: none
   script:
     - echo "Running unit tests..."
+    - source /opt/ngen/python/bin/activate
+    - ./cmake_build/test/test_unit
+    - ./cmake_build/test/test_all
+    - ./cmake_build/test/test_bmi_c
+    - ./cmake_build/test/test_bmi_fortran
+    - echo "Unit tests complete"
 
 sonarqube-job:
   stage: sonarqube
@@ -34,10 +49,30 @@ sonarqube-job:
 
 deploy-job:
   stage: deploy
+  environment: test # NGEN-TEST
+  before_script:
+    - chmod 400 $SSH_KEY
+    - ssh-agent
   script:
     - echo "Deploying NGEN..."
+    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
+        cd ~/ngen-app &&
+        rm -rf ngen &&
+        tar -xzf ngen.tar.gz &&
+        rm ngen.tar.gz &&
+        cd ngen &&
+        ./build.sh"
+    - echo "NGEN deployed to NGEN-Test"
 
 ver-test-job:
   stage: ver_test
+  environment: test # NGEN-TEST
+  before_script:
+    - chmod 400 $SSH_KEY
+    - ssh-agent
   script:
     - echo "Running verification tests..."
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
+        cd ~/ngen-app" # TODO add verification test example to common test repo
+    - echo "Verification tests complete"
