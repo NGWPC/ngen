@@ -49,14 +49,14 @@ sonarqube-job:
 
 deploy-job:
   stage: deploy
-  environment: test # NGEN-TEST
+  environment: test # NGEN-TEST-COPY
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
   script:
     - echo "Deploying NGEN..."
-    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
+    - scp ../ngen.tar.gz christina.osumi@10.105.133.122:~/ngen-app
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.122 "
         cd ~/ngen-app &&
         rm -rf ngen &&
         tar -xzf ngen.tar.gz &&
@@ -67,12 +67,12 @@ deploy-job:
 
 ver-test-job:
   stage: ver_test
-  environment: test # NGEN-TEST
+  environment: test # NGEN-TEST-COPY
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
   script:
     - echo "Running verification tests..."
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.122 "
         cd ~/ngen-app" # TODO add verification test example to common test repo
     - echo "Verification tests complete"
