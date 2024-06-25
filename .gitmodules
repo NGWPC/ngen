@@ -23,7 +23,7 @@
 	branch = main
 [submodule "extern/bmi-cxx"]
 	path = extern/bmi-cxx
-	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/bmi-cxx.git
+	url = https://gitlab-ci-token:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/bmi-cxx.git
 [submodule "extern/evapotranspiration/evapotranspiration"]
 	path = extern/evapotranspiration/evapotranspiration
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/evapotranspiration.git
