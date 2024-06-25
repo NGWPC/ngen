@@ -8,14 +8,14 @@ stages:
 
 build-job:
   stage: build
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-    GIT_SUBMODULE_FORCE_HTTPS: "true"
-    GIT_SUBMODULE_DEPTH: 1
+#  variables:
+#    GIT_SUBMODULE_STRATEGY: recursive
+#    GIT_SUBMODULE_FORCE_HTTPS: "true"
+#    GIT_SUBMODULE_DEPTH: 1
   script:
     - echo "Building NGEN..."
-#    - sudo chmod 777 ./scripts/submodule_update.sh ./scripts/build.sh
-#    - ./scripts/submodule_update.sh
+    - sudo chmod 777 ./scripts/submodule_update.sh ./scripts/build.sh
+    - ./scripts/submodule_update.sh
 #    - cd ..
 #    - tar -czf ngen.tar.gz ngen
 #    - cd ngen
