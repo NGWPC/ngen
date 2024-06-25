@@ -14,6 +14,7 @@ build-job:
     GIT_TRACE: "true"
     GIT_SUBMODULE_DEPTH: 1
   before_script:
+    - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
     - git submodule sync --recursive
   script:
     - echo "Building NGEN..."
