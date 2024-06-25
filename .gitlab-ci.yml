@@ -12,6 +12,8 @@ build-job:
 #    GIT_SUBMODULE_STRATEGY: recursive
 #    GIT_SUBMODULE_FORCE_HTTPS: "true"
 #    GIT_SUBMODULE_DEPTH: 1
+  before_script:
+    - git submodule sync --recursive
   script:
     - echo "Building NGEN..."
     - sudo chmod 777 ./scripts/submodule_update.sh ./scripts/build.sh
