@@ -16,13 +16,11 @@ build-job:
 #    GIT_SUBMODULE_FORCE_HTTPS: "true"
 #    GIT_TRACE: "true"
 #    GIT_SUBMODULE_DEPTH: 1
-#  before_script:
-  hooks:
-    pre_get_sources_script:
+  before_script:
     - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
     - git submodule sync --recursive
 #    - git submodule foreach 'branch=$(git config -f $toplevel/.gitmodules submodule.$name.branch); git pull origin $branch'
-#    - git submodule foreach 'if [ "$name" != "extern/t-route" ]; then branch=$(git config -f $toplevel/.gitmodules submodule.$name.branch); git pull origin $branch --rebase; fi'
+    - git submodule foreach 'if [ "$name" != "extern/t-route" ]; then branch=$(git config -f $toplevel/.gitmodules submodule.$name.branch); git pull origin $branch --rebase; fi'
  #   - git submodule foreach 'branch=$(git config -f $toplevel/.gitmodules submodule.$name.branch); git pull origin $branch --rebase'
 #    - git submodule update --init --recursive
   script:
