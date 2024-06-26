@@ -1,10 +1,5 @@
 # GitLab CI/CD configuration file for ngen repository
 
-variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-    GIT_SUBMODULE_FORCE_HTTPS: "true"
-    GIT_SUBMODULE_DEPTH: 1
-
 stages:
   - build
   - unit_test
@@ -17,6 +12,7 @@ build-job:
   before_script:
     - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
     - git submodule sync --recursive
+    - git submodule update --init --recursive
 #    - git submodule foreach 'if [ "$name" != "extern/t-route" ]; then branch=$(git config -f $toplevel/.gitmodules submodule.$name.branch); git pull origin $branch --rebase; fi'
   script:
     - echo "Building NGEN..."
