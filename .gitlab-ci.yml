@@ -16,7 +16,7 @@ build-job:
   before_script:
     - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
     - git submodule sync --recursive
-    - git submodule foreach git pull
+    - git submodule foreach git pull origin master
     - git submodule update --init --recursive
   script:
     - echo "Building NGEN..."
