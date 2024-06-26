@@ -8,14 +8,15 @@ stages:
 
 build-job:
   stage: build
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
+#  variables:
+#    GIT_SUBMODULE_STRATEGY: recursive
 #    GIT_SUBMODULE_FORCE_HTTPS: "true"
 #    GIT_TRACE: "true"
 #    GIT_SUBMODULE_DEPTH: 1
   before_script:
     - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
     - git submodule sync --recursive
+    - git submodule foreach git pull
     - git submodule update --init --recursive
   script:
     - echo "Building NGEN..."
