@@ -1,7 +1,7 @@
 # GitLab CI/CD configuration file for ngen repository
 
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
+#variables:
+#  GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
   - build
