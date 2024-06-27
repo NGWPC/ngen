@@ -66,6 +66,8 @@ deploy-job:
         cd ngen &&
         ./scripts/build.sh"
     - echo "NGEN deployed to NGEN-Test"
+  rules:
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
 
 ver-test-job:
   stage: ver_test
@@ -77,3 +79,5 @@ ver-test-job:
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.122 "
         cd ~/ngen-app" # TODO add verification test example to common test repo
     - echo "Verification tests complete"
+  rules:
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
