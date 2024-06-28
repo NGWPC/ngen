@@ -14,6 +14,7 @@ build-job:
   script:
     - echo "Building NGEN..."
     - ./scripts/submodule_update.sh
+    - sudo chmod 666 /var/run/docker.sock
     - docker run --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
         ./scripts/build.sh"
     - tar -czf ../ngen.tar.gz .
