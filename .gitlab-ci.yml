@@ -13,13 +13,11 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-    - sudo chmod 777 ./scripts/submodule_update.sh ./scripts/build.sh
     - ./scripts/submodule_update.sh
-    - cd ..
-    - tar -czf ngen.tar.gz ngen
-    - cd ngen
-    - ./scripts/build.sh
-    - echo "Build complete."
+    - docker run -it --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
+        ./scripts/build.sh"
+    - tar -czf ../ngen.tar.gz .
+    - echo "Build complete." 
 
 unit-test-job:
   stage: unit_test
@@ -27,15 +25,18 @@ unit-test-job:
     GIT_STRATEGY: none
   script:
     - echo "Running unit tests..."
-    - source /opt/ngen/python/bin/activate
-    - ./cmake_build/test/test_unit
-    - ./cmake_build/test/test_all
-    - ./cmake_build/test/test_bmi_c
-    - ./cmake_build/test/test_bmi_fortran
+    - docker run -it --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
+        source /ngen-app/ngen-python/bin/activate &&
+        ./cmake_build/test/test_unit &&
+        ./cmake_build/test/test_all &&
+        ./cmake_build/test/test_bmi_c &&
+        ./cmake_build/test/test_bmi_fortran"
     - echo "Unit tests complete"
 
 sonarqube-job:
   stage: sonarqube
+  variables:
+    GIT_STRATEGY: none
   image: 
     name: sonarsource/sonar-scanner-cli:latest
     entrypoint: [""]
@@ -53,6 +54,8 @@ sonarqube-job:
 
 deploy-job:
   stage: deploy
+  variables:
+    GIT_STRATEGY: none
   environment: test # NGEN-TEST-COPY
   before_script:
     - chmod 400 $SSH_KEY
@@ -64,15 +67,15 @@ deploy-job:
         cd ~/ngen-app &&
         rm -rf ngen &&
         tar -xzf ngen.tar.gz &&
-        rm ngen.tar.gz &&
-        cd ngen &&
-        ./scripts/build.sh"
+        rm ngen.tar.gz"
     - echo "NGEN deployed to NGEN-Test"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+#  rules:
+#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
 
 ver-test-job:
   stage: ver_test
+  variables:
+    GIT_STRATEGY: none
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
