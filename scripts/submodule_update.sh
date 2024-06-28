@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
-#git submodule sync --recursive
+git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
+git submodule sync --recursive
 
 git submodule add --force https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/lgar-c.git extern/LASAM/
 git submodule add --force https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/snow17.git extern/snow17/
