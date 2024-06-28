@@ -14,7 +14,7 @@ build-job:
   script:
     - echo "Building NGEN..."
     - ./scripts/submodule_update.sh
-    - docker run -it --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
+    - docker run --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
         ./scripts/build.sh"
     - tar -czf ../ngen.tar.gz .
     - echo "Build complete." 
