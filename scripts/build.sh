@@ -1,9 +1,71 @@
 #!/bin/bash
 
-export CXX=/bin/g++
+dnf install -y epel-release
+dnf config-manager --set-enabled powertools
+
+dnf install -y git gcc-toolset-10 gcc-toolset-10-libasan-devel libasan6 udunits2 udunits2-devel bzip2 bzip2-devel zlib zlib-devel openmpi openmpi-devel sqlite sqlite-devel openssl-devel curl cmake gcc-c++ gcc-gfortran libcurl-devel m4 libffi-devel
+
+mkdir -p /ngen-app/opt
+cd /ngen-app/opt
+curl -L -O https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2
+tar -xjf boost_1_79_0.tar.bz2
+
+mkdir -p /opt
+cd /opt
+curl -L -O https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-1_10_11.tar.gz
+tar xzf hdf5-1_10_11.tar.gz
+
+scl enable gcc-toolset-10 bash <<EOF
+  cd hdf5-hdf5-1_10_11
+  ./configure --prefix=/opt/
+  make check -j 4
+  make install
+EOF
+
+curl -L -O https://github.com/Unidata/netcdf-c/archive/refs/tags/v4.7.4.tar.gz
+tar xzf v4.7.4.tar.gz
+
+scl enable gcc-toolset-10 bash <<EOF
+  cd netcdf-c-4.7.4
+  CPPFLAGS=-I/opt/include/ LDFLAGS="-Wl,-L/opt/lib/,-rpath,/opt/lib/" ./configure --prefix=/opt/
+  make -j 4
+  make install
+EOF
+
+curl -L -O https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v4.5.4.tar.gz
+tar xzf v4.5.4.tar.gz
+
+scl enable gcc-toolset-10 bash <<EOF
+  cd netcdf-fortran-4.5.4
+  CPPFLAGS=-I/opt/include/ LDFLAGS="-Wl,-L/opt/lib/,-rpath,/opt/lib/" ./configure --prefix=/opt/
+  make check -j 4
+  make install
+EOF
+
+curl -L -O https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz
+tar xzf Python-3.10.14.tgz
+
+scl enable gcc-toolset-10 bash <<EOF
+  cd Python-3.10.14
+  ./configure --enable-optimizations --with-lto --enable-shared --prefix=/opt/
+  make -s -j 4
+  make install
+EOF
+
 export BOOST_ROOT=/ngen-app/opt/boost_1_79_0
-export PATH="$PATH:/usr/lib64/openmpi/bin"
-source /opt/ngen/python/bin/activate
+export CXX=/bin/g++
+export PATH="/opt/:/opt/bin/:/ngen-app/opt/:/usr/lib64/openmpi/bin/:$PATH"
+export LD_LIBRARY_PATH="/opt/:/ngen-app/opt/:/opt/lib/:/ngen-app/opt/lib/:$LD_LIBRARY_PATH"
+export NETCDFALTERNATIVE="/usr/lib64/openmpi/"
+export NETCDF="/opt/include/"
+
+mkdir -p /ngen-app/ngen-python
+python3.10 -m venv /ngen-app/ngen-python
+source /ngen-app/ngen-python/bin/activate
+pip3 install bmipy numpy==1.26.4 pyyaml pandas netCDF4==1.6.3 Cython==3.0.3 wheel
+
+git config --global --add safe.directory /ngen-app/ngen
+cd /ngen-app/ngen
 
 # cmake_build
 cmake -B cmake_build -S . -DNGEN_WITH_MPI=ON -DNGEN_WITH_NETCDF=ON -DNGEN_WITH_SQLITE=ON -DNGEN_WITH_UDUNITS=ON -DNGEN_WITH_BMI_FORTRAN=ON -DNGEN_WITH_BMI_C=ON -DNGEN_WITH_PYTHON=ON -DNGEN_WITH_TESTS=ON -DNGEN_WITH_ROUTING=ON -DNGEN_QUIET=ON
@@ -59,5 +121,5 @@ make -C extern/SoilFreezeThaw//cmake_build/
 cmake -B extern/cfe/cmake_build -S extern/cfe/
 make -C extern/cfe/cmake_build/
 
-cd extern/t-route/
-./compiler.sh no-e
+#cd extern/t-route/
+#./compiler.sh no-e
