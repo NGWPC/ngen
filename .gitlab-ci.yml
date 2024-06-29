@@ -27,7 +27,7 @@ unit-test-job:
   script:
     - echo "Running unit tests..."
     - docker run --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
-        source /ngen-app/ngen-python/bin/activate &&
+        source ../ngen-python/bin/activate &&
         ./cmake_build/test/test_unit &&
         ./cmake_build/test/test_all &&
         ./cmake_build/test/test_bmi_c &&
