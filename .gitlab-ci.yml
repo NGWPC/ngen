@@ -15,7 +15,7 @@ build-job:
     - echo "Building NGEN..."
     - ./scripts/submodule_update.sh
     - sudo chmod 666 /var/run/docker.sock
-    - docker run --rm -v .:/ngen-app/ngen \
+    - docker run --name ngen-build-container -v .:/ngen-app/ngen \
       -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
         ./scripts/build.sh"
     - tar -czf ../ngen.tar.gz .
@@ -27,7 +27,7 @@ unit-test-job:
     GIT_STRATEGY: none
   script:
     - echo "Running unit tests..."
-    - docker run --rm -v .:/ngen-app/ngen rockylinux:8 bash -c "cd /ngen-app/ngen &&
+    - docker start ngen-build-container bash -c "cd /ngen-app/ngen &&
         source /ngen-app/ngen-python/bin/activate &&
         ./cmake_build/test/test_unit &&
         ./cmake_build/test/test_all &&
