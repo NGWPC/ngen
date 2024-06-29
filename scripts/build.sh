@@ -59,9 +59,9 @@ export LD_LIBRARY_PATH="/opt/:/ngen-app/opt/:/opt/lib/:/ngen-app/opt/lib/:$LD_LI
 export NETCDFALTERNATIVE="/usr/lib64/openmpi/"
 export NETCDF="/opt/include/"
 
-mkdir -p /ngen-app/ngen-python
-python3.10 -m venv /ngen-app/ngen-python
-source /ngen-app/ngen-python/bin/activate
+mkdir -p ../ngen-python
+python3.10 -m venv ../ngen-python
+source ../ngen-python/bin/activate
 pip3 install bmipy numpy==1.26.4 pyyaml pandas netCDF4==1.6.3 Cython==3.0.3 wheel
 
 git config --global --add safe.directory /ngen-app/ngen
