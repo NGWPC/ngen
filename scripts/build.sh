@@ -10,14 +10,12 @@ cd /ngen-app/opt
 curl -L -O https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2
 tar -xjf boost_1_79_0.tar.bz2
 
-mkdir -p /opt
-cd /opt
 curl -L -O https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-1_10_11.tar.gz
 tar xzf hdf5-1_10_11.tar.gz
 
 scl enable gcc-toolset-10 bash <<EOF
   cd hdf5-hdf5-1_10_11
-  ./configure --prefix=/opt/
+  ./configure --prefix=/ngen-app/opt/
   make check -j 4
   make install
 EOF
@@ -27,7 +25,7 @@ tar xzf v4.7.4.tar.gz
 
 scl enable gcc-toolset-10 bash <<EOF
   cd netcdf-c-4.7.4
-  CPPFLAGS=-I/opt/include/ LDFLAGS="-Wl,-L/opt/lib/,-rpath,/opt/lib/" ./configure --prefix=/opt/
+  CPPFLAGS=-I/ngen-app/opt/include/ LDFLAGS="-Wl,-L/ngen-app/opt/lib/,-rpath,/ngen-app/opt/lib/" ./configure --prefix=/ngen-app/opt/
   make -j 4
   make install
 EOF
@@ -37,7 +35,7 @@ tar xzf v4.5.4.tar.gz
 
 scl enable gcc-toolset-10 bash <<EOF
   cd netcdf-fortran-4.5.4
-  CPPFLAGS=-I/opt/include/ LDFLAGS="-Wl,-L/opt/lib/,-rpath,/opt/lib/" ./configure --prefix=/opt/
+  CPPFLAGS=-I/ngen-app/opt/include/ LDFLAGS="-Wl,-L/ngen-app/opt/lib/,-rpath,/ngen-app/opt/lib/" ./configure --prefix=/ngen-app/opt/
   make check -j 4
   make install
 EOF
@@ -47,17 +45,17 @@ tar xzf Python-3.10.14.tgz
 
 scl enable gcc-toolset-10 bash <<EOF
   cd Python-3.10.14
-  ./configure --enable-optimizations --with-lto --enable-shared --prefix=/opt/
+  ./configure --enable-optimizations --with-lto --enable-shared --prefix=/ngen-app/opt/
   make -s -j 4
   make install
 EOF
 
 export BOOST_ROOT=/ngen-app/opt/boost_1_79_0
 export CXX=/bin/g++
-export PATH="/opt/:/opt/bin/:/ngen-app/opt/:/usr/lib64/openmpi/bin/:$PATH"
-export LD_LIBRARY_PATH="/opt/:/ngen-app/opt/:/opt/lib/:/ngen-app/opt/lib/:$LD_LIBRARY_PATH"
+export PATH="/ngen-app/opt/bin/:/ngen-app/opt/:/usr/lib64/openmpi/bin/:$PATH"
+export LD_LIBRARY_PATH="/ngen-app/opt/:/ngen-app/opt/lib/:$LD_LIBRARY_PATH"
 export NETCDFALTERNATIVE="/usr/lib64/openmpi/"
-export NETCDF="/opt/include/"
+export NETCDF="/ngen-app/opt/include/"
 
 mkdir -p ngen-python
 python3.10 -m venv ngen-python
