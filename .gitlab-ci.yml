@@ -8,6 +8,7 @@ stages:
   - sonarqube
   - deploy
   - ver_test
+  - cleanup
 
 build-job:
   stage: build
@@ -89,3 +90,9 @@ ver-test-job:
     - echo "Verification tests complete"
   rules:
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+
+cleanup-job:
+  stage: cleanup
+  script:
+    - docker stop ngen-build-container
+    - docker rm ngen-build-container
