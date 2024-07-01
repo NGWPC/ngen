@@ -8,7 +8,6 @@ stages:
   - sonarqube
   - deploy
   - ver_test
-  - cleanup
 
 build-job:
   stage: build
@@ -16,6 +15,7 @@ build-job:
     - echo "Building NGEN..."
     - ./scripts/submodule_update.sh
     - sudo chmod 666 /var/run/docker.sock
+    - docker rm -f ngen-build-container || true
     - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
         ./scripts/build.sh &&
         sudo chown -R `whoami` ."
@@ -91,10 +91,3 @@ ver-test-job:
     - echo "Verification tests complete"
   rules:
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
-
-cleanup-job:
-  stage: cleanup
-  script:
-
-    - docker stop ngen-build-container
-    - docker rm ngen-build-container
