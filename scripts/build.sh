@@ -122,5 +122,5 @@ make -C extern/SoilFreezeThaw//cmake_build/
 cmake -B extern/cfe/cmake_build -S extern/cfe/
 make -C extern/cfe/cmake_build/
 
-#cd extern/t-route/
-#./compiler.sh no-e
+cd extern/t-route/
+./compiler.sh no-e
