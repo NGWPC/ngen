@@ -13,13 +13,13 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-#    - ./scripts/submodule_update.sh
-#    - sudo chmod 666 /var/run/docker.sock
-#    - docker rm -f ngen-build-container || true
-#    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
-#        ./scripts/build.sh"
-#    - sudo chown -R `whoami` .
-#    - tar -czf ../ngen.tar.gz .
+    - ./scripts/submodule_update.sh
+    - sudo chmod 666 /var/run/docker.sock
+    - docker rm -f ngen-build-container || true
+    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
+        ./scripts/build.sh"
+    - sudo chown -R `whoami` .
+    - tar -czf ../ngen.tar.gz .
     - echo "Build complete." 
 
 unit-test-job:
@@ -28,13 +28,13 @@ unit-test-job:
     GIT_STRATEGY: none
   script:
     - echo "Running unit tests..."
-#    - docker start ngen-build-container
-#    - docker exec ngen-build-container bash -c "cd /ngen-app/ngen &&
-#        source /opt/ngen-python/bin/activate &&
-#        ./cmake_build/test/test_unit &&
-#        ./cmake_build/test/test_all &&
-#        ./cmake_build/test/test_bmi_c &&
-#        ./cmake_build/test/test_bmi_fortran"
+    - docker start ngen-build-container
+    - docker exec ngen-build-container bash -c "cd /ngen-app/ngen &&
+        source /opt/ngen-python/bin/activate &&
+        ./cmake_build/test/test_unit &&
+        ./cmake_build/test/test_all &&
+        ./cmake_build/test/test_bmi_c &&
+        ./cmake_build/test/test_bmi_fortran"
     - echo "Unit tests complete"
   allow_failure: true
 
@@ -54,7 +54,7 @@ sonarqube-job:
       - .sonar/cache
   script: 
     - echo "Running Sonarqube scan..."
-#    - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
+    - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
   allow_failure: true
 
 deploy-job:
@@ -67,15 +67,12 @@ deploy-job:
     - ssh-agent
   script:
     - echo "Deploying NGEN..."
-#    - scp ../ngen.tar.gz christina.osumi@10.105.133.122:~/ngen-app
-#    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.122 "
-#    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
+    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
         cd ~/ngen-app &&
-        mkdir test_dir"
-#        rm -rf ngen &&
-#        tar -xzf ngen.tar.gz &&
-#        rm ngen.tar.gz"
+        rm -rf ngen &&
+        tar -xzf ngen.tar.gz -C ngen &&
+        rm ngen.tar.gz"
     - echo "NGEN deployed to NGEN-Test"
 #  rules:
 #    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
