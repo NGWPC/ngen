@@ -69,12 +69,13 @@ deploy-job:
     - echo "Deploying NGEN..."
 #    - scp ../ngen.tar.gz christina.osumi@10.105.133.122:~/ngen-app
 #    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.122 "
-    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
+#    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
         cd ~/ngen-app &&
-        rm -rf ngen &&
-        tar -xzf ngen.tar.gz &&
-        rm ngen.tar.gz"
+        mkdir test_dir"
+#        rm -rf ngen &&
+#        tar -xzf ngen.tar.gz &&
+#        rm ngen.tar.gz"
     - echo "NGEN deployed to NGEN-Test"
 #  rules:
 #    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
