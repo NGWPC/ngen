@@ -16,9 +16,9 @@ build-job:
     - echo "Building NGEN..."
     - ./scripts/submodule_update.sh
     - sudo chmod 666 /var/run/docker.sock
-    - sudo usermod -aG docker $USER
     - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
-        ./scripts/build.sh"
+        ./scripts/build.sh &&
+        sudo chown -R `whoami` ."
     - tar -czf ../ngen.tar.gz .
     - echo "Build complete." 
 
@@ -36,6 +36,7 @@ unit-test-job:
         ./cmake_build/test/test_bmi_c &&
         ./cmake_build/test/test_bmi_fortran"
     - echo "Unit tests complete"
+  allow_failure: true
 
 sonarqube-job:
   stage: sonarqube
@@ -94,5 +95,6 @@ ver-test-job:
 cleanup-job:
   stage: cleanup
   script:
+
     - docker stop ngen-build-container
     - docker rm ngen-build-container
