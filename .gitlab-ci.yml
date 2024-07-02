@@ -71,6 +71,7 @@ deploy-job:
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
         cd ~/ngen-app &&
         rm -rf ngen &&
+        mkdir -p ngen &&
         tar -xzf ngen.tar.gz -C ngen &&
         rm ngen.tar.gz"
     - echo "NGEN deployed to NGEN-Test"
