@@ -33,7 +33,7 @@ unit-test-job:
     - docker exec ngen-build-container bash -c "
         source /opt/ngen-python/bin/activate
         cd /ngen-app/ngen
-        for dir in cmake_build*; do
+        for dir in cmake_build*/; do
           ./$dir/test/test_unit
           ./$dir/test/test_all
           ./$dir/test/test_bmi_c
