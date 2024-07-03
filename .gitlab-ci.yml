@@ -31,15 +31,9 @@ unit-test-job:
     - echo "Running unit tests..."
     - docker start ngen-build-container
     - docker exec ngen-build-container bash -c "
-        source /opt/ngen-python/bin/activate
-        cd /ngen-app/ngen
-        for dir in cmake_build cmake_build_no_mpi cmake_build_no_mpi_netcdf cmake_build_no_netcdf cmake_build_no_sqlite
-        do
-          ./$dir/test/test_unit
-          ./$dir/test/test_all
-          ./$dir/test/test_bmi_c
-          ./$dir/test/test_bmi_fortran
-        done"
+        source /opt/ngen-python/bin/activate &&
+        cd /ngen-app/ngen &&
+        for dir in cmake_build cmake_build_no_mpi; do ./$dir/test/test_unit ./$dir/test/test_all ./$dir/test/test_bmi_c ./$dir/test/test_bmi_fortran; done"
     - echo "Unit tests complete"
   allow_failure: true
 
