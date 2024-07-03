@@ -17,8 +17,7 @@ build-job:
     - ./scripts/submodule_update.sh
     - sudo chmod 666 /var/run/docker.sock
     - docker rm -f ngen-build-container || true
-    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "
-        cd /ngen-app/ngen
+    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
         ./scripts/build.sh"
     - sudo chown -R `whoami` .
     - tar -czf ../ngen.tar.gz .
