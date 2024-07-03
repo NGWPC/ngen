@@ -14,13 +14,14 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-#    - ./scripts/submodule_update.sh
-#    - sudo chmod 666 /var/run/docker.sock
-#    - docker rm -f ngen-build-container || true
-#    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
-#        ./scripts/build.sh"
-#    - sudo chown -R `whoami` .
-#    - tar -czf ../ngen.tar.gz .
+    - ./scripts/submodule_update.sh
+    - sudo chmod 666 /var/run/docker.sock
+    - docker rm -f ngen-build-container || true
+    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "
+        cd /ngen-app/ngen
+        ./scripts/build.sh"
+    - sudo chown -R `whoami` .
+    - tar -czf ../ngen.tar.gz .
     - echo "Build complete." 
 
 unit-test-job:
@@ -35,16 +36,11 @@ unit-test-job:
         cd /ngen-app/ngen
         for dir in cmake_build cmake_build_no_mpi cmake_build_no_mpi_netcdf cmake_build_no_netcdf cmake_build_no_sqlite
         do
-          echo $dir
           ./$dir/test/test_unit
           ./$dir/test/test_all
           ./$dir/test/test_bmi_c
           ./$dir/test/test_bmi_fortran
         done"
-#        ./cmake_build/test/test_unit &&
-#        ./cmake_build/test/test_all &&
-#        ./cmake_build/test/test_bmi_c &&
-#        ./cmake_build/test/test_bmi_fortran"
     - echo "Unit tests complete"
   allow_failure: true
 
