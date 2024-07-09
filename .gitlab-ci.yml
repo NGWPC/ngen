@@ -33,7 +33,27 @@ unit-test-job:
     - docker exec ngen-build-container bash -c "
         source /opt/ngen-python/bin/activate &&
         cd /ngen-app/ngen &&
-        for dir in cmake_build cmake_build_no_mpi cmake_build_no_mpi_netcdf cmake_build_no_netcdf cmake_build_no_sqlite; do ./$dir/test/test_unit; ./$dir/test/test_all; ./$dir/test/test_bmi_c; ./$dir/test/test_bmi_fortran; done"
+        ./cmake_build/test/test_unit &&
+        ./cmake_build/test/test_all &&
+        ./cmake_build/test/test_bmi_c &&
+        ./cmake_build/test/test_bmi_fortran &&
+        ./cmake_build_no_mpi/test/test_unit &&
+        ./cmake_build_no_mpi/test/test_all &&
+        ./cmake_build_no_mpi/test/test_bmi_c &&
+        ./cmake_build_no_mpi/test/test_bmi_fortran &&
+        ./cmake_build_no_mpi_netcdf/test/test_unit &&
+        ./cmake_build_no_mpi_netcdf/test/test_all &&
+        ./cmake_build_no_mpi_netcdf/test/test_bmi_c &&
+        ./cmake_build_no_mpi_netcdf/test/test_bmi_fortran &&
+        ./cmake_build_no_netcdf/test/test_unit &&
+        ./cmake_build_no_netcdf/test/test_all &&
+        ./cmake_build_no_netcdf/test/test_bmi_c &&
+        ./cmake_build_no_netcdf/test/test_bmi_fortran &&
+        ./cmake_build_no_sqlite/test/test_unit &&
+        ./cmake_build_no_sqlite/test/test_all &&
+        ./cmake_build_no_sqlite/test/test_bmi_c &&
+        ./cmake_build_no_sqlite/test/test_bmi_fortran"
+#        for dir in cmake_build cmake_build_no_mpi cmake_build_no_mpi_netcdf cmake_build_no_netcdf cmake_build_no_sqlite; do ./$dir/test/test_unit; ./$dir/test/test_all; ./$dir/test/#test_bmi_c; ./$dir/test/test_bmi_fortran; done"
     - echo "Unit tests complete"
   allow_failure: true
 
