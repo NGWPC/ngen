@@ -53,7 +53,6 @@ unit-test-job:
         ./cmake_build_no_sqlite/test/test_all &&
         ./cmake_build_no_sqlite/test/test_bmi_c &&
         ./cmake_build_no_sqlite/test/test_bmi_fortran"
-#        for dir in cmake_build cmake_build_no_mpi cmake_build_no_mpi_netcdf cmake_build_no_netcdf cmake_build_no_sqlite; do ./$dir/test/test_unit; ./$dir/test/test_all; ./$dir/test/#test_bmi_c; ./$dir/test/test_bmi_fortran; done"
     - echo "Unit tests complete"
   allow_failure: true
 
@@ -80,22 +79,22 @@ deploy-test-job:
   stage: deploy_test
   variables:
     GIT_STRATEGY: none
-  environment: test # NGEN-TEST
+  environment: test
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
   script:
     - echo "Deploying NGEN to TEST..."
-    - scp ../ngen.tar.gz christina.osumi@10.105.133.13:~/ngen-app
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
+    - scp ../ngen.tar.gz christina.osumi@10.105.133.138:~/ngen-app
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.138 "
         cd ~/ngen-app &&
         rm -rf ngen &&
         mkdir -p ngen &&
         tar -xzf ngen.tar.gz -C ngen &&
         rm ngen.tar.gz"
     - echo "NGEN deployed to TEST"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+#  rules:
+#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
 
 ver-test-job:
   stage: ver_test
@@ -106,14 +105,24 @@ ver-test-job:
     - ssh-agent
   script:
     - echo "Running verification tests..."
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.13 "
-        cd ~/ngen-app" # TODO add verification test example to common test repo
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
+    - git clone https://gitlab.sh.nextgenwaterprediction.com/NGWPC/ngwpc-test
+    - cd ngwpc-test/NGEN
+    - docker build -t $CONTAINER_TEST_IMAGE -f docker/Dockerfile.selenium .
+    - docker push $CONTAINER_TEST_IMAGE
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.133.138 "
+       sudo chmod 666 /var/run/docker.sock &&
+       docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+       docker pull $CONTAINER_TEST_IMAGE &&
+       docker run $CONTAINER_TEST_IMAGE"
     - echo "Verification tests complete"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+#  rules:
+#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
 
 deploy-oe-job:
   stage: deploy_oe
+  when: manual
   variables:
     GIT_STRATEGY: none
   environment: oe # NGEN-HYDRO-OE
