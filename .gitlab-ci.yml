@@ -1,6 +1,7 @@
 # GitLab CI/CD configuration file for ngen repository
 variables:
     GIT_SUBMODULE_STRATEGY: recursive
+    CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
 
 stages:
   - build
