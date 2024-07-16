@@ -73,7 +73,8 @@ sonarqube-job:
       - .sonar/cache
   script: 
     - echo "Running Sonarqube scan..."
-    - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
+    - node -v
+    - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner -X
 #      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
   allow_failure: true
 
