@@ -74,7 +74,7 @@ sonarqube-job:
   script: 
     - echo "Running Sonarqube scan..."
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
-      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
+#      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
   allow_failure: true
 
 deploy-test-job:
