@@ -73,9 +73,10 @@ sonarqube-job:
       - .sonar/cache
   script: 
     - echo "Running Sonarqube scan..."
-    - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner -X
-      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
-      -Dsonar.login=$SONAR_TOKEN
+    - nvm install 14.17
+    - nvm use 14.17
+    - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
+
   allow_failure: true
 
 deploy-test-job:
