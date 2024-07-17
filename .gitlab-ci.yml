@@ -73,7 +73,7 @@ sonarqube-job:
       - .sonar/cache
   script: 
     - echo "Running Sonarqube scan..."
-    - curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+    - curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
     - sudo apt-get install -y nodejs
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
 
