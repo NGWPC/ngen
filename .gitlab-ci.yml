@@ -73,6 +73,7 @@ sonarqube-job:
       - .sonar/cache
   script: 
     - echo "Running Sonarqube scan..."
+    - curl -o- https://row.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh
     - nvm install 14.17
     - nvm use 14.17
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
