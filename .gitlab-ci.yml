@@ -15,13 +15,13 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-#    - ./scripts/submodule_update.sh
-#    - sudo chmod 666 /var/run/docker.sock
-#    - docker rm -f ngen-build-container || true
-#    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
-#        ./scripts/build.sh"
-#    - sudo chown -R `whoami` .
-#    - tar -czf ../ngen.tar.gz .
+    - ./scripts/submodule_update.sh
+    - sudo chmod 666 /var/run/docker.sock
+    - docker rm -f ngen-build-container || true
+    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
+        ./scripts/build.sh"
+    - sudo chown -R `whoami` .
+    - tar -czf ../ngen.tar.gz .
     - echo "Build complete." 
 
 unit-test-job:
@@ -83,16 +83,16 @@ deploy-test-job:
   stage: deploy_test
   variables:
     GIT_STRATEGY: none
-  environment: test # NGEN_TEST_ENV
+  environment: test # NGEN_TEST_COPY
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
   script:
     - echo "Deploying NGEN to TEST..."
-    - scp ../ngen.tar.gz christina.osumi@10.203.109.228:~/ngen-app
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.203.109.228 "
-        cd ~/ngen-app &&
-        rm -rf ngen &&
+    - scp ../ngen.tar.gz christina.osumi@10.105.130.50:/ngen-app
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
+        cd /ngen-app &&
+        sudo rm -rf ngen &&
         mkdir -p ngen &&
         tar -xzf ngen.tar.gz -C ngen &&
         rm ngen.tar.gz"
@@ -115,7 +115,7 @@ ver-test-job:
     - cd ngwpc-test/NGEN
     - docker build -t $CONTAINER_TEST_IMAGE -f docker/Dockerfile.selenium .
     - docker push $CONTAINER_TEST_IMAGE
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.203.109.228 "
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
        sudo chmod 666 /var/run/docker.sock &&
        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
        docker pull $CONTAINER_TEST_IMAGE &&
