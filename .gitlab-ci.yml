@@ -89,12 +89,13 @@ deploy-test-job:
     - ssh-agent
   script:
     - echo "Deploying NGEN to TEST..."
-    - scp ../ngen.tar.gz christina.osumi@10.105.130.50:/ngen-app
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
-        cd /ngen-app &&
-        sudo rm -rf ngen &&
-        mkdir -p ngen &&
-        tar -xzf ngen.tar.gz -C ngen &&
+        sudo mv /ngen-app/ngen /ngen-app/archive || true
+        sudo mkdir /ngen-app/ngen"
+    - scp ../ngen.tar.gz christina.osumi@10.105.130.50:/ngen-app/ngen
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
+        cd /ngen-app/ngen &&
+        tar -xzf ngen.tar.gz . &&
         rm ngen.tar.gz"
     - echo "NGEN deployed to TEST"
 #  rules:
