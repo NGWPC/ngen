@@ -90,7 +90,8 @@ deploy-test-job:
   script:
     - echo "Deploying NGEN to TEST..."
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
-        sudo mv /ngen-app/ngen /ngen-app/archive || true
+        sudo rm -rf /ngen-app/archive/ngen || true
+        sudo mv -f /ngen-app/ngen /ngen-app/archive || true
         sudo mkdir -p /ngen-app/ngen
         sudo chown -R `whoami` /ngen-app/ngen"
     - scp ../ngen.tar.gz christina.osumi@10.105.130.50:/ngen-app/ngen
