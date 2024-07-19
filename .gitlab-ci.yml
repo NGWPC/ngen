@@ -90,9 +90,9 @@ deploy-test-job:
   script:
     - echo "Deploying NGEN to TEST..."
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
-        sudo rm -rf /ngen-app/archive/ngen || true
-        sudo mv -f /ngen-app/ngen /ngen-app/archive || true
-        sudo mkdir -p /ngen-app/ngen
+        sudo rm -rf /ngen-app/archive/ngen || true &&
+        sudo mv -f /ngen-app/ngen /ngen-app/archive || true &&
+        sudo mkdir -p /ngen-app/ngen &&
         sudo chown -R `whoami` /ngen-app/ngen"
     - scp ../ngen.tar.gz christina.osumi@10.105.130.50:/ngen-app/ngen
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
@@ -119,6 +119,7 @@ ver-test-job:
     - docker build -t $CONTAINER_TEST_IMAGE -f docker/Dockerfile.selenium .
     - docker push $CONTAINER_TEST_IMAGE
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
+       sudo systemctl start docker &&
        sudo chmod 666 /var/run/docker.sock &&
        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
        docker pull $CONTAINER_TEST_IMAGE &&
