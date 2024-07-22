@@ -83,19 +83,19 @@ deploy-test-job:
   stage: deploy_test
   variables:
     GIT_STRATEGY: none
-  environment: test # NGEN_TEST_COPY
+  environment: test # NGEN-TEST-COPY
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
   script:
     - echo "Deploying NGEN to TEST..."
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.140.252 "
         sudo rm -rf /ngen-app/archive/ngen || true &&
         sudo mv -f /ngen-app/ngen /ngen-app/archive || true &&
         sudo mkdir -p /ngen-app/ngen &&
         sudo chown -R `whoami` /ngen-app/ngen"
-    - scp ../ngen.tar.gz christina.osumi@10.105.130.50:/ngen-app/ngen
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
+    - scp ../ngen.tar.gz christina.osumi@10.105.140.252:/ngen-app/ngen
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.140.252 "
         cd /ngen-app/ngen &&
         tar -xzf ngen.tar.gz . &&
         rm ngen.tar.gz"
@@ -118,7 +118,7 @@ ver-test-job:
     - cd ngwpc-test/NGEN
     - docker build -t $CONTAINER_TEST_IMAGE -f docker/Dockerfile.selenium .
     - docker push $CONTAINER_TEST_IMAGE
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.130.50 "
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.140.252 "
        sudo systemctl start docker &&
        sudo chmod 666 /var/run/docker.sock &&
        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
@@ -130,22 +130,25 @@ ver-test-job:
 
 deploy-oe-job:
   stage: deploy_oe
-  when: manual
+#  when: manual
   variables:
     GIT_STRATEGY: none
-  environment: oe # NGEN-HYDRO-OE
+  environment: oe # NGEN-HYDRO-OE-COPY
   before_script:
     - chmod 400 $SSH_KEY
     - ssh-agent
   script:
     - echo "Deploying NGEN to OE..."
-    - scp ../ngen.tar.gz christina.osumi@10.203.104.196:~/ngen-app
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.203.104.196 "
-        cd ~/ngen-app &&
-        rm -rf ngen &&
-        mkdir -p ngen &&
-        tar -xzf ngen.tar.gz -C ngen &&
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.203.110.34 "
+        sudo rm -rf /ngen-app/archive/ngen || true &&
+        sudo mv /ngen-app/ngen /ngen-app/archive || true &&
+        sudo mkdir -p /ngen-app/ngen &&
+        sudo chown -R `whoami` /ngen-app/ngen"
+    - scp ../ngen.tar.gz christina.osumi@10.203.110.34:/ngen-app/ngen
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.203.110.34 "
+        cd /ngen-app/ngen &&
+        tar -xzf ngen.tar.gz . &&
         rm ngen.tar.gz"
     - echo "NGEN deployed to OE"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+#  rules:
+#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
