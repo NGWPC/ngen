@@ -15,13 +15,16 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-#    - ./scripts/submodule_update.sh
-#    - sudo chmod 666 /var/run/docker.sock
-#    - docker rm -f ngen-build-container || true
-#    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
-#        ./scripts/build.sh"
-#    - sudo chown -R `whoami` .
-#    - tar -czf ../ngen.tar.gz .
+    - ./scripts/submodule_update.sh
+    - sudo chmod 666 /var/run/docker.sock
+    - docker rm -f ngen-build-container || true
+    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
+        ./scripts/build.sh"
+    - sudo chown -R `whoami` .
+    - tar -czf ../ngen.tar.gz .
+    - docker cp ngen-build-container:/ngen-app/ngen-python ..
+    - cd ../ngen-python
+    - tar -czf ../ngen-python.tar.gz .
     - echo "Build complete." 
 
 unit-test-job:
@@ -76,7 +79,8 @@ sonarqube-job:
     - curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
     - sudo apt-get install -y nodejs
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
-
+      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
+      -Dsonar.login=$SONAR_TOKEN   
   allow_failure: true
 
 deploy-test-job:
@@ -91,14 +95,18 @@ deploy-test-job:
     - echo "Deploying NGEN to TEST..."
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.140.252 "
         sudo rm -rf /ngen-app/archive/ngen || true &&
-        sudo mv -f /ngen-app/ngen /ngen-app/archive || true &&
+        sudo mv /ngen-app/ngen /ngen-app/archive || true &&
         sudo mkdir -p /ngen-app/ngen &&
         sudo chown -R `whoami` /ngen-app/ngen"
     - scp ../ngen.tar.gz christina.osumi@10.105.140.252:/ngen-app/ngen
+    - scp ../ngen-python.tar.gz christina.osumi@10.105.140.252:/ngen-app/ngen-python
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.105.140.252 "
         cd /ngen-app/ngen &&
         tar -xzf ngen.tar.gz . &&
-        rm ngen.tar.gz"
+        rm ngen.tar.gz &&
+        cd /ngen-app/ngen-python &&
+        tar -xzf ngen-python.tar.gz . &&
+        rm ngen-python.tar.gz"
     - echo "NGEN deployed to TEST"
 #  rules:
 #    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
@@ -145,10 +153,14 @@ deploy-oe-job:
         sudo mkdir -p /ngen-app/ngen &&
         sudo chown -R `whoami` /ngen-app/ngen"
     - scp ../ngen.tar.gz christina.osumi@10.203.110.34:/ngen-app/ngen
+    - scp ../ngen-python.tar.gz christina.osumi@10.203.110.34:/ngen-app/ngen-python
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY christina.osumi@10.203.110.34 "
         cd /ngen-app/ngen &&
         tar -xzf ngen.tar.gz . &&
-        rm ngen.tar.gz"
+        rm ngen.tar.gz &&
+        cd /ngen-app/ngen-python &&
+        tar -xzf ngen-python.tar.gz . &&
+        rm ngen-python.tar.gz"
     - echo "NGEN deployed to OE"
 #  rules:
 #    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
