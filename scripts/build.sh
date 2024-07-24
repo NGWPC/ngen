@@ -56,10 +56,9 @@ EOF
 
 export BOOST_ROOT=${INSTALL_DIR}/boost_1_79_0
 export CXX=/bin/g++
-export PATH="${INSTALL_DIR}/bin/:/usr/lib64/openmpi/bin/:$PATH"
+export PATH="${INSTALL_DIR}/bin/:${INSTALL_DIR}/lib/:${INSTALL_DIR}/include/:/usr/lib64/openmpi/bin/:$PATH"
 export LD_LIBRARY_PATH="${INSTALL_DIR}/lib/:$LD_LIBRARY_PATH"
 export NETCDFALTERNATIVE="/usr/lib64/openmpi/"
-export NETCDF="${INSTALL_DIR}/include/"
 
 cd $BUILD_DIR
 mkdir -p "${PROJECT_NAME}-python"
