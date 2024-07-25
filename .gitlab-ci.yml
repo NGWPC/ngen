@@ -79,8 +79,8 @@ sonarqube-job:
     - curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
     - sudo apt-get install -y nodejs
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
-      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
-      -Dsonar.login=$SONAR_TOKEN   
+#      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
+#      -Dsonar.login=$SONAR_TOKEN   
   allow_failure: true
 
 deploy-test-job:
@@ -108,8 +108,8 @@ deploy-test-job:
         tar -xzf ngen-python.tar.gz . &&
         rm ngen-python.tar.gz"
     - echo "NGEN deployed to TEST"
-#  rules:
-#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+  rules:
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
 
 ver-test-job:
   stage: ver_test
@@ -133,12 +133,12 @@ ver-test-job:
        docker pull $CONTAINER_TEST_IMAGE &&
        docker run $CONTAINER_TEST_IMAGE"
     - echo "Verification tests complete"
-#  rules:
-#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+  rules:
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
 
 deploy-oe-job:
   stage: deploy_oe
-#  when: manual
+  when: manual
   variables:
     GIT_STRATEGY: none
   environment: oe # NGEN-HYDRO-OE-COPY
@@ -162,5 +162,5 @@ deploy-oe-job:
         tar -xzf ngen-python.tar.gz . &&
         rm ngen-python.tar.gz"
     - echo "NGEN deployed to OE"
-#  rules:
-#    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
+  rules:
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "development" && $CI_MERGE_REQUEST_STATE == "merged"'
