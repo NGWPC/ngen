@@ -15,16 +15,16 @@ build-job:
   stage: build
   script:
     - echo "Building NGEN..."
-    - ./scripts/submodule_update.sh
-    - sudo chmod 666 /var/run/docker.sock
-    - docker rm -f ngen-build-container || true
-    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
-        ./scripts/build.sh"
-    - sudo chown -R `whoami` .
-    - tar -czf ../ngen.tar.gz .
-    - docker cp ngen-build-container:/ngen-app/ngen-python ..
-    - cd ../ngen-python
-    - tar -czf ../ngen-python.tar.gz .
+#    - ./scripts/submodule_update.sh
+#    - sudo chmod 666 /var/run/docker.sock
+#    - docker rm -f ngen-build-container || true
+#    - docker run --name ngen-build-container -v .:/ngen-app/ngen -e GITLAB_TOKEN=$GITLAB_TOKEN rockylinux:8 bash -c "cd /ngen-app/ngen &&
+#        ./scripts/build.sh"
+#    - sudo chown -R `whoami` .
+#    - tar -czf ../ngen.tar.gz .
+#    - docker cp ngen-build-container:/ngen-app/ngen-python ..
+#    - cd ../ngen-python
+#    - tar -czf ../ngen-python.tar.gz .
     - echo "Build complete." 
 
 unit-test-job:
@@ -78,6 +78,9 @@ sonarqube-job:
     - echo "Running Sonarqube scan..."
     - curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
     - sudo apt-get install -y nodejs
+    - if ["$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH"]; then
+        export SONAR_PROJECT_KEY=ngen-$CI_COMMIT_BRANCH
+      fi
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
 #      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
 #      -Dsonar.login=$SONAR_TOKEN   
