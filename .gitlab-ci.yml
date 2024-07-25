@@ -80,7 +80,10 @@ sonarqube-job:
     - sudo apt-get install -y nodejs
     - |
       if ["$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH"]; then
+        echo "SONAR_PROJECT_KEY"
+        echo $SONAR_PROJECT_KEY
         export SONAR_PROJECT_KEY=ngen-$CI_COMMIT_BRANCH
+        echo $SONAR_PROJECT_KEY
       fi
     - ~/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner
 #      -Dsonar.projectKey=my-project-${CI_COMMIT_BRANCH}
