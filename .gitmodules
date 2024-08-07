@@ -8,7 +8,7 @@
 [submodule "extern/t-route"]
 	path = extern/t-route
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/t-route.git
-  branch = ngen
+	branch = master
 [submodule "extern/cfe/cfe"]
 	path = extern/cfe/cfe
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/cfe.git
@@ -43,3 +43,14 @@
 [submodule "extern/netcdf-cxx4"]
 	path = extern/netcdf-cxx4/netcdf-cxx4
 	url = https://github.com/Unidata/netcdf-cxx4/
+[submodule "extern/LASAM"]
+	path = extern/LASAM
+	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/LGAR-C.git
+[submodule "extern/sac-sma/sac-sma"]
+	path = extern/sac-sma/sac-sma
+	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/sac-sma.git
+	branch = NGWPC-2349-mkarim
+[submodule "extern/snow17/"]
+	branch = mkarim-NGWPC-2220
+	path = extern/snow17
+	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/snow17.git
