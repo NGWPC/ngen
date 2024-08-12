@@ -46,8 +46,8 @@
 [submodule "extern/LASAM"]
 	path = extern/LASAM
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/LGAR-C.git
-[submodule "extern/sac-sma/sac-sma"]
-	path = extern/sac-sma/sac-sma
+[submodule "extern/sac-sma"]
+	path = extern/sac-sma
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/sac-sma.git
 	branch = NGWPC-2349-mkarim
 [submodule "extern/snow17/"]
