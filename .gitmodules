@@ -50,7 +50,3 @@
 	path = extern/sac-sma
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/sac-sma.git
 	branch = NGWPC-2349-mkarim
-[submodule "extern/snow17/"]
-	path = extern/snow17
-	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/snow17.git
-	branch = mkarim-NGWPC-2220
