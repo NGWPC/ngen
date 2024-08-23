@@ -1,6 +1,4 @@
-## TODO: replace with base image created under NGWPC-3223 ##
-## see: https://jira.nextgenwaterprediction.com/browse/NGWPC-3223
-FROM rockylinux:8
+FROM registry.sh.nextgenwaterprediction.com/ngwpc/nwm-ngen/nwm_base_image/nwm_base_image:NGWPC-3223-int
 
 # ensure local python is preferred over distribution python
 ENV PATH="/usr/local/bin:$PATH"
@@ -11,186 +9,120 @@ ENV PATH="/usr/local/bin:$PATH"
 ENV LANG="C.UTF-8"
 
 ENV PYTHON_VERSION="3.10.14"
-ENV SZIP_VERSION="2.1.1"
-ENV HDF5_VERSION="1.10.11"
+ENV CURLLIB_VERSION="8.5.0"
+ENV ZLIB_VERSION="1.3.1"
+ENV HDF5_VERSION="1.12.3"
 ENV NETCDF_C_VERSION="4.7.4"
 ENV NETCDF_FORTRAN_VERSION="4.5.4"
 ENV BOOST_VERSION="1.79.0"
-
-## FIXME: Replace installation and build of FOSS dependencies wiith a base image. ##
-
-# runtime dependencies
-RUN set -eux; \
-    dnf install -y epel-release; \
-    dnf config-manager --set-enabled powertools; \
-    dnf install -y \
-        cmake \
-        curl curl-devel \
-        file \
-        findutils \
-        git \
-## FIXME: replace GNU compilers with Intel compiler ##
-        gcc-toolset-10 \
-        gcc-toolset-10-libasan-devel \
-        libasan6 \
-        libffi libffi-devel \
-        m4 \ 
-        udunits2 udunits2-devel \
-        bzip2 bzip2-devel \
-        zlib zlib-devel \
-## FIXME: replace openmpi with Intel MPI libraries ##
-        openmpi openmpi-devel \
-        openssl openssl-devel \
-        rsync \
-        sqlite sqlite-devel \
-        tk tk-devel \
-        uuid uuid-devel \ 
-        which \ 
-        xz \
-    ; \
-    dnf clean all
-
-## FIXME: replace GNU compilers with Intel compiler ##
-SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10"]
-## FIXME: replace openmpi with Intel MPI libraries ##
-ENV PATH="${PATH}:/usr/lib64/openmpi/bin/"
 
 # Fix OpenMPI support within container
 ENV PSM3_HAL=loopback
 ENV PSM3_DEVICES=self
 
-RUN set -eux; \
-	\
-	curl --location --output python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"; \
-	mkdir --parents /usr/src/python; \
-	tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
-	rm python.tar.xz; \
-	\
-	cd /usr/src/python; \
-	./configure \
-		--enable-loadable-sqlite-extensions \
-		--enable-optimizations \
-		--enable-option-checking=fatal \
-		--enable-shared \
-		--with-lto \
-		--with-system-expat \
-		--without-ensurepip \
-	; \
-	nproc="$(nproc)"; \
-	make -j "$nproc" \
-		"PROFILE_TASK=${PROFILE_TASK:-}" \
-	; \
-# https://github.com/docker-library/python/issues/784
-# prevent accidental usage of a system installed libpython of the same version
-	rm python; \
-	make -j "$nproc" \
-		"LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
-		"PROFILE_TASK=${PROFILE_TASK:-}" \
-		python \
-	; \
-	make install; \
-# enable GDB to load debugging data: https://github.com/docker-library/python/pull/701
-    bin="$(readlink -ve /usr/local/bin/python3)"; \
-    dir="$(dirname "$bin")"; \
-    mkdir --parents "/usr/share/gdb/auto-load/$dir"; \
-    cp -vL Tools/gdb/libpython.py "/usr/share/gdb/auto-load/$bin-gdb.py"; \
-    \
-    cd /; \
-    rm -rf /usr/src/python; \
-    \
-    find /usr/local -depth \
-        \( \
-            \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-            -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-        \) -exec rm -rf '{}' + \
-    ; \
-    \
-    ldconfig; \
-    \
-    python3 --version
+ENV PATH=$PATH:/opt/intel/compilers_and_libraries/linux/mpi/intel64/bin:/opt/intel/bin:/opt/intel/impi/2019.9.304/intel64/bin:/ngen-app/ngen-python/bin
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/compilers_and_libraries/linux/mpi/intel64/lib:/opt/intel/lib:/opt/intel/impi/2019.9.304/intel64/lib:/opt/intel/compilers_and_libraries_2020.4.304/linux/compiler/lib/intel64_lin:/usr/local/lib:/ngen-app/opt/lib
 
-# make some useful symlinks that are expected to exist ("/usr/local/bin/python" and friends)
-RUN set -eux; \
-	for src in idle3 pydoc3 python3 python3-config; do \
-		dst="$(echo "$src" | tr -d 3)"; \
-		[ -s "/usr/local/bin/$src" ]; \
-		[ ! -e "/usr/local/bin/$dst" ]; \
-		ln -svT "$src" "/usr/local/bin/$dst"; \
-	done
+ENV CC=icc
+ENV CXX=icpc
+ENV FC=ifort
+ENV F77=ifort
 
 RUN set -eux; \
-	\
-	curl --location --output szip.gz "https://docs.hdfgroup.org/archive/support/ftp/lib-external/szip/${SZIP_VERSION%%[a-z]*}/src/szip-${SZIP_VERSION}.tar.gz"; \
-	mkdir --parents /usr/src/szip; \
-	tar --extract --directory /usr/src/szip --strip-components=1 --file szip.gz; \
-	rm szip.gz; \
-	\
-	cd /usr/src/szip; \
-	./configure --prefix=/usr/local/ \
-	; \
-	nproc="$(nproc)"; \
-	make -j "$nproc" \
-	; \
-	make install ; \
-    \
-    rm --recursive --force /usr/src/szip
+        \
+        curl --location --output libcurl.gz "https://curl.se/download/curl-${CURLLIB_VERSION}.tar.gz"; \
+        mkdir --parents /usr/src/libcurl_${CURLLIB_VERSION}; \
+        tar --extract --directory /usr/src/libcurl_${CURLLIB_VERSION} --strip-components=1 --file libcurl.gz; \
+        rm libcurl.gz; \
+        \
+        cd /usr/src/libcurl_${CURLLIB_VERSION}; \
+        ./configure --prefix=/usr/local/ --with-openssl \
+        ; \
+        nproc="$(nproc)"; \
+        make -j "$nproc" \
+        ; \
+        make install ;
+    #\
+    #rm --recursive --force /usr/src/libcurl_${CURLLIB_VERSION}
 
 RUN set -eux; \
-	\
-	curl --location --output libhdf5.tar.gz "https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-${HDF5_VERSION//./_}.tar.gz"; \
-	mkdir --parents /usr/src/hdf5; \
-	tar --extract --directory /usr/src/hdf5 --strip-components=1 --file libhdf5.tar.gz; \
-	rm libhdf5.tar.gz; \
-	\
-	cd /usr/src/hdf5; \
-	./configure --prefix=/usr/local/ --with-szlib=/usr/local/ \
-	; \
-	nproc="$(nproc)"; \
-	make check -j "$nproc" \
-	; \
-    make install ; \
-    \
-    rm --recursive --force /usr/src/hdf5
+        \
+        curl --location --output zlib.gz "https://www.zlib.net/zlib-${ZLIB_VERSION}.tar.gz"; \
+        mkdir --parents /usr/src/zlib_${ZLIB_VERSION}; \
+        tar --extract --directory /usr/src/zlib_${ZLIB_VERSION} --strip-components=1 --file zlib.gz; \
+        rm zlib.gz; \
+        \
+        cd /usr/src/zlib_${ZLIB_VERSION}; \
+        ./configure --prefix=/usr/local/ \
+        ; \
+        nproc="$(nproc)"; \
+        make -j "$nproc" \
+        ; \
+        make install ;
+    #\
+    #rm --recursive --force /usr/src/zlib_${ZLIB_VERSION}
 
 RUN set -eux; \
-	\
-	curl --location --output netcdf-c.tar.gz "https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_C_VERSION%%[a-z]*}.tar.gz"; \
-	mkdir --parents /usr/src/netcdf-c; \
-	tar --extract --directory /usr/src/netcdf-c --strip-components=1 --file netcdf-c.tar.gz; \
-	rm netcdf-c.tar.gz; \
-	\
-	cd /usr/src/netcdf-c; \
-	LD_LIBRARY_PATH="/usr/local/lib/:$LD_LIBRARY_PATH" \
-    CFLAGS="-I/usr/local/include/" \
-    LDFLAGS="-Wl,-L/usr/local/lib/,-rpath,/usr/local/lib/" \ 
-    ./configure \
-	; \
-	nproc="$(nproc)"; \
-	make -j "$nproc" \
-	; \
-	make install ; \
-    \
-    rm --recursive --force /usr/src/netcdf-c
+        \
+        curl --location --output libhdf5.tar.gz "https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-${HDF5_VERSION//./_}.tar.gz"; \
+        mkdir --parents /usr/src/hdf5_${HDF5_VERSION}; \
+        tar --extract --directory /usr/src/hdf5_${HDF5_VERSION} --strip-components=1 --file libhdf5.tar.gz; \
+        rm libhdf5.tar.gz; \
+        \
+        cd /usr/src/hdf5_${HDF5_VERSION}; \
+        ./configure --prefix=/usr/local/ --enable-fortran --enable-cxx --with-zlib=/usr/local/zlib_${ZLIB_VERSION} \
+        ; \
+        nproc="$(nproc)"; \
+        make check -j "$nproc" \
+        ; \
+    make install ;
+    #\
+    #rm --recursive --force /usr/src/hdf5_${HDF5_VERSION}
+
+# FIXME temporarily cleanup old netcdf files
+RUN rm -f /usr/local/lib/*netcdf*
+RUN rm -f /usr/local/include/*netcdf*
 
 RUN set -eux; \
-	\
-	curl --location --output netcdf-fortran.tar.gz "https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION%%[a-z]*}.tar.gz"; \
-	mkdir --parents /usr/src/netcdf-fortran; \
-	tar --extract --directory /usr/src/netcdf-fortran --strip-components=1 --file netcdf-fortran.tar.gz; \
-	rm netcdf-fortran.tar.gz; \
-	\
-	cd /usr/src/netcdf-fortran; \
-	LD_LIBRARY_PATH="/usr/local/lib/:$LD_LIBRARY_PATH" \
-    CFLAGS="-I/usr/local/include/" \
-    LDFLAGS="-Wl,-L/usr/local/lib/,-rpath,/usr/local/lib/" \ 
-    ./configure \
-	; \
-	nproc="$(nproc)"; \
-	make -j "$nproc" \
-	; \
-	make install ; \
-    \
-    rm --recursive --force /usr/src/netcdf-fortran
+        \
+        curl --location --output netcdf-c.tar.gz "https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_C_VERSION%%[a-z]*}.tar.gz"; \
+        mkdir --parents /usr/src/netcdf-c_${NETCDF_C_VERSION}; \
+        tar --extract --directory /usr/src/netcdf-c_${NETCDF_C_VERSION} --strip-components=1 --file netcdf-c.tar.gz; \
+        rm netcdf-c.tar.gz; \
+        \
+        cd /usr/src/netcdf-c_${NETCDF_C_VERSION}; \
+        CFLAGS="-I/usr/local/include/" \
+        CPPFLAGS="-I/usr/local/include/" \
+        LDFLAGS="-L/usr/local/lib/" \ 
+        ./configure --prefix=/usr/local/ --enable-netcdf-4 --disable-dap \
+        ; \
+        nproc="$(nproc)"; \
+        make -j "$nproc" \
+        ; \
+        make install ;
+    #\
+    #rm --recursive --force /usr/src/netcdf-c_${NETCDF_C_VERSION}
+
+ENV CPP=icc-E
+RUN set -eux; \
+        \
+        curl --location --output netcdf-fortran.tar.gz "https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION%%[a-z]*}.tar.gz"; \
+        mkdir --parents /usr/src/netcdf-fortran_${NETCDF_FORTRAN_VERSION}; \
+        tar --extract --directory /usr/src/netcdf-fortran_${NETCDF_FORTRAN_VERSION} --strip-components=1 --file netcdf-fortran.tar.gz; \
+        rm netcdf-fortran.tar.gz; \
+        \
+        cd /usr/src/netcdf-fortran_${NETCDF_FORTRAN_VERSION}; \
+        CFLAGS="-I/usr/local/include/" \
+        CPPFLAGS="-I/usr/local/include/" \
+        LDFLAGS="-L/usr/local/lib/ -lnetcdf" \ 
+        ./configure --prefix=/usr/local/ \
+        ; \
+        nproc="$(nproc)"; \
+        make -j "$nproc" \
+        ; \
+        make install ;
+    #\
+    #rm --recursive --force /usr/src/netcdf-fortran_${NETCDF_FORTRAN_VERSION}
 
 RUN set -eux; \
 	\
@@ -217,18 +149,9 @@ RUN set -eux; \
     pip3 install "numpy==1.26.4" "netcdf4<=1.6.3" ; \
     pip3 cache purge
 
-RUN set -eux; \
-	\
-    cd ngen/extern/t-route ; \
-    LDFLAGS="-Wl,-L/usr/local/lib/,-rpath,/usr/local/lib/" ./compiler.sh no-e ; \
-    \
-    pip3 cache purge
-
 WORKDIR /ngen-app/ngen/
 RUN set -eux; \
     cmake -B cmake_build -S . \
-## FIXME: figure out why running with MPI enabled throws errors
-##      and re-enable it.
         -DNGEN_WITH_MPI=ON \
         -DNGEN_WITH_NETCDF=ON \
         -DNGEN_WITH_SQLITE=ON \
@@ -258,6 +181,15 @@ RUN set -eux; \
     \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ -DNGEN=ON ; \
     cmake --build extern/SoilFreezeThaw/cmake_build/
+
+ENV NETCDFALTERNATIVE=/opt/intel/compilers_and_libraries_2020.4.304/linux/mpi/intel64/include
+
+RUN set -eux; \
+	\
+    cd extern/t-route ; \
+    LDFLAGS="-Wl,-L/usr/local/lib/,-rpath,/usr/local/lib/" FC=ifort ./compiler.sh no-e ; \
+    \
+    pip3 cache purge
 
 RUN set -eux; \
     mkdir --parents /ngencerf/data/ngen-run-logs/ ; \
