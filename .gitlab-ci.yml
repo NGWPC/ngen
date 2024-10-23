@@ -23,6 +23,9 @@ build:
   before_script:
     - git config --global url."https://oauth2:${GITLAB_TOKEN}@gitlab.sh.nextgenwaterprediction.com/".insteadOf "https://gitlab.sh.nextgenwaterprediction.com/"
     - git config --global --add safe.directory /builds/NGWPC/nwm-ngen/ngen
+    - echo "Current directory contents before submodule updates:"
+    - ls -la
+    - find . -name "*.nc"
     - git submodule update --init --recursive
     - git submodule update --remote extern/cfe/cfe
     - git submodule update --remote extern/SoilFreezeThaw/SoilFreezeThaw
@@ -37,6 +40,9 @@ build:
     - git submodule update --remote extern/sac-sma/sac-sma
     - git submodule update --remote extern/ueb-bmi
   script:
+    - echo "Directory contents before docker build:"
+    - ls -la
+    - find . -name "*.nc"
     - echo "Building ${CI_PROJECT_NAME} docker image.. "
     - docker build -t "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" .
     - echo "Logging in to Gitlab Container Registry..."
@@ -44,13 +50,33 @@ build:
     - docker push $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
     - docker logout
 
+debug-image:
+  stage: build
+  needs: 
+    - build
+  image: $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
+  script:
+    - echo "Checking contents of built image:"
+    - cd /ngen-app/ngen
+    - find . -name "*.nc"
+    - ls -la data/forcing/
+    
 unit-test:
   stage: unit_test
   image: $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
   script:
+    - whoami
+    - id
     - echo "Running Unit Tests..."
     - cd /ngen-app/ngen/cmake_build
-    - ctest
+    - ls -ltra ../data/forcing
+    - stat ../data/forcing
+    - ctest || {
+        echo "Tests failed. Rerunning failed tests with verbose output...";
+        export CTEST_OUTPUT_ON_FAILURE=1;
+        ctest --rerun-failed --output-on-failure --verbose;
+        exit 1;
+      }
 
 sonarqube:
   stage: sonarqube
