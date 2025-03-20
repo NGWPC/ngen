@@ -14,7 +14,7 @@
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/cfe.git
 	branch = master
 [submodule "extern/topmodel/topmodel"]
-	path = extern/topmodel/topmodelsno
+	path = extern/topmodel/topmodel
 	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/topmodel.git
 	branch = master
 [submodule "extern/noah-owp-modular/noah-owp-modular"]
