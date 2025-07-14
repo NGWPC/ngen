@@ -93,23 +93,41 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
 }
 
 void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, boost::span<data_type> data) {
-    if (!boost::get<AllPoints>(&selector.points)) throw std::runtime_error("Not implemented - only all_points");
+    if (!boost::get<AllPoints>(&selector.points)) {
+        throw std::runtime_error("Only AllPoints selection is supported.");
+    }
 
     cache_variable(selector.variable_name);
     auto const& metadata = ncvar_cache[selector.variable_name];
+
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
+    size_t ny = nc_file->getDim("y").getSize();
+    size_t nx = nc_file->getDim("x").getSize();
+    size_t total_points = ny * nx;
 
-    metadata.ncVar.getVar({time_index, 0, 0}, {1, data.size(), 1}, data.data());
+    if (data.size() != total_points) {
+        throw std::runtime_error("Destination buffer size does not match y * x size.");
+    }
 
-    for (auto& val : data) val = val * metadata.scale_factor + metadata.offset;
+    std::vector<data_type> raw_data(total_points);
+    metadata.ncVar.getVar({time_index, 0, 0}, {1, ny, nx}, raw_data.data());
 
-    if (!(selector.variable_name == "RAINRATE" && metadata.units == "mm s^-1" && selector.output_units == "kg m-2 s-1")) {
+    for (size_t i = 0; i < total_points; ++i) {
+        data[i] = raw_data[i] * metadata.scale_factor + metadata.offset;
+    }
+
+    bool RAINRATE_equivalence =
+        selector.variable_name == "RAINRATE" &&
+        metadata.units == "mm s^-1" &&
+        selector.output_units == "kg m-2 s-1";
+
+    if (!RAINRATE_equivalence) {
         UnitsHelper::convert_values(metadata.units, data.data(), selector.output_units, data.data(), data.size());
     }
 }
 
-NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m)
-{
+
+NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m) {
     if (!boost::get<PointIndex>(&selector.points)) {
         throw std::runtime_error("get_value only supports PointIndex selector");
     }
@@ -117,20 +135,23 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     cache_variable(selector.variable_name);
     const auto& metadata = ncvar_cache[selector.variable_name];
 
-    // Time index
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
-
-    // Point index
+    size_t ny = nc_file->getDim("y").getSize();
+    size_t nx = nc_file->getDim("x").getSize();
     size_t pt_index = boost::get<PointIndex>(selector.points);
 
-    // Read single value from (time, point)
-    data_type value;
-    metadata.ncVar.getVar({time_index, pt_index}, {1, 1}, &value);
+    if (pt_index >= ny * nx) {
+        throw std::out_of_range("PointIndex exceeds y*x grid size.");
+    }
 
-    // Apply scaling and offset
+    // Map flat index to 2D (row, col)
+    size_t y_idx = pt_index / nx;
+    size_t x_idx = pt_index % nx;
+
+    data_type value;
+    metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &value);
     value = value * metadata.scale_factor + metadata.offset;
 
-    // Special unit equivalence
     bool RAINRATE_equivalence =
         selector.variable_name == "RAINRATE" &&
         metadata.units == "mm s^-1" &&
@@ -142,7 +163,6 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
 
     return value;
 }
-
 
 void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name) {
     if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
