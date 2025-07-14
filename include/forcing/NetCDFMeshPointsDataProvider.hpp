@@ -1,72 +1,100 @@
 #pragma once
 
-#include "GenericMeshProvider.hpp"
-#include <memory>
-#include <map>
-#include <string>
+#include <NGenConfig.h>
 
 #if NGEN_WITH_NETCDF
 
-#include <netcdf>
+#include "GenericDataProvider.hpp"
+#include "DataProviderSelectors.hpp"
 
-namespace data_access {
+#include <string>
+#include <map>
+#include <vector>
+#include <memory>
+#include <chrono>
+#include <stdexcept>
+#include <exception>
+#include <algorithm>
 
-/**
- * Provides spatial forcing data for mesh points from a NetCDF file.
- * Expects time to be the leading dimension, followed by spatial dimensions (e.g., y, x).
- */
-class NetCDFMeshPointsDataProvider : public GenericMeshProvider
+namespace netCDF {
+    class NcVar;
+    class NcFile;
+}
+
+namespace data_access
 {
-public:
-    using data_type = double;
+    class NetCDFMeshPointsDataProvider : public MeshPointsDataProvider
+    {
+        public:
 
-    struct metadata_cache_entry;
+        using time_point_type = std::chrono::time_point<std::chrono::system_clock>;
 
-    NetCDFMeshPointsDataProvider(std::string input_path,
-                                  time_point_type sim_start,
-                                  time_point_type sim_end);
+        NetCDFMeshPointsDataProvider(std::string input_path,
+                                     time_point_type sim_start,
+                                     time_point_type sim_end);
 
-    ~NetCDFMeshPointsDataProvider() override;
+        ~NetCDFMeshPointsDataProvider();
 
-    void finalize() override;
+        void finalize() override;
 
-    boost::span<const std::string> get_available_variable_names() const override;
+        /** Return the variables that are accessible by this data provider */
+        boost::span<const std::string> get_available_variable_names() const override;
 
-    long get_data_start_time() const override;
+        /** Return the first valid time for which data from the requested variable can be requested */
+        long get_data_start_time() const override;
 
-    long get_data_stop_time() const override;
+        /** Return the last valid time for which data from the requested variable can be requested */
+        long get_data_stop_time() const override;
 
-    long record_duration() const override;
+        /** Return the interval in seconds between records in the data */
+        long record_duration() const override;
 
-    void get_values(const selection_type& selector, boost::span<data_type> data) override;
+        /**
+         * Get the index of the data time step that contains the given point in time.
+         * @param epoch_time The point in time, as a seconds-based epoch time.
+         * @return The index of the forcing time step that contains the given point in time.
+         * @throws std::out_of_range If the given point is not in any time step.
+         */
+        size_t get_ts_index_for_time(const time_t &epoch_time) const override;
 
-    data_type get_value(const selection_type& selector, ReSampleMethod m) override;
+        /**
+         * Get the value of a forcing property for a given time and point index, converting units if needed.
+         * @param selector Specifies variable, time, and spatial point
+         * @param m Resampling strategy (ignored in current implementation)
+         */
+        data_type get_value(const selection_type& selector, ReSampleMethod m) override;
 
-private:
-    void cache_variable(std::string const& var_name);
+        /**
+         * Get values of a forcing variable for all points at a given time.
+         * Assumes the selector is AllPoints.
+         * @param selector Input selector
+         * @param data Output buffer with size = y * x
+         */
+        void get_values(const selection_type& selector, boost::span<data_type> data) override;
 
-    size_t get_ts_index_for_time(const time_t &epoch_time_in) const;
+        /** Not implemented vector-based version */
+        std::vector<data_type> get_values(const selection_type& selector, data_access::ReSampleMethod) override
+        {
+            throw std::runtime_error("Unimplemented");
+        }
 
-    std::shared_ptr<netCDF::NcFile> nc_file;
-    std::vector<time_point_type> time_vals;
-    std::chrono::seconds time_stride;
+        private:
 
-    std::vector<std::string> variable_names;
+        void cache_variable(std::string const& var_name);
 
-    std::map<std::string, metadata_cache_entry> ncvar_cache;
+        time_point_type sim_start_date_time_epoch;
+        time_point_type sim_end_date_time_epoch;
 
-    time_point_type sim_start_date_time_epoch;
-    time_point_type sim_end_date_time_epoch;
+        std::vector<std::string> variable_names;
+        std::vector<time_point_type> time_vals;
+        std::chrono::seconds time_stride;
 
-    struct metadata_cache_entry {
-        netCDF::NcVar ncVar;
-        std::string units;
-        double scale_factor;
-        double offset;
+        std::shared_ptr<netCDF::NcFile> nc_file;
+
+        struct metadata_cache_entry;
+        std::map<std::string, metadata_cache_entry> ncvar_cache;
     };
-};
+}
 
-}  // namespace data_access
-
-#endif  // NGEN_WITH_NETCDF
+#endif // NGEN_WITH_NETCDF
 

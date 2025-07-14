@@ -1,6 +1,7 @@
 #include <NGenConfig.h>
 
 #if NGEN_WITH_NETCDF
+
 #include "NetCDFMeshPointsDataProvider.hpp"
 #include <UnitsHelper.hpp>
 
@@ -10,6 +11,8 @@
 
 namespace data_access {
 
+// Out-of-line class definition after forward-declaration so that the
+// header doesn't need #include <netcdf> for NcVar to be a complete type
 struct NetCDFMeshPointsDataProvider::metadata_cache_entry {
     netCDF::NcVar ncVar;
     std::string units;
@@ -46,7 +49,7 @@ NetCDFMeshPointsDataProvider::NetCDFMeshPointsDataProvider(std::string input_pat
     time_stride = std::chrono::duration_cast<std::chrono::seconds>(time_vals[1] - time_vals[0]);
 
     for (size_t i = 1; i < time_vals.size() - 1; ++i) {
-        auto tinterval = time_vals[i+1] - time_vals[i];
+        auto tinterval = time_vals[i + 1] - time_vals[i];
         if (std::abs((tinterval - time_stride).count()) > 1) {
             throw std::runtime_error("Time intervals in forcing file are not constant");
         }
@@ -57,7 +60,7 @@ NetCDFMeshPointsDataProvider::~NetCDFMeshPointsDataProvider() = default;
 
 void NetCDFMeshPointsDataProvider::finalize() {
     ncvar_cache.clear();
-    if (nc_file) nc_file->close();
+    if (nc_file != nullptr) nc_file->close();
     nc_file = nullptr;
 }
 
@@ -126,7 +129,6 @@ void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, bo
     }
 }
 
-
 NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m) {
     if (!boost::get<PointIndex>(&selector.points)) {
         throw std::runtime_error("get_value only supports PointIndex selector");
@@ -144,7 +146,6 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
         throw std::out_of_range("PointIndex exceeds y*x grid size.");
     }
 
-    // Map flat index to 2D (row, col)
     size_t y_idx = pt_index / nx;
     size_t x_idx = pt_index % nx;
 
