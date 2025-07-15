@@ -135,7 +135,50 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
     }
 }
 
-void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, boost::span<data_type> data)
+
+ void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, boost::span<data_type> data) {
+    if (!boost::get<AllPoints>(&selector.points)) {
+        throw std::runtime_error("Only AllPoints selection is supported.");
+    }
+
+    cache_variable(selector.variable_name);
+    auto const& metadata = ncvar_cache[selector.variable_name];
+
+    size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
+    size_t ny = nc_file->getDim("y").getSize();
+    size_t nx = nc_file->getDim("x").getSize();
+    size_t total_points = ny * nx;
+
+    if (data.size() != total_points) {
+        throw std::runtime_error("Destination buffer size does not match y * x size.");
+    }
+
+    std::vector<data_type> raw_data(total_points);
+
+    // XXX: Ignores the point selection in `selector`
+    // Possibly assert somewhere (at startup) that dimensions are actually (Time, Index)
+    metadata.ncVar.getVar({time_index, 0, 0}, {1, ny, nx}, raw_data.data());
+
+    for (size_t i = 0; i < total_points; ++i) {
+        data[i] = raw_data[i] * metadata.scale_factor + metadata.offset;
+    }
+
+
+    // These mass and and volume flux density units are very close to
+    // numerically identical for liquid water at atmospheric
+    // conditions, and so we currently treat them as interchangeable
+
+    bool RAINRATE_equivalence =
+        selector.variable_name == "RAINRATE" &&
+        metadata.units == "mm s^-1" &&
+        selector.output_units == "kg m-2 s-1";
+
+    if (!RAINRATE_equivalence) {
+        UnitsHelper::convert_values(metadata.units, data.data(), selector.output_units, data.data(), data.size());
+    }
+}
+
+void NetCDFMeshPointsDataProvider::get_values_prev(const selection_type& selector, boost::span<data_type> data)
 {
     if (!boost::get<AllPoints>(&selector.points)) throw std::runtime_error("Not implemented - only all_points");
 
