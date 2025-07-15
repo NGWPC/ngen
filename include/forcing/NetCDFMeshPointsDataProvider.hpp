@@ -13,10 +13,6 @@
 #include <memory>
 #include <string>
 #include <exception>
-#include <vector>
-#include <chrono>
-#include <stdexcept>
-
 
 namespace netCDF {
     class NcVar;
