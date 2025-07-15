@@ -203,24 +203,8 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     return value;
 }
 
-void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name) {
-    if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
 
-    auto ncvar = nc_file->getVar(var_name);
-    variable_names.push_back(var_name);
-
-    std::string native_units;
-    ncvar.getAtt("units").getValues(native_units);
-
-    double scale_factor = 1.0, offset = 0.0;
-    try { ncvar.getAtt("scale_factor").getValues(&scale_factor); } catch (...) {}
-    try { ncvar.getAtt("add_offset").getValues(&offset); } catch (...) {}
-
-    ncvar_cache[var_name] = {ncvar, native_units, scale_factor, offset};
-}
-
-
-void NetCDFMeshPointsDataProvider::cache_variable_prev(std::string const& var_name)
+void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name)
 {
     if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
 
