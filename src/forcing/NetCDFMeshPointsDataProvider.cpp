@@ -203,7 +203,6 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     return value;
 }
 
-
 void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name)
 {
     if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
@@ -241,4 +240,3 @@ void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name)
 }
 
 #endif
-
