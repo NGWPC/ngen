@@ -136,7 +136,7 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
 }
 
 
- void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, boost::span<data_type> data) {
+ void NetCDFMeshPointsDataProvider::get_values_new(const selection_type& selector, boost::span<data_type> data) {
     if (!boost::get<AllPoints>(&selector.points)) {
         throw std::runtime_error("Only AllPoints selection is supported.");
     }
@@ -178,7 +178,7 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
     }
 }
 
-void NetCDFMeshPointsDataProvider::get_values_prev(const selection_type& selector, boost::span<data_type> data)
+void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, boost::span<data_type> data)
 {
     if (!boost::get<AllPoints>(&selector.points)) throw std::runtime_error("Not implemented - only all_points");
 
