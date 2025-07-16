@@ -258,6 +258,9 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
         if (pt_index >= nelem) {
             throw std::out_of_range("PointIndex exceeds element-id size.");
         }
+
+	// XXX: Ignores the point selection in `selector`
+        // Possibly assert somewhere (at startup) that dimensions are actually (Time, Index)
         metadata.ncVar.getVar({time_index, pt_index}, {1, 1}, &value);
     }
     else {
@@ -268,6 +271,9 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     value = value * metadata.scale_factor + metadata.offset;
 
     // Special case for RAINRATE conversion
+    // These mass and and volume flux density units are very close to
+    // numerically identical for liquid water at atmospheric
+    // conditions, and so we currently treat them as interchangeable
     bool RAINRATE_equivalence =
         selector.variable_name == "RAINRATE" &&
         metadata.units == "mm s^-1" &&
