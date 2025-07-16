@@ -136,7 +136,7 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
 }
 
 
- void NetCDFMeshPointsDataProvider::get_values_new(const selection_type& selector, boost::span<data_type> data) {
+void NetCDFMeshPointsDataProvider::get_values_new(const selection_type& selector, boost::span<data_type> data) {
     if (!boost::get<AllPoints>(&selector.points)) {
         throw std::runtime_error("Only AllPoints selection is supported.");
     }
@@ -144,30 +144,48 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
     cache_variable(selector.variable_name);
     auto const& metadata = ncvar_cache[selector.variable_name];
 
+    // Get the correct time index for the provided time
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
-    size_t ny = nc_file->getDim("y").getSize();
-    size_t nx = nc_file->getDim("x").getSize();
-    size_t total_points = ny * nx;
 
-    if (data.size() != total_points) {
-        throw std::runtime_error("Destination buffer size does not match y * x size.");
+    // Determine the number of spatial points
+    size_t total_points = 0;
+    bool is_2d = false;
+
+    if (!nc_file->getDim("y").isNull() && !nc_file->getDim("x").isNull()) {
+        size_t ny = nc_file->getDim("y").getSize();
+        size_t nx = nc_file->getDim("x").getSize();
+        total_points = ny * nx;
+        is_2d = true;
+    }
+    else if (!nc_file->getDim("element-id").isNull()) {
+        total_points = nc_file->getDim("element-id").getSize();
+        is_2d = false;
+    }
+    else {
+        throw std::runtime_error("Unsupported NetCDF spatial dimensions. Expected 'y,x' or 'element-id'.");
     }
 
+    if (data.size() != total_points) {
+        throw std::runtime_error("Destination buffer size does not match number of spatial points.");
+    }
+
+    // Read data from NetCDF
     std::vector<data_type> raw_data(total_points);
 
-    // XXX: Ignores the point selection in `selector`
-    // Possibly assert somewhere (at startup) that dimensions are actually (Time, Index)
-    metadata.ncVar.getVar({time_index, 0, 0}, {1, ny, nx}, raw_data.data());
+    if (is_2d) {
+        size_t ny = nc_file->getDim("y").getSize();
+        size_t nx = nc_file->getDim("x").getSize();
+        metadata.ncVar.getVar({time_index, 0, 0}, {1, ny, nx}, raw_data.data());
+    } else {
+        metadata.ncVar.getVar({time_index, 0}, {1, total_points}, raw_data.data());
+    }
 
+    // Apply scale and offset
     for (size_t i = 0; i < total_points; ++i) {
         data[i] = raw_data[i] * metadata.scale_factor + metadata.offset;
     }
 
-
-    // These mass and and volume flux density units are very close to
-    // numerically identical for liquid water at atmospheric
-    // conditions, and so we currently treat them as interchangeable
-
+    // Special-case RAINRATE unit mapping
     bool RAINRATE_equivalence =
         selector.variable_name == "RAINRATE" &&
         metadata.units == "mm s^-1" &&
@@ -210,6 +228,7 @@ void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, bo
     }
 }
 
+
 NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m) {
     if (!boost::get<PointIndex>(&selector.points)) {
         throw std::runtime_error("get_value only supports PointIndex selector");
@@ -219,21 +238,36 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     const auto& metadata = ncvar_cache[selector.variable_name];
 
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
-    size_t ny = nc_file->getDim("y").getSize();
-    size_t nx = nc_file->getDim("x").getSize();
     size_t pt_index = boost::get<PointIndex>(selector.points);
+    data_type value;
 
-    if (pt_index >= ny * nx) {
-        throw std::out_of_range("PointIndex exceeds y*x grid size.");
+    if (!nc_file->getDim("y").isNull() && !nc_file->getDim("x").isNull()) {
+        // 2D layout: (time, y, x)
+        size_t ny = nc_file->getDim("y").getSize();
+        size_t nx = nc_file->getDim("x").getSize();
+        if (pt_index >= ny * nx) {
+            throw std::out_of_range("PointIndex exceeds y*x grid size.");
+        }
+        size_t y_idx = pt_index / nx;
+        size_t x_idx = pt_index % nx;
+        metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &value);
+    }
+    else if (!nc_file->getDim("element-id").isNull()) {
+        // 1D layout: (time, element-id)
+        size_t nelem = nc_file->getDim("element-id").getSize();
+        if (pt_index >= nelem) {
+            throw std::out_of_range("PointIndex exceeds element-id size.");
+        }
+        metadata.ncVar.getVar({time_index, pt_index}, {1, 1}, &value);
+    }
+    else {
+        throw std::runtime_error("Unsupported NetCDF layout. Expected y,x or element-id.");
     }
 
-    size_t y_idx = pt_index / nx;
-    size_t x_idx = pt_index % nx;
-
-    data_type value;
-    metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &value);
+    // Apply scale and offset
     value = value * metadata.scale_factor + metadata.offset;
 
+    // Special case for RAINRATE conversion
     bool RAINRATE_equivalence =
         selector.variable_name == "RAINRATE" &&
         metadata.units == "mm s^-1" &&
@@ -245,6 +279,7 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
 
     return value;
 }
+
 
 void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name)
 {
