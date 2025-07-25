@@ -2,7 +2,7 @@
 #define SCHISM_CREATOR_HEADER
 
 #include "realizations/coastal/ModelCreator.h"
-#include "coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/Coastal_Config_Params.h"
 
 class SchismCreator : public ModelCreator {
 public:

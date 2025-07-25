@@ -4,7 +4,7 @@
 #include <memory>
 #include <unordered_map>
 #include "realizations/coastal/ModelCreator.h"
-#include "coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/Coastal_Config_Params.h"
 
 // This is singleton class.
 class ModelCreatorRegistry {
