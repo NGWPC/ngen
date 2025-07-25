@@ -3,8 +3,6 @@
 
 #include <string>
 #include <boost/property_tree/ptree.hpp>
-#include "utilities/logging_utils.h"
-
 
 //Coastal model types
 enum class ModelType{
@@ -34,32 +32,9 @@ struct coastal_config_params
         {
         }
 
-    bool isValid()
-    {
-       //to-do: add validation 
-       return true;
-    }
+    bool isValid();
 
-    ModelType getModelType()
-    {
-        std::string model_type = params.get_child("params").get<std::string>("model_type_name" );
-        if ( model_type == std::string( "bmi_fortran_schism" ) )
-	{
-		return ModelType::SCHISM;
-	}
-	else if ( model_type == std::string("bmi_fortran_sfincs" ) )
-	{
-		return ModelType::SFINCS;
-	}
-	else
-	{
-
-		logging::critical((std::string("Unknown coastal type: ") + model_type).c_str()); 
-                throw std::runtime_error( std::string( "FATAL: Unknown coastal type: ") 
-				                         + model_type );
-	}  
-    }
-
+    ModelType getModelType();
 };
 
 #endif // NGEN_COASTAL_CONFIG_PARAMS
