@@ -9,6 +9,7 @@ target_include_directories(realizations_coastal PUBLIC
         ${PROJECT_SOURCE_DIR}/include/forcing
         ${PROJECT_SOURCE_DIR}/include/simulation_time
         ${PROJECT_SOURCE_DIR}/include/utilities
+        ${PROJECT_SOURCE_DIR}/include/coastal
         ${PROJECT_SOURCE_DIR}/include/bmi
         )
         
