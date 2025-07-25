@@ -3,6 +3,7 @@
 
 #include <string>
 #include <boost/property_tree/ptree.hpp>
+#include "utilities/logging_utils.h"
 
 
 //Coastal model types
@@ -52,8 +53,9 @@ struct coastal_config_params
 	}
 	else
 	{
-		std::cout << "FATAL: unknown coastal type: " << model_type << std::endl; 
-                throw std::runtime_error( std::string( "FATAL: unknown coastal type: ") 
+
+		logging::critical((std::string("Unknown coastal type: ") + model_type).c_str()); 
+                throw std::runtime_error( std::string( "FATAL: Unknown coastal type: ") 
 				                         + model_type );
 	}  
     }

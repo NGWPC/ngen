@@ -97,9 +97,19 @@ class Simulation_Time
      * @return current_date_time_epoch
     */
 
-    time_t get_current_epoch_time()
+    time_t get_current_epoch_time() const
     {
         return current_date_time_epoch;
+    }   
+
+    time_t get_start_date_time_epoch() const
+    {
+        return start_date_time_epoch; 
+    }   
+
+    time_t get_end_date_time_epoch() const
+    {
+        return end_date_time_epoch;
     }   
 
     /**
