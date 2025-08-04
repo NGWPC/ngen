@@ -50,8 +50,8 @@
   ipre2 = 0
 
 ! Starting time
-  start_year = 2011
-  start_month = 3
+  start_year = 2015
+  start_month = 12
   start_day = 1
   start_hour = 0
   utc_start = 0 !double

@@ -10,6 +10,9 @@ public:
                     createCoastalFormulation( coastal_config_params const&,
 				              Simulation_Time const&  ) const override;
     SchismCreator* clone() const override;
+private:
+    void writeInitConfig(coastal_config_params const&,
+		         Simulation_Time const& ) const;
 };
 
 #endif // #ifndef SCHISM_CREATOR_HEADER
