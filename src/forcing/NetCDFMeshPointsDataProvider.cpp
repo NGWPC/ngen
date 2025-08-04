@@ -135,67 +135,6 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
     }
 }
 
-
-void NetCDFMeshPointsDataProvider::get_values_new(const selection_type& selector, boost::span<data_type> data) {
-    if (!boost::get<AllPoints>(&selector.points)) {
-        throw std::runtime_error("Only AllPoints selection is supported.");
-    }
-
-    cache_variable(selector.variable_name);
-    auto const& metadata = ncvar_cache[selector.variable_name];
-
-    // Get the correct time index for the provided time
-    size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
-
-    // Determine the number of spatial points
-    size_t total_points = 0;
-    bool is_2d = false;
-
-    if (!nc_file->getDim("y").isNull() && !nc_file->getDim("x").isNull()) {
-        size_t ny = nc_file->getDim("y").getSize();
-        size_t nx = nc_file->getDim("x").getSize();
-        total_points = ny * nx;
-        is_2d = true;
-    }
-    else if (!nc_file->getDim("element-id").isNull()) {
-        total_points = nc_file->getDim("element-id").getSize();
-        is_2d = false;
-    }
-    else {
-        throw std::runtime_error("Unsupported NetCDF spatial dimensions. Expected 'y,x' or 'element-id'.");
-    }
-
-    if (data.size() != total_points) {
-        throw std::runtime_error("Destination buffer size does not match number of spatial points.");
-    }
-
-    // Read data from NetCDF
-    std::vector<data_type> raw_data(total_points);
-
-    if (is_2d) {
-        size_t ny = nc_file->getDim("y").getSize();
-        size_t nx = nc_file->getDim("x").getSize();
-        metadata.ncVar.getVar({time_index, 0, 0}, {1, ny, nx}, raw_data.data());
-    } else {
-        metadata.ncVar.getVar({time_index, 0}, {1, total_points}, raw_data.data());
-    }
-
-    // Apply scale and offset
-    for (size_t i = 0; i < total_points; ++i) {
-        data[i] = raw_data[i] * metadata.scale_factor + metadata.offset;
-    }
-
-    // Special-case RAINRATE unit mapping
-    bool RAINRATE_equivalence =
-        selector.variable_name == "RAINRATE" &&
-        metadata.units == "mm s^-1" &&
-        selector.output_units == "kg m-2 s-1";
-
-    if (!RAINRATE_equivalence) {
-        UnitsHelper::convert_values(metadata.units, data.data(), selector.output_units, data.data(), data.size());
-    }
-}
-
 void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, boost::span<data_type> data)
 {
     if (!boost::get<AllPoints>(&selector.points)) throw std::runtime_error("Not implemented - only all_points");
@@ -229,10 +168,14 @@ void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, bo
 }
 
 NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m)
-{
-    if (!boost::get<PointIndex>(&selector.points)) {
-        throw std::runtime_error("get_value only supports PointIndex selector");
+{  
+
+    auto pvec = boost::get<std::vector<int>>(&selector.points);
+    if (!pvec || pvec->size() != 1) {
+        throw std::runtime_error("get_value expects exactly one point index");
     }
+    size_t pt_index = (*pvec)[0];
+
 
     cache_variable(selector.variable_name);
     const auto& metadata = ncvar_cache[selector.variable_name];
@@ -240,7 +183,7 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
     size_t ny = nc_file->getDim("y").getSize();
     size_t nx = nc_file->getDim("x").getSize();
-    size_t pt_index = boost::get<PointIndex>(selector.points);
+    //size_t pt_index = boost::get<PointIndex>(selector.points);
 
     if (pt_index >= ny * nx) {
         throw std::out_of_range("PointIndex exceeds y*x grid size.");
