@@ -228,8 +228,8 @@ void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, bo
     }
 }
 
-
-NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m) {
+NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m)
+{
     if (!boost::get<PointIndex>(&selector.points)) {
         throw std::runtime_error("get_value only supports PointIndex selector");
     }
@@ -238,42 +238,62 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     const auto& metadata = ncvar_cache[selector.variable_name];
 
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
+    size_t ny = nc_file->getDim("y").getSize();
+    size_t nx = nc_file->getDim("x").getSize();
     size_t pt_index = boost::get<PointIndex>(selector.points);
-    data_type value;
 
-    if (!nc_file->getDim("y").isNull() && !nc_file->getDim("x").isNull()) {
-        // 2D layout: (time, y, x)
-        size_t ny = nc_file->getDim("y").getSize();
-        size_t nx = nc_file->getDim("x").getSize();
-        if (pt_index >= ny * nx) {
-            throw std::out_of_range("PointIndex exceeds y*x grid size.");
+    if (pt_index >= ny * nx) {
+        throw std::out_of_range("PointIndex exceeds y*x grid size.");
+    }
+
+    size_t y_idx = pt_index / nx;
+    size_t x_idx = pt_index % nx;
+
+    // Handle different data types robustly
+    nc_type vartype = metadata.ncVar.getType().getId();
+    data_type raw_value = 0.0;
+
+    if (vartype == NC_FLOAT) {
+        float tmp;
+        metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &tmp);
+        raw_value = static_cast<data_type>(tmp);
+    } else if (vartype == NC_DOUBLE) {
+        double tmp;
+        metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &tmp);
+        raw_value = static_cast<data_type>(tmp);
+    } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
+        int tmp;
+        metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &tmp);
+        raw_value = static_cast<data_type>(tmp);
+    } else {
+        throw std::runtime_error("Unsupported NetCDF variable type");
+    }
+
+    // Check and skip _FillValue if needed
+    double fill_value = -999999;
+    try {
+        auto fill_att = metadata.ncVar.getAtt("_FillValue");
+        if (!fill_att.isNull()) {
+            if (vartype == NC_FLOAT) {
+                float fv;
+                fill_att.getValues(&fv);
+                if (static_cast<float>(raw_value) == fv)
+                    throw std::runtime_error("Encountered fill value at requested index.");
+            } else if (vartype == NC_INT || vartype == NC_SHORT) {
+                int fv;
+                fill_att.getValues(&fv);
+                if (static_cast<int>(raw_value) == fv)
+                    throw std::runtime_error("Encountered fill value at requested index.");
+            }
         }
-        size_t y_idx = pt_index / nx;
-        size_t x_idx = pt_index % nx;
-        metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &value);
-    }
-    else if (!nc_file->getDim("element-id").isNull()) {
-        // 1D layout: (time, element-id)
-        size_t nelem = nc_file->getDim("element-id").getSize();
-        if (pt_index >= nelem) {
-            throw std::out_of_range("PointIndex exceeds element-id size.");
-        }
-
-	// XXX: Ignores the point selection in `selector`
-        // Possibly assert somewhere (at startup) that dimensions are actually (Time, Index)
-        metadata.ncVar.getVar({time_index, pt_index}, {1, 1}, &value);
-    }
-    else {
-        throw std::runtime_error("Unsupported NetCDF layout. Expected y,x or element-id.");
+    } catch (...) {
+        // Proceed without interrupt if _FillValue is not present
     }
 
-    // Apply scale and offset
-    value = value * metadata.scale_factor + metadata.offset;
+    // Apply scale/offset
+    data_type value = raw_value * metadata.scale_factor + metadata.offset;
 
-    // Special case for RAINRATE conversion
-    // These mass and and volume flux density units are very close to
-    // numerically identical for liquid water at atmospheric
-    // conditions, and so we currently treat them as interchangeable
+    // Special handling for RAINRATE
     bool RAINRATE_equivalence =
         selector.variable_name == "RAINRATE" &&
         metadata.units == "mm s^-1" &&
@@ -285,7 +305,6 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
 
     return value;
 }
-
 
 void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name)
 {
