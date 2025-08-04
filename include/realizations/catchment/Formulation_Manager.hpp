@@ -195,6 +195,7 @@ namespace realization {
 		    if ( ! this->coastal_config->isValid() )
 		    {
                        using_coastal = false;
+		       this->coastal_config = nullptr;
                        std::cerr<<"WARNING: Formulation Manager found coastal configuration"
                              <<", but coastal configuration is not valid. No coastal modeling will occur."<<std::endl;
 		    }
