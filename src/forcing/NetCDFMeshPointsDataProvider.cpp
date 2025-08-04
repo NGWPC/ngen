@@ -168,31 +168,33 @@ void NetCDFMeshPointsDataProvider::get_values(const selection_type& selector, bo
 }
 
 NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(const selection_type& selector, ReSampleMethod m)
-{  
-
-    auto pvec = boost::get<std::vector<int>>(&selector.points);
+{
+    // Check selector only supports exactly one point index
+    const auto* pvec = boost::get<std::vector<int>>(&selector.points);
     if (!pvec || pvec->size() != 1) {
-        throw std::runtime_error("get_value expects exactly one point index");
+        throw std::runtime_error("get_value expects selector.points to contain exactly one index.");
     }
     size_t pt_index = (*pvec)[0];
 
-
+    // Cache the variable metadata (units, scale/offset, pointer to ncVar)
     cache_variable(selector.variable_name);
     const auto& metadata = ncvar_cache[selector.variable_name];
 
+    // Map the init_time to time_index
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
+
+    // Assume time, y, x dimensions
     size_t ny = nc_file->getDim("y").getSize();
     size_t nx = nc_file->getDim("x").getSize();
-    //size_t pt_index = boost::get<PointIndex>(selector.points);
 
     if (pt_index >= ny * nx) {
-        throw std::out_of_range("PointIndex exceeds y*x grid size.");
+        throw std::out_of_range("Point index exceeds available spatial dimension size (y * x).");
     }
 
     size_t y_idx = pt_index / nx;
     size_t x_idx = pt_index % nx;
 
-    // Handle different data types robustly
+    // Read raw value from NetCDF variable
     nc_type vartype = metadata.ncVar.getType().getId();
     data_type raw_value = 0.0;
 
@@ -200,43 +202,44 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
         float tmp;
         metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &tmp);
         raw_value = static_cast<data_type>(tmp);
-    } else if (vartype == NC_DOUBLE) {
+    }
+    else if (vartype == NC_DOUBLE) {
         double tmp;
         metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &tmp);
         raw_value = static_cast<data_type>(tmp);
-    } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
+    }
+    else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
         int tmp;
         metadata.ncVar.getVar({time_index, y_idx, x_idx}, {1, 1, 1}, &tmp);
         raw_value = static_cast<data_type>(tmp);
-    } else {
-        throw std::runtime_error("Unsupported NetCDF variable type");
+    }
+    else {
+        throw std::runtime_error("Unsupported NetCDF variable type in get_value()");
     }
 
-    // Check and skip _FillValue if needed
-    double fill_value = -999999;
+    // Check for _FillValue (missing data)
     try {
-        auto fill_att = metadata.ncVar.getAtt("_FillValue");
-        if (!fill_att.isNull()) {
+        if (!metadata.ncVar.getAtt("_FillValue").isNull()) {
             if (vartype == NC_FLOAT) {
                 float fv;
-                fill_att.getValues(&fv);
+                metadata.ncVar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<float>(raw_value) == fv)
-                    throw std::runtime_error("Encountered fill value at requested index.");
-            } else if (vartype == NC_INT || vartype == NC_SHORT) {
+                    throw std::runtime_error("Encountered _FillValue (missing data)");
+            } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
                 int fv;
-                fill_att.getValues(&fv);
+                metadata.ncVar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<int>(raw_value) == fv)
-                    throw std::runtime_error("Encountered fill value at requested index.");
+                    throw std::runtime_error("Encountered _FillValue (missing data)");
             }
         }
     } catch (...) {
-        // Proceed without interrupt if _FillValue is not present
+        // Safe to ignore if _FillValue attribute is missing
     }
 
-    // Apply scale/offset
+    // Apply scale and offset
     data_type value = raw_value * metadata.scale_factor + metadata.offset;
 
-    // Special handling for RAINRATE
+    // Handle RAINRATE unit fix if needed
     bool RAINRATE_equivalence =
         selector.variable_name == "RAINRATE" &&
         metadata.units == "mm s^-1" &&
