@@ -107,13 +107,14 @@
     "coastal": {
                  "name": "bmi_fortran",
                  "params": {
-                                "model_type_name": "bmi_fortran_schism",
+                                "model_type_name": "schism_coastal_formulation",
                                 "library_file": "/contrib/Zhengtao.Cui/home/ngwpc/schism/build/lib/libschism_bmi.so",
-                                "init_config": "/contrib/Zhengtao.Cui/home/ngwpc/coastal/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input",
                                 "met_forcing_netcdf_path": "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_output_201104302300.nc",
                                 "offshore_boundary_netcdf_path": "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_offshsort_output_201104302300.nc",
                                 "streamflow_boundary_netcdf_path": "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_streamflow_output_201104302300.nc",
-				"working_dir" : "./data/SCHISM_Lake_Champlain_BMI_Driver_Test",
+				"working_dir" : "/contrib/Zhengtao.Cui/home/ngwpc/ngen_coastal/data/SCHISM_Lake_Champlain_BMI_Driver_Test/",
+				"model_start_time_in_secs" : "0",
+				"nscribs" : "0",
                                 "allow_exceed_end_time": true,
                                 "main_output_variable": "z",
                                 "uses_forcing_file": false

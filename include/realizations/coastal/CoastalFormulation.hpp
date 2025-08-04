@@ -21,6 +21,11 @@ public:
     virtual void initialize() = 0;
     void finalize() override = 0;
     virtual void update() = 0;
+    virtual void update_until( double const& ) = 0;
+    virtual double get_current_time() = 0;
+    virtual double get_start_time() = 0;
+    virtual double get_end_time() = 0;
+    virtual double get_time_step() = 0;
 
     void get_values(const selection_type& selector, boost::span<double> data) override = 0;
 

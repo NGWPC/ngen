@@ -41,6 +41,11 @@ public:
     void initialize() override;
     void finalize() override;
     void update() override;
+    void update_until( double const& time );
+    double get_current_time() override;
+    double get_start_time() override;
+    double get_end_time() override;
+    double get_time_step() override;
 
     void get_values(const selection_type& selector, boost::span<data_type> data) override;
 

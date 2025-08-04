@@ -604,20 +604,13 @@ int main(int argc, char *argv[]) {
 
     if(manager->get_using_coastal()) {
 
-      std::cout<<"Using Coastal"<<std::endl;
-
       auto coastal_conf = manager->get_coastal_config();
-
-      auto coastal_tree = coastal_conf->params;
-      auto param_tree=coastal_tree.get_child("params");
-
-      std::cout<< param_tree.get<std::string>( "library_file") << std::endl;
 
       // create the factory registry
       ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
       // add the Schism factory to the registry
       registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
-      // add more factory for coastal models
+      // add more factories for coastal models, e.g. sfincs
       //....
       
       // retrieve the creator for the model selected

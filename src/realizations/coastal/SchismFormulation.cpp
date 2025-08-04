@@ -2,6 +2,7 @@
 
 #if NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI
 
+#include <iostream>
 #include <realizations/coastal/SchismFormulation.hpp>
 #include <utilities/parallel_utils.h>
 
@@ -56,7 +57,7 @@ SchismFormulation::SchismFormulation(
 {
     bmi_ = std::make_unique<models::bmi::Bmi_Fortran_Adapter>
         (
-         "schism_coastal_formulation"
+         id
          , library_path
          , init_config_path
          , /* model_time_step_fixed = */ true
@@ -224,4 +225,35 @@ size_t SchismFormulation::mesh_size(std::string const& variable_name)
     return nbytes / itemsize;
 }
 
+
+void SchismFormulation::update_until( double const& time )
+{
+       double current = this->get_current_time();
+       std::cerr << "current = " << current << std::endl;
+       while ( current <= time )
+       {
+           set_inputs();
+           bmi_->Update();
+           current = this->get_current_time();
+           std::cerr << "current = " << current << ", time = " << time << std::endl;
+           current_time_ += time_step_length_;
+       }
+}
+
+double SchismFormulation::get_current_time()
+{
+	return bmi_->GetCurrentTime();
+}
+double SchismFormulation::get_start_time()
+{
+	return bmi_->GetStartTime();
+}
+double SchismFormulation::get_end_time()
+{
+        return bmi_->GetEndTime();
+}
+double SchismFormulation::get_time_step()
+{
+        return bmi_->GetTimeStep();
+}
 #endif // NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI

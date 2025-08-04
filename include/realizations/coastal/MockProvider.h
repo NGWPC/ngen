@@ -1,10 +1,14 @@
 #ifndef MOCK_PROVIDER_HEADER
 #define MOCK_PROVIDER_HEADER
 
-#include <iostream>
-#include "forcing/NetCDFMeshPointsDataProvider.hpp"
+#include <map>
+#include "forcing/GenericDataProvider.hpp"
 
-std::map<std::string, double> input_variables_defaults =
+
+//struct MockProvider : data_access::DataProvider<double, MeshPointsSelector>
+struct MockProvider : data_access::MeshPointsDataProvider
+{
+    std::map<std::string, double> input_variables_defaults =
     {
         /* Meteorological Forcings */
         // RAINRATE - precipitation
@@ -28,8 +32,6 @@ std::map<std::string, double> input_variables_defaults =
         {"Q_bnd_sink", 0.1},
     };
 
-struct MockProvider : data_access::DataProvider<double, MeshPointsSelector>
-{
     std::vector<double> data;
 
     MockProvider()
@@ -47,13 +49,7 @@ struct MockProvider : data_access::DataProvider<double, MeshPointsSelector>
     size_t get_ts_index_for_time(const time_t &epoch_time) const override { return 1; }
 
     data_type get_value(const selection_type& selector, data_access::ReSampleMethod m) override { return data[0]; }
-    std::vector<data_type> get_values(const selection_type& selector, data_access::ReSampleMethod m) override { throw ""; return data; }
-    void get_values(const selection_type& selector, boost::span<double> out_data) override
-    {
-        auto default_value = input_variables_defaults[selector.variable_name];
-        for (auto& val : out_data) {
-            val = default_value;
-        }
-    }
+    std::vector<data_type> get_values(const selection_type& selector, data_access::ReSampleMethod m) override;
+    void get_values(const selection_type& selector, boost::span<double> out_data) override;
 };
 #endif //#ifndef MOCK_PROVIDER_HEADER

@@ -17,10 +17,17 @@ void ModelCreator::executeModel( coastal_config_params const& config,
             
             model->initialize();
 
-            for (int i = 0; i < 3; ++i) {
-              std::cout << "Step " << i << std::endl;
-              model->update();
-            }
+	   // double starttime = model->GetStartTime();
+           // std::cout << "starttime = " << starttime << std::endl;
+
+	    double end_time = model->get_end_time();
+
+	    std::cerr << "end_time = " << end_time << std::endl;
+	    model->update_until( end_time );
+//            for (int i = 0; i < 3; ++i) {
+//             std::cout << "Step " << i << std::endl;
+//              model->update();
+//            }
 
             using namespace std::chrono_literals;
 
@@ -65,7 +72,7 @@ void ModelCreator::executeModel( coastal_config_params const& config,
          auto vy = model->get_values(vy_selector, data_access::ReSampleMethod::FRONT_FILL);
          report(vy, "VY");
 
-         model->update();
+//         model->update();
          model->get_values(vx_selector, data_access::ReSampleMethod::FRONT_FILL);
          model->get_values(vy_selector, data_access::ReSampleMethod::FRONT_FILL);
          report(vx, "VX");
