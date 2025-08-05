@@ -27,7 +27,8 @@ std::unique_ptr<CoastalFormulation>
 
       this->writeInitConfig( config, sim_time );
 
-      auto provider = std::make_shared<MockProvider>();
+      size_t meshsize = 552697;
+      auto provider = std::make_shared<MockProvider>( meshsize );
 
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
