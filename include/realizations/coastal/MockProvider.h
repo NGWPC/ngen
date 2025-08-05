@@ -34,8 +34,8 @@ struct MockProvider : data_access::MeshPointsDataProvider
 
     std::vector<double> data;
 
-    MockProvider()
-        : data(552697, 0.0)
+    MockProvider( size_t const& meshsize )
+        : data(meshsize, 0.0)
     {}
     ~MockProvider() = default;
 
