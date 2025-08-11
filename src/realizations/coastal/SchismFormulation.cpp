@@ -100,6 +100,10 @@ void SchismFormulation::initialize()
         input_variable_units_[name] = bmi_->GetVarUnits(name);
         input_variable_type_[name] = bmi_->GetVarType(name);
         input_variable_count_[name] = mesh_size(name);
+#ifdef DEBUG_NETCDFMESH
+	std::cerr << "input_variable_count_[" << name << "]=" 
+		<< input_variable_count_[name] << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
     }
 
     for (auto const& var : expected_input_variables_) {
