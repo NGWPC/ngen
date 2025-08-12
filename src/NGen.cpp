@@ -602,27 +602,25 @@ int main(int argc, char *argv[]) {
                   << std::endl;
     }
 
-    if(manager->get_using_coastal()) {
+    if (manager->get_using_coastal()) {
+        auto coastal_conf = manager->get_coastal_config();
 
-      auto coastal_conf = manager->get_coastal_config();
+        // create the factory registry
+        ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
+        // add the Schism factory to the registry
+        registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
+        // add more factories for coastal models, e.g. sfincs
+        //....
 
-      // create the factory registry
-      ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
-      // add the Schism factory to the registry
-      registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
-      // add more factories for coastal models, e.g. sfincs
-      //....
-      
-      // retrieve the creator for the model selected
-      std::unique_ptr<ModelCreator> coastal_creator = 
-	                                registry.getCreator(coastal_conf->getModelType());
-      // now run the schism model
-      coastal_creator->executeModel( *coastal_conf, 
-		                    *(manager->Simulation_Time_Object) );
-
+        // retrieve the creator for the model selected
+        std::unique_ptr<ModelCreator> coastal_creator =
+            registry.getCreator(coastal_conf->getModelType());
+        // now run the schism model
+        coastal_creator->executeModel( *coastal_conf,
+                                       *(manager->Simulation_Time_Object) );
     }
 
-  manager->finalize();
+    manager->finalize();
 
 #if NGEN_WITH_MPI
     MPI_Finalize();

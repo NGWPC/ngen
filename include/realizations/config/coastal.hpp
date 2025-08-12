@@ -16,6 +16,6 @@ namespace realization{
         }
     };
 
-  }//end namespace config
-}//end namespace realization
+  } //end namespace config
+} //end namespace realization
 #endif //NGEN_REALIZATION_CONFIG_COASTAL_H

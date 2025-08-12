@@ -69,13 +69,13 @@ NetCDFMeshPointsDataProvider::NetCDFMeshPointsDataProvider(std::string input_pat
     }
 
     std::multimap< std::string, netCDF::NcVar > vars = nc_file->getVars();
-    std::transform(vars.begin(), vars.end(), 
-		    std::back_inserter(variable_names),
-          [](const std::pair< std::string, netCDF::NcVar >& pair) { return pair.first; });
+    std::transform(vars.begin(), vars.end(),
+                   std::back_inserter(variable_names),
+                   [](const std::pair< std::string, netCDF::NcVar >& pair) { return pair.first; });
 #ifdef DEBUG_NETCDFMESH
     std::cerr << "var names: " << std::endl;
     std::copy( variable_names.begin(), variable_names.end(),
-          std::ostream_iterator< std::string > ( std::cerr, " \n" ) );
+               std::ostream_iterator< std::string > ( std::cerr, " \n" ) );
 #endif //#ifdef DEBUG_NETCDFMESH
 }
 
@@ -131,11 +131,11 @@ size_t NetCDFMeshPointsDataProvider::get_ts_index_for_time(const time_t &epoch_t
 
 #ifdef DEBUG_NETCDFMESH
     std::cerr << "NetCDFMeshPointsDataProvider::get_ts_index_for_time: epochZ_time_in = "
-	    <<epoch_time_in << std::endl;
+              << epoch_time_in << std::endl;
     std::cerr << "NetCDFMeshPointsDataProvider::get_ts_index_for_time: start_time = "
-	    << std::chrono::system_clock::to_time_t(start_time) << std::endl;
+              << std::chrono::system_clock::to_time_t(start_time) << std::endl;
     std::cerr << "NetCDFMeshPointsDataProvider::get_ts_index_for_time: stop_time = "
-	    << std::chrono::system_clock::to_time_t(stop_time) << std::endl;
+              << std::chrono::system_clock::to_time_t(stop_time) << std::endl;
 #endif //#ifdef DEBUG_NETCDFMESH
 
     if (start_time <= epoch_time && epoch_time < stop_time)
@@ -241,9 +241,9 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
                 metadata.ncVar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<float>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
-	    } else if (vartype == NC_DOUBLE) {
-                double fv; 
-		metadata.ncVar.getAtt("_FillValue").getValues(&fv);
+            } else if (vartype == NC_DOUBLE) {
+                double fv;
+                metadata.ncVar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<double>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data).");
             } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
@@ -252,7 +252,7 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
                 if (static_cast<int>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
             }
-	} else {
+        } else {
             // No _FillValue attribute — use NetCDF library defaults
             if (vartype == NC_DOUBLE && raw_value == static_cast<data_type>(NC_FILL_DOUBLE))
                 throw std::runtime_error("Encountered default NC_FILL_DOUBLE missing data.");
