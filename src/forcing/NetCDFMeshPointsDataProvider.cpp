@@ -204,18 +204,11 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
     // Map the init_time to time_index
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
 
-    // Assume time, y, x dimensions
-    //size_t ny = nc_file->getDim("y").getSize();
-    //size_t nx = nc_file->getDim("x").getSize();
-
     size_t n_elem = nc_file->getDim( "element-id" ).getSize();
 
     if ( pt_index >= n_elem ) {
         throw std::out_of_range("Point index exceeds available spatial dimension size (y * x).");
     }
-
-   // size_t y_idx = pt_index / nx;
-   // size_t x_idx = pt_index % nx;
 
     // Read raw value from NetCDF variable
     nc_type vartype = metadata.ncVar.getType().getId();
