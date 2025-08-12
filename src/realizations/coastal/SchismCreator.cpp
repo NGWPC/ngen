@@ -1,9 +1,11 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <cassert>
 #include "realizations/coastal/SchismCreator.h"
 #include "realizations/coastal/SchismFormulation.hpp"
 #include "realizations/coastal/MockProvider.h"
+#include "forcing/NetCDFMeshPointsDataProvider.hpp"
 
 std::unique_ptr<CoastalFormulation>
       SchismCreator::createCoastalFormulation( coastal_config_params const& config,
@@ -30,12 +32,34 @@ std::unique_ptr<CoastalFormulation>
       size_t meshsize = 552697;
       auto provider = std::make_shared<MockProvider>( meshsize );
 
+      time_t start_time_t = sim_time.get_start_date_time_epoch();
+      time_t stop_time_t = sim_time.get_end_date_time_epoch();
+
+      auto netcdf_met_provider = std::make_shared<data_access::NetCDFMeshPointsDataProvider>(
+		      met_forcing_file,
+                      std::chrono::system_clock::from_time_t(start_time_t),
+                      std::chrono::system_clock::from_time_t(stop_time_t));
+
+      auto test_netcdf_met_provider = [ netcdf_met_provider ](){
+          auto available_variables = netcdf_met_provider->get_available_variable_names();
+          for (auto const& expected : SchismFormulation::expected_input_variables_) {
+              SchismFormulation::InputMapping const& mapping = expected.second;
+              if (mapping.selector == SchismFormulation::METEO) {
+                auto pos = std::find(available_variables.begin(), available_variables.end(), 
+				  mapping.name);
+		assert( pos != available_variables.end() );
+              }
+           }
+      };
+
+      test_netcdf_met_provider();
+
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
 					    init_config,
                                             MPI_COMM_SELF,
                                             //netcdf_met_provider,
-					    provider, 
+					    netcdf_met_provider, 
                                             provider,
                                             provider
 		                           );
