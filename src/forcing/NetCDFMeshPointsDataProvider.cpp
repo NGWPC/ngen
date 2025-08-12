@@ -248,12 +248,24 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
                 metadata.ncVar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<float>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
+	    } else if (vartype == NC_DOUBLE) {
+                double fv; 
+		metadata.ncVar.getAtt("_FillValue").getValues(&fv);
+                if (static_cast<double>(raw_value) == fv)
+                    throw std::runtime_error("Encountered _FillValue (missing data).");
             } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
                 int fv;
                 metadata.ncVar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<int>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
             }
+        }
+	} else {
+            // No _FillValue attribute — use NetCDF library defaults
+            if (vartype == NC_DOUBLE && raw_value == static_cast<data_type>(NC_FILL_DOUBLE))
+                throw std::runtime_error("Encountered default NC_FILL_DOUBLE missing data.");
+            if (vartype == NC_FLOAT && raw_value == static_cast<data_type>(NC_FILL_FLOAT))
+                throw std::runtime_error("Encountered default NC_FILL_FLOAT missing data.");
         }
     } catch (...) {
         // Safe to ignore if _FillValue attribute is missing
