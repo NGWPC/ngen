@@ -259,7 +259,6 @@ NetCDFMeshPointsDataProvider::data_type NetCDFMeshPointsDataProvider::get_value(
                 if (static_cast<int>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
             }
-        }
 	} else {
             // No _FillValue attribute — use NetCDF library defaults
             if (vartype == NC_DOUBLE && raw_value == static_cast<data_type>(NC_FILL_DOUBLE))
