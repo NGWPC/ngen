@@ -11,10 +11,15 @@
 
 void ModelCreator::executeModel( coastal_config_params const& config,
                     Simulation_Time const& sim_time ){
-
+#ifdef DEBUG_NETCDFMESH
+	    std::cerr << "create model obj ... " << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
             std::unique_ptr<CoastalFormulation> model = 
 	      this->createCoastalFormulation( config, sim_time );
             
+#ifdef DEBUG_NETCDFMESH
+	    std::cerr << "initialize ... " << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
             model->initialize();
 
 	   // double starttime = model->GetStartTime();
