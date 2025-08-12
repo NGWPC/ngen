@@ -16,8 +16,8 @@
 // AbstractFactory
 class ModelCreator {
 public:
-    virtual std::unique_ptr<CoastalFormulation> createCoastalFormulation( 
-		    coastal_config_params const&,
+    virtual std::unique_ptr<CoastalFormulation> createCoastalFormulation(
+                    coastal_config_params const&,
                     Simulation_Time const&  ) const = 0;
 
     virtual ModelCreator* clone() const = 0;

@@ -116,7 +116,7 @@ int main(int argc, char **argv)
                                             init_config_path,
                                             MPI_COMM_SELF,
                                             //netcdf_met_provider,
-					    provider, 
+                                            provider,
                                             provider,
                                             provider
                                             );

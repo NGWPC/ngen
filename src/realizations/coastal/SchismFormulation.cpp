@@ -101,7 +101,7 @@ void SchismFormulation::initialize()
         input_variable_type_[name] = bmi_->GetVarType(name);
         input_variable_count_[name] = mesh_size(name);
 #ifdef DEBUG_NETCDFMESH
-	std::cerr << "input_variable_count_[" << name << "]=" 
+	std::cerr << "input_variable_count_[" << name << "]="
 		<< input_variable_count_[name] << std::endl;
 #endif //#ifdef DEBUG_NETCDFMESH
     }
@@ -232,32 +232,31 @@ size_t SchismFormulation::mesh_size(std::string const& variable_name)
 
 void SchismFormulation::update_until( double const& time )
 {
-       double current = this->get_current_time();
-       std::cerr << "current = " << current << std::endl;
-       while ( current <= time )
-       {
-           set_inputs();
-           bmi_->Update();
-           current = this->get_current_time();
-           std::cerr << "current = " << current << ", time = " << time << std::endl;
-           current_time_ += time_step_length_;
-       }
+    double current = this->get_current_time();
+    std::cerr << "current = " << current << std::endl;
+    while ( current <= time ) {
+        set_inputs();
+        bmi_->Update();
+        current = this->get_current_time();
+        std::cerr << "current = " << current << ", time = " << time << std::endl;
+        current_time_ += time_step_length_;
+    }
 }
 
 double SchismFormulation::get_current_time()
 {
-	return bmi_->GetCurrentTime();
+    return bmi_->GetCurrentTime();
 }
 double SchismFormulation::get_start_time()
 {
-	return bmi_->GetStartTime();
+    return bmi_->GetStartTime();
 }
 double SchismFormulation::get_end_time()
 {
-        return bmi_->GetEndTime();
+    return bmi_->GetEndTime();
 }
 double SchismFormulation::get_time_step()
 {
-        return bmi_->GetTimeStep();
+    return bmi_->GetTimeStep();
 }
 #endif // NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI

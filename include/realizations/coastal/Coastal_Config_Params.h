@@ -25,7 +25,7 @@ struct coastal_config_params
     /*
      * @brief Constructor for coastal_config_params
      *
-     * @param coastal_config 
+     * @param coastal_config
      */
     coastal_config_params( const boost::property_tree::ptree& coastal_config):
         params(coastal_config)
