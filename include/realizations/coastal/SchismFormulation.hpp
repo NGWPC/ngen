@@ -15,6 +15,8 @@ class SchismFormulation final : public CoastalFormulation
 public:
     using ProviderType = data_access::MeshPointsDataProvider;
 
+    static void check_forcing_provider( ProviderType const& provider );
+
     SchismFormulation(
                       std::string const& id
                       , std::string const& library_path

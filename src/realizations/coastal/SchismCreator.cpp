@@ -40,25 +40,12 @@ std::unique_ptr<CoastalFormulation>
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
-      auto test_netcdf_met_provider = [ netcdf_met_provider ](){
-          auto available_variables = netcdf_met_provider->get_available_variable_names();
-          for (auto const& expected : SchismFormulation::expected_input_variables_) {
-              SchismFormulation::InputMapping const& mapping = expected.second;
-              if (mapping.selector == SchismFormulation::METEO) {
-                auto pos = std::find(available_variables.begin(), available_variables.end(), 
-				  mapping.name);
-		assert( pos != available_variables.end() );
-              }
-           }
-      };
-
-      test_netcdf_met_provider();
+      SchismFormulation::check_forcing_provider( *netcdf_met_provider );
 
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
 					    init_config,
                                             MPI_COMM_SELF,
-                                            //netcdf_met_provider,
 					    netcdf_met_provider, 
                                             provider,
                                             provider
@@ -82,7 +69,6 @@ void SchismCreator::writeInitConfig( coastal_config_params const& config,
       int nscribs = param_tree.get<int>( "nscribs" );
 
       time_t start_time_t = sim_time.get_start_date_time_epoch();
-      //time_t stop_time_t = sim_time.get_end_date_time_epoch();
 
       //create the init config file
       char buffer[100];
