@@ -3,8 +3,11 @@
 #if NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI
 
 #include <iostream>
-#include <realizations/coastal/SchismFormulation.hpp>
+#include <algorithm>
+#include <map>
+#include <string>
 #include <utilities/parallel_utils.h>
+#include <realizations/coastal/SchismFormulation.hpp>
 
 const static auto s_schism_registration_function = "register_bmi";
 
@@ -40,6 +43,20 @@ std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
         "VY",
         "BEDLEVEL"
     };
+
+
+void SchismFormulation::check_forcing_provider( ProviderType const& provider )
+{
+          auto available_variables = provider.get_available_variable_names();
+          for (auto const& expected : SchismFormulation::expected_input_variables_) {
+              SchismFormulation::InputMapping const& mapping = expected.second;
+              if (mapping.selector == SchismFormulation::METEO) {
+                auto pos = std::find(available_variables.begin(), available_variables.end(), 
+				  mapping.name);
+		assert( pos != available_variables.end() );
+              }
+	  }
+}
 
 SchismFormulation::SchismFormulation(
                                      std::string const& id

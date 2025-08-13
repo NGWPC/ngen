@@ -284,7 +284,6 @@ void NetCDFMeshPointsDataProvider::cache_variable(std::string const& var_name)
     if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
 
     auto ncvar = nc_file->getVar(var_name);
-    //variable_names.push_back(var_name);
 
     std::string native_units;
     auto units_att = ncvar.getAtt("units");
