@@ -6,6 +6,8 @@
 #include "realizations/coastal/SchismFormulation.hpp"
 #include "realizations/coastal/MockProvider.h"
 #include "forcing/NetCDFMeshPointsDataProvider.hpp"
+#include "forcing/MetMeshPolicy.h"
+#include "forcing/FlowMeshPolicy.h"
 
 std::unique_ptr<CoastalFormulation>
       SchismCreator::createCoastalFormulation( coastal_config_params const& config,
@@ -35,12 +37,21 @@ std::unique_ptr<CoastalFormulation>
       time_t start_time_t = sim_time.get_start_date_time_epoch();
       time_t stop_time_t = sim_time.get_end_date_time_epoch();
 
-      auto netcdf_met_provider = std::make_shared<data_access::NetCDFMeshPointsDataProvider>(
+      auto netcdf_met_provider = 
+	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
+	                                                   data_access::MetMeshPolicy > >(
 		      met_forcing_file,
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
       SchismFormulation::check_forcing_provider( *netcdf_met_provider );
+
+      auto netcdf_streamflow_provider = 
+	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
+	                                                   data_access::FlowMeshPolicy > >(
+		      flow_boundary_file,
+                      std::chrono::system_clock::from_time_t(start_time_t),
+                      std::chrono::system_clock::from_time_t(stop_time_t));
 
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
@@ -48,7 +59,7 @@ std::unique_ptr<CoastalFormulation>
                                             MPI_COMM_SELF,
 					    netcdf_met_provider, 
                                             provider,
-                                            provider
+					    netcdf_streamflow_provider
 		                           );
 }
 
