@@ -385,7 +385,15 @@ namespace realization {
          * @param t_delta The size of the time step over which the formulation is going to update the model, which might
          *                be different than the model's internal time step.
          */
-        void set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta);
+        std::string set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta);
+
+        template<typename T>
+        void append_inputs(std::shared_ptr<void> values, int num_items, std::stringstream &inputs);
+
+        void append_inputs(std::string type, std::shared_ptr<void> values, int num_items, std::stringstream &inputs);
+
+        template<typename T>
+        void append_input(std::string type, T value, std::stringstream &inputs);
 
         /** The delta of the last model update execution (typically, this is time step size). */
         time_step_t last_model_response_delta = 0;

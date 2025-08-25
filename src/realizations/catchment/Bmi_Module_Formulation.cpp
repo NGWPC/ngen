@@ -61,13 +61,30 @@ namespace realization {
                 }
             }
 
+            std::string update_method;
             while (next_time_step_index <= t_index) {
                 double model_initial_time = get_bmi_model()->GetCurrentTime();
-                set_model_inputs_prior_to_update(model_initial_time, t_delta);
-                if (t_delta_model_units == get_bmi_model()->GetTimeStep())
-                    get_bmi_model()->Update();
-                else
-                    get_bmi_model()->UpdateUntil(model_initial_time + t_delta_model_units);
+                std::string model_inputs = set_model_inputs_prior_to_update(model_initial_time, t_delta);
+                try {
+                    if (t_delta_model_units == get_bmi_model()->GetTimeStep()) {
+                        update_method = "Update";
+                        get_bmi_model()->Update();
+                    }
+                    else {
+                        update_method = "UpdateUntil";
+                        get_bmi_model()->UpdateUntil(model_initial_time + t_delta_model_units);
+                    }
+                } catch (const std::exception &e) {
+                    std::stringstream error_message;
+                    error_message << "Call to " << update_method
+                        << " of model " << get_bmi_model()->get_model_name()
+                        << " failed for catchment \"" << this->get_catchment_id() << "\""
+                           " at t_index = " << t_index << ","
+                           " next_step_index = " << next_time_step_index << "."
+                           "\nInput variables were as follows:\n" << model_inputs;
+                    Logger::Log(LogLevel::SEVERE, error_message.str());
+                    throw;
+                }
                 // TODO: again, consider whether we should store any historic response, ts_delta, or other var values
                 next_time_step_index++;
             }
@@ -655,9 +672,11 @@ namespace realization {
                 "': no logic for converting value to variable's type.");
         }
 
-        void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
+        std::string Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
+            std::stringstream model_inputs;
+            model_inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
                 data_access::GenericDataProvider *provider;
@@ -706,15 +725,102 @@ namespace realization {
 
                     }
                     value_ptr = get_values_as_type( type, values.begin(), values.end() );
+                    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
+                    model_inputs << "\n" << var_name << " = ";
+                    this->append_inputs(type, value_ptr, numItems, model_inputs);
 
                 } else {
                     //scalar value
                     double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                    get_bmi_model()->GetVarUnits(var_name)));
                     value_ptr = get_value_as_type(type, value);
+                    model_inputs << "\n" << var_name << " = ";
+                    this->append_input(type, value, model_inputs);
                 }
                 get_bmi_model()->SetValue(var_name, value_ptr.get());
             }
+            return model_inputs.str();
+        }
+
+        template<typename T>
+        void Bmi_Module_Formulation::append_inputs(std::shared_ptr<void> values, int num_items, std::stringstream &inputs) {
+            T *array = (T*)values.get();
+            inputs << "[";
+            for (int i = 0; i < num_items; ++i) {
+                if (i != 0)
+                    inputs << ", ";
+                inputs << *array[i];
+            }
+            inputs << "]";
+        }
+
+        void Bmi_Module_Formulation::append_inputs(std::string type, std::shared_ptr<void> values, int num_items, std::stringstream &inputs) {
+            
+            if (type == "double" || type == "double precision") 
+                this->append_inputs<double>(values, num_items, inputs);
+
+            else if (type == "float" || type == "real") 
+                this->append_inputs<float>(values, num_items, inputs);
+
+            else if (type == "short" || type == "short int" || type == "signed short" || type == "signed short int")
+                this->append_inputs<short>(values, num_items, inputs);
+
+            else if (type == "unsigned short" || type == "unsigned short int")
+                this->append_inputs<unsigned short>(values, num_items, inputs);
+
+            else if (type == "int" || type == "signed" || type == "signed int" || type == "integer")
+                this->append_inputs<int>(values, num_items, inputs);
+
+            else if (type == "unsigned" || type == "unsigned int")
+                this->append_inputs<unsigned int>(values, num_items, inputs);
+
+            else if (type == "long" || type == "long int" || type == "signed long" || type == "signed long int")
+                this->append_inputs<long>(values, num_items, inputs);
+
+            else if (type == "unsigned long" || type == "unsigned long int")
+                this->append_inputs<unsigned long>(values, num_items, inputs);
+
+            else if (type == "long long" || type == "long long int" || type == "signed long long" || type == "signed long long int")
+                this->append_inputs<long long>(values, num_items, inputs);
+
+            else if (type == "unsigned long long" || type == "unsigned long long int")
+                this->append_inputs<unsigned long long>(values, num_items, inputs);
+
+        }
+
+        template<typename T>
+        void Bmi_Module_Formulation::append_input(std::string type, T value, std::stringstream &inputs) {
+
+            if (type == "double" || type == "double precision")
+                inputs << static_cast<double>(value);
+
+            else if (type == "float" || type == "real")
+                inputs << static_cast<float>(value);
+
+            else if (type == "short" || type == "short int" || type == "signed short" || type == "signed short int")
+                inputs << static_cast<short>(value);
+
+            else if (type == "unsigned short" || type == "unsigned short int")
+                inputs << static_cast<unsigned short>(value);
+
+            else if (type == "int" || type == "signed" || type == "signed int" || type == "integer")
+                inputs << static_cast<int>(value);
+
+            else if (type == "unsigned" || type == "unsigned int")
+                inputs << static_cast<unsigned int>(value);
+
+            else if (type == "long" || type == "long int" || type == "signed long" || type == "signed long int")
+                inputs << static_cast<long>(value);
+
+            else if (type == "unsigned long" || type == "unsigned long int")
+                inputs << static_cast<unsigned long>(value);
+
+            else if (type == "long long" || type == "long long int" || type == "signed long long" || type == "signed long long int")
+                inputs << static_cast<long long>(value);
+
+            else if (type == "unsigned long long" || type == "unsigned long long int")
+                inputs << static_cast<unsigned long long>(value);
+
         }
 
         const boost::span<char> Bmi_Module_Formulation::get_serialization_state() const {
