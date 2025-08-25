@@ -1,50 +1,21 @@
-#pragma once
+#ifndef SFINCS_CREATOR_HEADER
+#define SFINCS_CREATOR_HEADER
 
-#include <memory>
-#include <string>
-#include <stdexcept>
+#include "realizations/coastal/ModelCreator.h"
+#include "realizations/coastal/Coastal_Config_Params.h"
 
-#include <boost/property_tree/ptree.hpp>
-
-#include "SfincsFormulation.hpp"
-
-namespace ngen {
-namespace realization {
-namespace coastal {
-
-/**
- * @brief Creator/Factory for SFINCS BMI formulation.
- *
- * This mirrors the pattern used by SCHISM in your branch: a thin factory that
- * consumes a config tree and returns a fully-configured formulation instance.
- */
-class SfincsCreator
-{
+class SfincsCreator : public ModelCreator {
 public:
-    using ptree = boost::property_tree::ptree;
+    std::unique_ptr<CoastalFormulation>
+    createCoastalFormulation(coastal_config_params const&,
+                             Simulation_Time const&) const override;
 
-    static std::shared_ptr<SfincsFormulation> create(
-        const ptree& config,
-        const std::string& registration_name = "sfincs-bmi"
-    )
-    {
-        auto f = std::make_shared<SfincsFormulation>();
-        // In NGen, `create_formulation` often wants a stream handler and the path
-        // to any forcing. If you don’t have a stream handler here, you can pass a
-        // default-constructed one (or wire in your branch’s logging handler).
-        ngen::realization::utils::StreamHandler null_stream;
-        f->create_formulation(
-            /* forcing_file_path */ std::string(),
-            null_stream,
-            config,
-            registration_name,
-            /* ignore_output_root */ false
-        );
-        return f;
-    }
+    SfincsCreator* clone() const override;
+
+private:
+    void writeInitConfig(coastal_config_params const&,
+                         Simulation_Time const&) const;
 };
 
-} // namespace coastal
-} // namespace realization
-} // namespace ngen
+#endif // SFINCS_CREATOR_HEADER
 
