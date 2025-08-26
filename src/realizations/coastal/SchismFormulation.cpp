@@ -45,12 +45,13 @@ std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
     };
 
 
-void SchismFormulation::check_forcing_provider( ProviderType const& provider )
+void SchismFormulation::check_forcing_provider( ProviderType const& provider, 
+		SchismFormulation::ForcingSelector selector )
 {
           auto available_variables = provider.get_available_variable_names();
           for (auto const& expected : SchismFormulation::expected_input_variables_) {
               SchismFormulation::InputMapping const& mapping = expected.second;
-              if (mapping.selector == SchismFormulation::METEO ) {
+              if (mapping.selector == selector ) {
                 auto pos = std::find(available_variables.begin(), available_variables.end(), 
 				  mapping.name);
 #ifdef DEBUG_NETCDFMESH

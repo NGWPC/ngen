@@ -8,6 +8,7 @@
 #include "forcing/NetCDFMeshPointsDataProvider.hpp"
 #include "forcing/MetMeshPolicy.h"
 #include "forcing/FlowMeshPolicy.h"
+#include "forcing/TidalMeshPolicy.h"
 
 std::unique_ptr<CoastalFormulation>
       SchismCreator::createCoastalFormulation( coastal_config_params const& config,
@@ -44,7 +45,7 @@ std::unique_ptr<CoastalFormulation>
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
-      SchismFormulation::check_forcing_provider( *netcdf_met_provider );
+      SchismFormulation::check_forcing_provider( *netcdf_met_provider, SchismFormulation::METEO );
 
       auto netcdf_streamflow_provider = 
 	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
@@ -53,12 +54,25 @@ std::unique_ptr<CoastalFormulation>
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
+      SchismFormulation::check_forcing_provider( *netcdf_streamflow_provider, 
+		                                           SchismFormulation::CHANNEL_FLOW );
+
+      auto netcdf_offshore_provider = 
+	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
+	                                                   data_access::TidalMeshPolicy > >(
+		      offshore_boundary_file,
+                      std::chrono::system_clock::from_time_t(start_time_t),
+                      std::chrono::system_clock::from_time_t(stop_time_t));
+
+      SchismFormulation::check_forcing_provider( *netcdf_offshore_provider, 
+		                                           SchismFormulation::OFFSHORE );
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
 					    init_config,
                                             MPI_COMM_SELF,
 					    netcdf_met_provider, 
-                                            provider,
+                                            //provider,
+					    netcdf_offshore_provider, 
 					    netcdf_streamflow_provider
 		                           );
 }
