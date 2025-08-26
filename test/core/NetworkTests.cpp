@@ -121,7 +121,7 @@ public:
       }
       case TestContext::CASE_2:
       {
-        //Test construction from just a sinle feature collection
+        //Test construction from just a single feature collection
         n = Network(catchments,  &link_key);
         break;
       }
