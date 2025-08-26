@@ -88,9 +88,11 @@ protected:
 
     std::shared_ptr<geojson::FeatureCollection> catchments = std::make_shared<geojson::FeatureCollection>();
     std::shared_ptr<geojson::FeatureCollection> nexuses = std::make_shared<geojson::FeatureCollection>();
-    std::string link_key = "toid";
+    static const std::string link_key;
     Network n;
 };
+
+const std::string Network_Test::link_key = "toid";
 
 /*
 * Enumerate each possible construction context
