@@ -738,7 +738,7 @@ namespace realization {
         void Bmi_Module_Formulation::append_model_inputs_to_stream(const double &model_init_time, time_step_t t_delta, std::stringstream &inputs) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
-            error_message << "Input variables were as follows:";
+            inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
                 data_access::GenericDataProvider *provider;
@@ -765,20 +765,20 @@ namespace realization {
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
                 
-                error_message << "\n" << var_map_alias << " = ";
+                inputs << "\n" << var_map_alias << " = ";
                 if (numItems != 1) {
                     //more than a single value needed for var_name
                     auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                    get_bmi_model()->GetVarUnits(var_name)));
                     value_ptr = get_values_as_type( type, values.begin(), values.end() );
                     // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
-                    this->append_inputs(type, value_ptr, numItems, error_message);
+                    this->append_inputs(type, value_ptr, numItems, inputs);
 
                 } else {
                     //scalar value
                     double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                    get_bmi_model()->GetVarUnits(var_name)));
-                    this->append_input(type, value, error_message);
+                    this->append_input(type, value, inputs);
                 }
             }
         }
