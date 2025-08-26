@@ -157,7 +157,7 @@ TEST_P(Network_Test1, TestNetworkConstructionNumberOfNodes)
     std::cout<< n.get_id(*it)<<std::endl;
   }
   */
-  ASSERT_TRUE( n.size() == 3 );
+    ASSERT_EQ( n.size(), 3 );
 
 }
 
@@ -181,7 +181,7 @@ TEST_P(Network_Test1, TestNetworkTailwaterIndex)
   for(auto it = begin; it != end; ++it)
   {
     std::string id =  n.get_id(*it);
-    ASSERT_TRUE( id  ==  "nex-0");
+    ASSERT_EQ(id, "nex-0");
   }
 }
 
@@ -202,9 +202,9 @@ TEST_P(Network_Test1, TestNetworkTopologicalIndex)
 TEST_P(Network_Test1, TestNetwork_get_id)
 {
   //Test valid vertex descriptors
-  ASSERT_TRUE( n.get_id(0) == "cat-0" );
-  ASSERT_TRUE( n.get_id(1) == "nex-0" );
-  ASSERT_TRUE( n.get_id(2) == "cat-1" );
+  ASSERT_EQ( n.get_id(0), "cat-0" );
+  ASSERT_EQ( n.get_id(1), "nex-0" );
+  ASSERT_EQ( n.get_id(2), "cat-1" );
 }
 
 TEST_P(Network_Test1, TestNetwork_get_id_1)
@@ -257,13 +257,13 @@ TEST_F(Network_Test2, test_construction)
     std::cout<< n.get_id(*it)<<std::endl;
   }
   */
-  ASSERT_TRUE( n.size() == 7 );
+    ASSERT_EQ( n.size(), 7 );
 
 }
 TEST_F(Network_Test2, test_get_origination_ids)
 {
   std::vector<std::string> ids = n.get_origination_ids("nex-1");
-  ASSERT_TRUE( ids.size() == 3);
+  ASSERT_EQ( ids.size(), 3);
   ASSERT_FALSE( std::find(ids.begin(), ids.end(), "cat-2") == ids.end() );
   ASSERT_FALSE( std::find(ids.begin(), ids.end(), "cat-3") == ids.end() );
   ASSERT_FALSE( std::find(ids.begin(), ids.end(), "cat-4") == ids.end() );
@@ -272,14 +272,14 @@ TEST_F(Network_Test2, test_get_origination_ids)
 TEST_F(Network_Test2, test_get_destination_ids)
 {
   std::vector<std::string> ids = n.get_destination_ids("nex-1");
-  ASSERT_TRUE( ids.size() == 0);
+  ASSERT_EQ( ids.size(), 0);
 }
 
 TEST_F(Network_Test2, test_get_destination_ids1)
 {
   std::vector<std::string> ids = n.get_destination_ids("nex-0");
   //n.print_network();
-  ASSERT_TRUE( ids.size() == 1);
+  ASSERT_EQ( ids.size(), 1);
   ASSERT_FALSE( std::find(ids.begin(), ids.end(), "cat-2") == ids.end() );
 }
 
@@ -287,7 +287,7 @@ TEST_F(Network_Test2, test_get_destination_ids2)
 {
   std::vector<std::string> ids = n.get_destination_ids("cat-2");
 
-  ASSERT_TRUE( ids.size() == 1);
+  ASSERT_EQ( ids.size(), 1);
   ASSERT_FALSE( std::find(ids.begin(), ids.end(), "nex-1") == ids.end() );
 }
 
@@ -305,9 +305,9 @@ TEST_F(Network_Test2, test_catchments_filter)
   auto cat2_it = std::find(catchments.begin(), catchments.end(), "cat-2");
   std::cout << "cat-0 to cat-2 distance: " << std::distance(cat0_it, cat2_it) << std::endl;
   std::cout << "cat-1 to cat-2 distance: " << std::distance(cat1_it, cat2_it) << std::endl;
-  ASSERT_TRUE( std::distance(cat0_it, cat2_it) > 0);
-  ASSERT_TRUE( std::distance(cat1_it, cat2_it) > 0);
-  ASSERT_TRUE( cat2_it != catchments.end() );
+  ASSERT_GT( std::distance(cat0_it, cat2_it), 0);
+  ASSERT_GT( std::distance(cat1_it, cat2_it), 0);
+  ASSERT_NE( cat2_it, catchments.end() );
 }
 
 TEST_F(Network_Test2, test_nexus_filter)
