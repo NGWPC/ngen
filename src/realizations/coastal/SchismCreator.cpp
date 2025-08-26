@@ -1,10 +1,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
-#include <cassert>
 #include "realizations/coastal/SchismCreator.h"
 #include "realizations/coastal/SchismFormulation.hpp"
-#include "realizations/coastal/MockProvider.h"
 #include "forcing/NetCDFMeshPointsDataProvider.hpp"
 #include "forcing/MetMeshPolicy.h"
 #include "forcing/FlowMeshPolicy.h"
@@ -12,7 +10,7 @@
 
 std::unique_ptr<CoastalFormulation>
       SchismCreator::createCoastalFormulation( coastal_config_params const& config,
-		                               Simulation_Time const& sim_time ) const
+                                               Simulation_Time const& sim_time ) const
 {
 
       auto param_tree=config.params.get_child("params");
@@ -32,49 +30,45 @@ std::unique_ptr<CoastalFormulation>
 
       this->writeInitConfig( config, sim_time );
 
-      size_t meshsize = 552697;
-      auto provider = std::make_shared<MockProvider>( meshsize );
-
       time_t start_time_t = sim_time.get_start_date_time_epoch();
       time_t stop_time_t = sim_time.get_end_date_time_epoch();
 
       auto netcdf_met_provider = 
-	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
-	                                                   data_access::MetMeshPolicy > >(
-		      met_forcing_file,
+              std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
+                                                           data_access::MetMeshPolicy > >(
+                      met_forcing_file,
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
       SchismFormulation::check_forcing_provider( *netcdf_met_provider, SchismFormulation::METEO );
 
       auto netcdf_streamflow_provider = 
-	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
-	                                                   data_access::FlowMeshPolicy > >(
-		      flow_boundary_file,
+              std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
+                                                           data_access::FlowMeshPolicy > >(
+                      flow_boundary_file,
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
       SchismFormulation::check_forcing_provider( *netcdf_streamflow_provider, 
-		                                           SchismFormulation::CHANNEL_FLOW );
+                                                           SchismFormulation::CHANNEL_FLOW );
 
       auto netcdf_offshore_provider = 
-	      std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
-	                                                   data_access::TidalMeshPolicy > >(
-		      offshore_boundary_file,
+              std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
+                                                           data_access::TidalMeshPolicy > >(
+                      offshore_boundary_file,
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
       SchismFormulation::check_forcing_provider( *netcdf_offshore_provider, 
-		                                           SchismFormulation::OFFSHORE );
+                                                           SchismFormulation::OFFSHORE );
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
-					    init_config,
+                                            init_config,
                                             MPI_COMM_SELF,
-					    netcdf_met_provider, 
-                                            //provider,
-					    netcdf_offshore_provider, 
-					    netcdf_streamflow_provider
-		                           );
+                                            netcdf_met_provider, 
+                                            netcdf_offshore_provider, 
+                                            netcdf_streamflow_provider
+                                           );
 }
 
 SchismCreator* SchismCreator::clone() const
@@ -83,7 +77,7 @@ SchismCreator* SchismCreator::clone() const
 }
 
 void SchismCreator::writeInitConfig( coastal_config_params const& config,
-		                     Simulation_Time const& sim_time ) const
+                                     Simulation_Time const& sim_time ) const
 {
       auto param_tree=config.params.get_child("params");
 
@@ -104,26 +98,26 @@ void SchismCreator::writeInitConfig( coastal_config_params const& config,
 
       std::fstream initfile( init_config.c_str(), std::ios::out );
       if (!initfile.is_open()) {
-	std::cerr << "Error: Unable to open file!" << std::endl;
-	throw std::runtime_error( 
-		std::string( "FATAL: Unable to open file - ") + init_config ); 
+        std::cerr << "Error: Unable to open file!" << std::endl;
+        throw std::runtime_error( 
+                std::string( "FATAL: Unable to open file - ") + init_config ); 
       }
       
       initfile << "&schism" << std::endl;
       initfile << "model_start_time = " << model_start_time
-	        << "     !Time start of simulation in seconds" << std::endl;
+                << "     !Time start of simulation in seconds" << std::endl;
       initfile << "model_start_year = " << std::string( buffer ).substr(0, 4 ) << std::endl;
       initfile << "model_start_month = " << std::string( buffer ).substr(4, 2 ) << std::endl;
       initfile << "model_start_day = " << std::string( buffer ).substr(6, 2 ) << std::endl;
       initfile << "model_start_hour = " << std::string( buffer ).substr(8, 2 ) << std::endl;
       initfile << "SCHISM_dir       = " << '"' << working_dir << '"' 
-	      << "   ! SCHISM directory for configuration and forcing files" << std::endl;
+              << "   ! SCHISM directory for configuration and forcing files" << std::endl;
       initfile << "SCHISM_NSCRIBES    = " << nscribs 
-	      <<  "     ! Number of processors to dedicate to I/O methods. "
-	      "In serial mode, this must be 0 and SCHISM \"OLD IO\" option must be selected "
-	      "for compiling. If SCHISM BMI is executed in parallel, then this number can "
-	      "be greater than zero to dedicated and speed up I/O methods. If implemented, "
-	      "then SCHISM \"OLD IO\" option must be turned off." << std::endl;
+              <<  "     ! Number of processors to dedicate to I/O methods. "
+              "In serial mode, this must be 0 and SCHISM \"OLD IO\" option must be selected "
+              "for compiling. If SCHISM BMI is executed in parallel, then this number can "
+              "be greater than zero to dedicated and speed up I/O methods. If implemented, "
+              "then SCHISM \"OLD IO\" option must be turned off." << std::endl;
       initfile << '/' << std::endl;
       initfile.close();
 }
