@@ -81,7 +81,7 @@ namespace realization {
                         << " failed for catchment \"" << this->get_catchment_id() << "\""
                            " at t_index = " << t_index << ","
                            " next_step_index = " << next_time_step_index << ".\n";
-                    append_model_inputs_error(model_initial_time, t_delta, error_message);
+                    append_model_inputs_to_stream(model_initial_time, t_delta, error_message);
                     Logger::Log(LogLevel::SEVERE, error_message.str());
                     throw;
                 }
@@ -735,7 +735,7 @@ namespace realization {
         }
 
 
-        void Bmi_Module_Formulation::append_model_inputs_error(const double &model_init_time, time_step_t t_delta, std::stringstream &error_message) {
+        void Bmi_Module_Formulation::append_model_inputs_to_stream(const double &model_init_time, time_step_t t_delta, std::stringstream &inputs) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
             error_message << "Input variables were as follows:";
