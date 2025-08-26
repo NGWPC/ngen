@@ -110,12 +110,13 @@ void write_remote_connections(const PartitionVSet& catchment_part, const Partiti
  * @param num_catchments
  * @param catchment_part 
  */
-void generate_partitions(network::Network& network, const int& num_partitions, const int& num_catchments, PartitionVSet& catchment_part,
-     PartitionVSet& nexus_part)
+void generate_partitions(network::Network& network, const int& num_partitions, PartitionVSet& catchment_part, PartitionVSet& nexus_part)
 {
+    auto catchments = network.filter("cat", network::SortOrder::TransposedDepthFirstPreorder);
+
     int partition = 0;
     int counter = 0;
-    int total = num_catchments;
+    int total = size(catchments);
     int partition_size = total/num_partitions;
     int partition_size_norm = partition_size;
     int remainder;
@@ -134,9 +135,7 @@ void generate_partitions(network::Network& network, const int& num_partitions, c
     nexus_set.reserve(partition_size);
     std::string part_id, partition_str;
 
-    std::string up_nexus;
-    std::string down_nexus;
-    for(const auto& catchment : network.filter("cat", network::SortOrder::TransposedDepthFirstPreorder)){
+    for(const auto& catchment : catchments){
             if (partition < remainder)
                 partition_size = partition_size_plus1;
             else
@@ -150,9 +149,7 @@ void generate_partitions(network::Network& network, const int& num_partitions, c
             }
             if(nexus_set.size() == 0){
                 partgen_ss <<"Error: Catchment "<<catchment<<" has no destination nexus.\n";
-                LOG(partgen_ss.str(), LogLevel::FATAL); partgen_ss.str("");
-
-                exit(1);
+                LOG(partgen_ss.str(), LogLevel::WARNING); partgen_ss.str("");
             }
             for( auto upstream : network.get_origination_ids(catchment) ){
                 nexus_set.emplace(upstream);
@@ -161,18 +158,14 @@ void generate_partitions(network::Network& network, const int& num_partitions, c
 
             //keep track of all the features in this partition
             catchment_set.emplace(catchment);
+            LOG(catchment + " placed in partition " + std::to_string(partition), LogLevel::DEBUG);
+
             counter++;
             if(counter == partition_size)
             {
                 //partgen_ss<<"nexus "<<nexus<<" is remote DOWN on partition "<<partition<<std::endl;
                 //FIXME partitioning shouldn't have to assume dendritic network
                 std::vector<std::string> destinations = network.get_destination_ids(catchment);
-                if(destinations.size() == 0){
-                    partgen_ss <<"Error: Catchment "<<catchment<<" has no destination nexus.\n";
-                    LOG(partgen_ss.str(), LogLevel::FATAL); partgen_ss.str("");
-                    exit(1);
-                }
-                down_nexus = destinations[0];
 
                 part_id = std::to_string(partition);  // Is id used?
                 partition_str = std::to_string(partition);
@@ -183,15 +176,10 @@ void generate_partitions(network::Network& network, const int& num_partitions, c
                 catchment_set.clear();
                 nexus_set.clear();
 
-                partition_str = std::to_string(partition);
-
                 partition++;
                 counter = 0;
                 //partgen_ss<<"\nnexus "<<nexus<<" is remote UP on partition "<<partition<<std::endl;
 
-                //this nexus overlaps partitions
-                //Handled above by ensure all up/down stream nexuses are recorded
-                up_nexus = down_nexus;
                 //partgen_ss<<"\nin partition "<<partition<<":"<<std::endl;
             }
     }
@@ -521,12 +509,22 @@ int main(int argc, char* argv[])
     Network global_network(global_nexus_collection);
 
     //Generate the partitioning
-    generate_partitions(global_network, num_partitions, num_catchments, catchment_part, nexus_part);
+    generate_partitions(global_network, num_partitions, catchment_part, nexus_part);
 
     //global_network.print_network();
 
     //The container holding all remote_connections
     std::vector<RemoteConnectionVec> remote_connections_vec;
+
+    for (int i = 0; i < num_partitions; ++i) {
+        partgen_ss << "Partition " << i << " catchments: " << catchment_part[i].size() << "\n";
+        for (auto& c : catchment_part[i])
+            partgen_ss << c << std::endl;
+        partgen_ss << "nexuses " << nexus_part[i].size() << "\n";
+        for (auto& n : nexus_part[i])
+            partgen_ss << n << std::endl;
+        LOG(partgen_ss.str(), LogLevel::DEBUG); partgen_ss.str("");
+    }
 
     int total_remotes = 0;
     // loop over all partitions by partition id

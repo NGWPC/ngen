@@ -30,6 +30,8 @@ Network::Network( geojson::GeoJSON fabric ){
   std::string feature_id, downstream_id;
   Graph::vertex_descriptor v1, v2;
 
+  const std::string terminal = "wb-TERMINAL_SENTINEL-";
+
   for(auto& feature: *fabric)
   {
     feature_id = feature->get_id();
@@ -59,7 +61,17 @@ Network::Network( geojson::GeoJSON fabric ){
     }
 
     //Add the downstream features/edges
-    for( auto& downstream: feature->destination_features() )
+    auto const& destination_features = feature->destination_features();
+    if (destination_features.empty()) {
+        //std::cerr << "Adding sentinel for " << feature_id << std::endl;
+        auto name = terminal + feature_id;
+        auto v_sentinel = add_vertex(name, this->graph);
+        this->descriptor_map.emplace( name, v_sentinel );
+        this->layer_map.emplace(name, DEFAULT_LAYER_ID);
+        add_edge(v1, v_sentinel, this->graph);
+    }
+
+    for( auto& downstream: destination_features )
     {
       downstream_id = downstream->get_id();
       if( this->descriptor_map.find(downstream_id) != this->descriptor_map.end() )
