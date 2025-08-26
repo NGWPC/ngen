@@ -164,7 +164,7 @@ namespace network {
          * @param features a geojson::GeoJSON collection of features to add as nodes to the graph
          * @param link_key the property to read from features to determine edge linking, i.e. 'toid'
          */
-        Network( geojson::GeoJSON features, std::string* link_key);
+        Network( geojson::GeoJSON features, std::string const* link_key);
 
         /**
          * @brief Destroy the Network object
