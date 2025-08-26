@@ -61,27 +61,27 @@ namespace realization {
                 }
             }
 
-            std::string update_method;
+            int update_method;
             while (next_time_step_index <= t_index) {
                 double model_initial_time = get_bmi_model()->GetCurrentTime();
                 std::string model_inputs = set_model_inputs_prior_to_update(model_initial_time, t_delta);
                 try {
                     if (t_delta_model_units == get_bmi_model()->GetTimeStep()) {
-                        update_method = "Update";
+                        update_method = 0;
                         get_bmi_model()->Update();
                     }
                     else {
-                        update_method = "UpdateUntil";
+                        update_method = 1;
                         get_bmi_model()->UpdateUntil(model_initial_time + t_delta_model_units);
                     }
                 } catch (const std::exception &e) {
                     std::stringstream error_message;
-                    error_message << "Call to " << update_method
+                    error_message << "Call to " << (update_method == 0 ? "Update" : "UpdateUntil")
                         << " of model " << get_bmi_model()->get_model_name()
                         << " failed for catchment \"" << this->get_catchment_id() << "\""
                            " at t_index = " << t_index << ","
-                           " next_step_index = " << next_time_step_index << "."
-                           "\nInput variables were as follows:\n" << model_inputs;
+                           " next_step_index = " << next_time_step_index << ".\n"
+                        << model_inputs;
                     Logger::Log(LogLevel::SEVERE, error_message.str());
                     throw;
                 }
@@ -749,7 +749,7 @@ namespace realization {
             for (int i = 0; i < num_items; ++i) {
                 if (i != 0)
                     inputs << ", ";
-                inputs << *array[i];
+                inputs << array[i];
             }
             inputs << "]";
         }
