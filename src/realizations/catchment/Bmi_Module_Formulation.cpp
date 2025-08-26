@@ -64,7 +64,7 @@ namespace realization {
             int update_method;
             while (next_time_step_index <= t_index) {
                 double model_initial_time = get_bmi_model()->GetCurrentTime();
-                std::string model_inputs = set_model_inputs_prior_to_update(model_initial_time, t_delta);
+                set_model_inputs_prior_to_update(model_initial_time, t_delta);
                 try {
                     if (t_delta_model_units == get_bmi_model()->GetTimeStep()) {
                         update_method = 0;
@@ -80,8 +80,8 @@ namespace realization {
                         << " of model " << get_bmi_model()->get_model_name()
                         << " failed for catchment \"" << this->get_catchment_id() << "\""
                            " at t_index = " << t_index << ","
-                           " next_step_index = " << next_time_step_index << ".\n"
-                        << model_inputs;
+                           " next_step_index = " << next_time_step_index << ".\n";
+                    append_model_inputs_error(model_initial_time, t_delta, error_message);
                     Logger::Log(LogLevel::SEVERE, error_message.str());
                     throw;
                 }
@@ -672,11 +672,9 @@ namespace realization {
                 "': no logic for converting value to variable's type.");
         }
 
-        std::string Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
+        void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
-            std::stringstream model_inputs;
-            model_inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
                 data_access::GenericDataProvider *provider;
@@ -725,21 +723,64 @@ namespace realization {
 
                     }
                     value_ptr = get_values_as_type( type, values.begin(), values.end() );
-                    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
-                    model_inputs << "\n" << var_map_alias << " = ";
-                    this->append_inputs(type, value_ptr, numItems, model_inputs);
 
                 } else {
                     //scalar value
                     double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                    get_bmi_model()->GetVarUnits(var_name)));
                     value_ptr = get_value_as_type(type, value);
-                    model_inputs << "\n" << var_map_alias << " = ";
-                    this->append_input(type, value, model_inputs);
                 }
                 get_bmi_model()->SetValue(var_name, value_ptr.get());
             }
-            return model_inputs.str();
+        }
+
+
+        void Bmi_Module_Formulation::append_model_inputs_error(const double &model_init_time, time_step_t t_delta, std::stringstream &error_message) {
+            std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
+            time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
+            error_message << "Input variables were as follows:";
+
+            for (std::string & var_name : in_var_names) {
+                data_access::GenericDataProvider *provider;
+                std::string var_map_alias = get_config_mapped_variable_name(var_name);
+                if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
+                    provider = input_forcing_providers[var_map_alias].get();
+                }
+                else if (var_map_alias != var_name && input_forcing_providers.find(var_name) != input_forcing_providers.end()) {
+                    provider = input_forcing_providers[var_name].get();
+                }
+                else {
+                    provider = forcing.get();
+                }
+
+                // TODO: probably need to actually allow this by default and warn, but have config option to activate
+                //  this type of behavior
+                // TODO: account for arrays later
+                int nbytes = get_bmi_model()->GetVarNbytes(var_name);
+                int varItemSize = get_bmi_model()->GetVarItemsize(var_name);
+                int numItems = nbytes / varItemSize;
+
+                std::shared_ptr<void> value_ptr;
+                // Finally, use the value obtained to set the model input
+                std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
+                                                                           varItemSize);
+                
+                error_message << "\n" << var_map_alias << " = ";
+                if (numItems != 1) {
+                    //more than a single value needed for var_name
+                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
+                                                   get_bmi_model()->GetVarUnits(var_name)));
+                    value_ptr = get_values_as_type( type, values.begin(), values.end() );
+                    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
+                    this->append_inputs(type, value_ptr, numItems, error_message);
+
+                } else {
+                    //scalar value
+                    double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
+                                                   get_bmi_model()->GetVarUnits(var_name)));
+                    this->append_input(type, value, error_message);
+                }
+            }
         }
 
         template<typename T>
