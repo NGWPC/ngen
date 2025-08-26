@@ -7,11 +7,10 @@
 #include <netcdf>
 #include <UnitsHelper.hpp>
 #include "forcing/TidalMeshPolicy.h"
-#include "forcing/NetCDFMeshPointsDataProvider.hpp"
 
 void data_access::TidalMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
-		             time_point_type const& start_time,
-		             std::vector< time_point_type >& times,
+                             time_point_type const& start_time,
+                             std::vector< time_point_type >& times,
                              std::chrono::seconds& stride )
 {
     auto num_times = nc_file.getDim("time").getSize();
@@ -25,8 +24,8 @@ void data_access::TidalMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
     std::string time_unit_str;
 
     std::regex time_unit_pattern( "^seconds since "
-		    "(19|20)\\d{2}\\-(0[1-9]|1[1,2])\\-(0[1-9]|[12][0-9]|3[01]) "
-		    "([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)        \\! NCDASE - BASE_DAT$");
+                    "(19|20)\\d{2}\\-(0[1-9]|1[1,2])\\-(0[1-9]|[12][0-9]|3[01]) "
+                    "([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)        \\! NCDASE - BASE_DAT$");
 
     time_unit_att.getValues(time_unit_str);
 
@@ -35,9 +34,9 @@ void data_access::TidalMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
     }
 
     time_point_type basetime = stringToTimePoint(time_unit_str, 
-		    std::string( "seconds since "
-			    "%Y-%m-%d %H:%M:%S        "
-			    "! NCDASE - BASE_DAT"  ));
+                    std::string( "seconds since "
+                            "%Y-%m-%d %H:%M:%S        "
+                            "! NCDASE - BASE_DAT"  ));
 
     auto start_time_att = time_var.getAtt("start_time");
     double start_time_att_val;
@@ -52,9 +51,9 @@ void data_access::TidalMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
         // Assume that the system clock's epoch matches Unix time.
         // This is guaranteed from C++20 onwards
         times.push_back( time_point_type( basetime +
-		std::chrono::duration_cast<time_point_type::duration>( 
-			std::chrono::duration<double>( start_time_att_val ) )
-	 	+ std::chrono::duration_cast<time_point_type::duration>(raw_time[i])));
+                std::chrono::duration_cast<time_point_type::duration>( 
+                        std::chrono::duration<double>( start_time_att_val ) )
+                 + std::chrono::duration_cast<time_point_type::duration>(raw_time[i])));
     }
 
     stride = std::chrono::duration_cast<std::chrono::seconds>(times[1] - times[0]);
@@ -77,13 +76,13 @@ std::vector< std::string > data_access::TidalMeshPolicy::getVarNames( netCDF::Nc
     std::vector< std::string > varnames;
     std::multimap< std::string, netCDF::NcVar > vars = nc_file.getVars();
     std::transform(vars.begin(), vars.end(), 
-		    std::back_inserter(varnames),
+                    std::back_inserter(varnames),
           [](const std::pair< std::string, netCDF::NcVar >& pair) { 
-	         if ( pair.first == "time_series" )
-		 {
-		     return std::string( "ETA2_bnd" );
-		 }
-	         return pair.first; });
+                 if ( pair.first == "time_series" )
+                 {
+                     return std::string( "ETA2_bnd" );
+                 }
+                 return pair.first; });
 #ifdef DEBUG_NETCDFMESH
     std::cerr << "var names: " << std::endl;
     std::copy( varnames.begin(), varnames.end(),
@@ -93,14 +92,14 @@ std::vector< std::string > data_access::TidalMeshPolicy::getVarNames( netCDF::Nc
 }
 
 void data_access::TidalMeshPolicy::get_values( netCDF::NcFile const& nc_file,
-		                              MeshPointsSelector const& selector,
-					      boost::span<double> data,
-	                                      size_t const& time_index,
-					      netCDF::NcVar const& ncvar,
-	                                      std::string const& source_units,
-					      double const& scale_factor,
-					      double const& offset
-	                                      	)
+                                              MeshPointsSelector const& selector,
+                                              boost::span<double> data,
+                                              size_t const& time_index,
+                                              netCDF::NcVar const& ncvar,
+                                              std::string const& source_units,
+                                              double const& scale_factor,
+                                              double const& offset
+                                                      )
 {
     //check dimesnions for nLevels and nComponents
     size_t nLevels = ncvar.getDim( 2 ).getSize();
@@ -122,14 +121,14 @@ void data_access::TidalMeshPolicy::get_values( netCDF::NcFile const& nc_file,
 }
 
 double data_access::TidalMeshPolicy::get_value( netCDF::NcFile const& nc_file,
-		              MeshPointsSelector const& selector, data_access::ReSampleMethod m,
-			      size_t const& pt_index,
-	                      size_t const& time_index,
-			netCDF::NcVar const& ncvar,
-	                std::string const& source_units,
-			double const& scale_factor,
-			double const& offset
-	       	)
+                              MeshPointsSelector const& selector, data_access::ReSampleMethod m,
+                              size_t const& pt_index,
+                              size_t const& time_index,
+                        netCDF::NcVar const& ncvar,
+                        std::string const& source_units,
+                        double const& scale_factor,
+                        double const& offset
+                       )
 {
     size_t n_elem = nc_file.getDim( "nOpenBndNodes" ).getSize();
 
@@ -168,9 +167,9 @@ double data_access::TidalMeshPolicy::get_value( netCDF::NcFile const& nc_file,
                 ncvar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<float>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
-	    } else if (vartype == NC_DOUBLE) {
+            } else if (vartype == NC_DOUBLE) {
                 double fv; 
-		ncvar.getAtt("_FillValue").getValues(&fv);
+                ncvar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<double>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data).");
             } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
@@ -179,7 +178,7 @@ double data_access::TidalMeshPolicy::get_value( netCDF::NcFile const& nc_file,
                 if (static_cast<int>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
             }
-	} else {
+        } else {
             // No _FillValue attribute — use NetCDF library defaults
             if (vartype == NC_DOUBLE && raw_value == static_cast<double>(NC_FILL_DOUBLE))
                 throw std::runtime_error("Encountered default NC_FILL_DOUBLE missing data.");
@@ -200,14 +199,14 @@ std::string data_access::TidalMeshPolicy::convertVarName( std::string const& var
 {
       if ( var_name_in == std::string( "ETA2_bnd" ) )
       {
-	 return std::string( "time_series" );
+         return std::string( "time_series" );
       }
       return std::string();
 }
 
 typename data_access::TidalMeshPolicy::time_point_type 
                               data_access::TidalMeshPolicy::stringToTimePoint(
-		std::string const& datetime_str, std::string const& format_str) {
+                std::string const& datetime_str, std::string const& format_str) {
     std::tm t = {};
     std::istringstream ss(datetime_str);
     ss >> std::get_time(&t, format_str.c_str());
