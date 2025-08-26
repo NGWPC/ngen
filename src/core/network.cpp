@@ -89,10 +89,10 @@ Network::Network( geojson::GeoJSON fabric ){
       //std::cout<<"Added edge: "<<feature_id<<" -> "<<downstream_id<<std::endl;
     }
   }
-  init_indicies();
+  init_indices();
 }
 
-void Network::init_indicies(){
+void Network::init_indices(){
 
   Graph::vertex_iterator begin, end;
   boost::tie(begin, end) = boost::vertices(this->graph);
@@ -147,7 +147,7 @@ Network::Network( geojson::GeoJSON features, std::string const* link_key ){
       }
   }
 
-  init_indicies();
+  init_indices();
 
 }
 

@@ -132,7 +132,7 @@ namespace network {
   /**
    * @brief A type for holding a pair of network::NetworkIndexT iterators,  pair.first=begin,  pair.second=end
    * 
-   * these indicies should be const to the caller
+   * these indices should be const to the caller
    * 
    */
   using IndexPair = std::pair< NetworkIndexT::const_iterator, NetworkIndexT::const_iterator>;
@@ -330,7 +330,7 @@ namespace network {
          * @brief Initializes the head/tailwater iterators after the underlying graph is constructed.
          * 
          */
-        void init_indicies();
+        void init_indices();
 
         /**
          * @brief Vector of topologically sorted features
