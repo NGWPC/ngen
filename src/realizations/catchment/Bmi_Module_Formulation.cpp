@@ -726,7 +726,7 @@ namespace realization {
                     }
                     value_ptr = get_values_as_type( type, values.begin(), values.end() );
                     // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
-                    model_inputs << "\n" << var_name << " = ";
+                    model_inputs << "\n" << var_map_alias << " = ";
                     this->append_inputs(type, value_ptr, numItems, model_inputs);
 
                 } else {
@@ -734,7 +734,7 @@ namespace realization {
                     double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                    get_bmi_model()->GetVarUnits(var_name)));
                     value_ptr = get_value_as_type(type, value);
-                    model_inputs << "\n" << var_name << " = ";
+                    model_inputs << "\n" << var_map_alias << " = ";
                     this->append_input(type, value, model_inputs);
                 }
                 get_bmi_model()->SetValue(var_name, value_ptr.get());
