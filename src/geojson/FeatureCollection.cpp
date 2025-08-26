@@ -129,7 +129,7 @@ void FeatureCollection::set(const std::string& key, JSONProperty& property) {
     foreign_members.emplace(key, property);
 }
 
-int FeatureCollection::link_features_from_property(std::string* from_property, std::string* to_property) {
+int FeatureCollection::link_features_from_property(std::string const* from_property, std::string const* to_property) {
     int links_found = 0;
 
     for (Feature feature : features) {
@@ -155,7 +155,7 @@ int FeatureCollection::link_features_from_property(std::string* from_property, s
     return links_found;
 }
 
-int FeatureCollection::link_features_from_attribute(std::string* from_attribute, std::string* to_attribute) {
+int FeatureCollection::link_features_from_attribute(std::string const* from_attribute, std::string const* to_attribute) {
     int links_found = 0;
 
     for (Feature feature : features) {
@@ -198,7 +198,7 @@ int FeatureCollection::link_features_from_attribute(std::string* from_attribute,
     return links_found;
 }
 
-void FeatureCollection::add_feature(Feature feature, std::string *id) {
+void FeatureCollection::add_feature(Feature feature, std::string const* id) {
     features.push_back(feature);
 
     if (id != nullptr) {

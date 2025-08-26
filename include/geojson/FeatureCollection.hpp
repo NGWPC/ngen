@@ -166,7 +166,7 @@ namespace geojson {
 
             void set(const std::string& key, JSONProperty& property);
 
-            void add_feature(Feature feature, std::string *id = nullptr);
+            void add_feature(Feature feature, std::string const*id = nullptr);
 
             /**
              * Add a reference to a feature by id
@@ -189,9 +189,9 @@ namespace geojson {
             */
             void update_ids(const std::string& alt_id = {});
 
-            int link_features_from_property(std::string* from_property = nullptr, std::string* to_property = nullptr);
+            int link_features_from_property(std::string const* from_property = nullptr, std::string const* to_property = nullptr);
 
-            int link_features_from_attribute(std::string* from_attribute = nullptr, std::string* to_attribute = nullptr);
+            int link_features_from_attribute(std::string const* from_attribute = nullptr, std::string const* to_attribute = nullptr);
 
             /* Untested, excluded for now in favor of filter constructor above.
             template<typename C>
