@@ -45,14 +45,18 @@ std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
     };
 
 
-void SchismFormulation::check_forcing_provider( ProviderType const& provider )
+void SchismFormulation::check_forcing_provider( ProviderType const& provider, 
+		SchismFormulation::ForcingSelector selector )
 {
           auto available_variables = provider.get_available_variable_names();
           for (auto const& expected : SchismFormulation::expected_input_variables_) {
               SchismFormulation::InputMapping const& mapping = expected.second;
-              if (mapping.selector == SchismFormulation::METEO) {
+              if (mapping.selector == selector ) {
                 auto pos = std::find(available_variables.begin(), available_variables.end(), 
 				  mapping.name);
+#ifdef DEBUG_NETCDFMESH
+		std::cerr << "checking variable: " << mapping.name << std::endl;
+#endif 
 		assert( pos != available_variables.end() );
               }
 	  }
@@ -250,13 +254,11 @@ size_t SchismFormulation::mesh_size(std::string const& variable_name)
 void SchismFormulation::update_until( double const& time )
 {
        double current = this->get_current_time();
-       std::cerr << "current = " << current << std::endl;
        while ( current <= time )
        {
            set_inputs();
            bmi_->Update();
            current = this->get_current_time();
-           std::cerr << "current = " << current << ", time = " << time << std::endl;
            current_time_ += time_step_length_;
        }
 }
