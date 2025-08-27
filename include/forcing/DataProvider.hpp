@@ -19,7 +19,7 @@ namespace data_access
             SUM,
             FRONT_FILL,
             BACK_FILL,
-	    UNKNOWN
+            UNKNOWN
     };
 
     template <class DataType, class SelectionType> class DataProvider

@@ -265,18 +265,18 @@ void SchismFormulation::update_until( double const& time )
 
 double SchismFormulation::get_current_time()
 {
-	return bmi_->GetCurrentTime();
+    return bmi_->GetCurrentTime();
 }
 double SchismFormulation::get_start_time()
 {
-	return bmi_->GetStartTime();
+    return bmi_->GetStartTime();
 }
 double SchismFormulation::get_end_time()
 {
-        return bmi_->GetEndTime();
+    return bmi_->GetEndTime();
 }
 double SchismFormulation::get_time_step()
 {
-        return bmi_->GetTimeStep();
+    return bmi_->GetTimeStep();
 }
 #endif // NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI

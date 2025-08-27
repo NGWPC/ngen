@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <cassert>
 #include "realizations/coastal/SchismCreator.h"
 #include "realizations/coastal/SchismFormulation.hpp"
 #include "forcing/NetCDFMeshPointsDataProvider.hpp"
@@ -73,7 +74,7 @@ std::unique_ptr<CoastalFormulation>
 
 SchismCreator* SchismCreator::clone() const
 {
-      return new SchismCreator();
+    return new SchismCreator();
 }
 
 void SchismCreator::writeInitConfig( coastal_config_params const& config,
