@@ -186,20 +186,19 @@ namespace realization {
 
                 /**
                  * Read coastal configurations from configuration file
-                 */      
+                 */
                 auto possible_coastal_configs = tree.get_child_optional("coastal");
-                
+
                 if (possible_coastal_configs) {
                     this->coastal_config = (config::Coastal( tree )).params;
                     using_coastal = true;
-		    if ( ! this->coastal_config->isValid() )
-		    {
-                       using_coastal = false;
-		       this->coastal_config = nullptr;
-                       std::cerr<<"WARNING: Formulation Manager found coastal configuration"
-                             <<", but coastal configuration is not valid. No coastal modeling will occur."<<std::endl;
-		    }
-                 }
+                    if ( ! this->coastal_config->isValid() ) {
+                        using_coastal = false;
+                        this->coastal_config = nullptr;
+                        std::cerr<< "WARNING: Formulation Manager found coastal configuration"
+                                 << ", but coastal configuration is not valid. No coastal modeling will occur." <<std::endl;
+                    }
+                }
             }
 
             void add_formulation(std::shared_ptr<Catchment_Formulation> formulation) {
@@ -272,7 +271,7 @@ namespace realization {
             /**
              * @return coastal config parameters
              */
-	    std::shared_ptr<coastal_config_params> get_coastal_config() {
+            std::shared_ptr<coastal_config_params> get_coastal_config() {
                  return this->coastal_config;
             }
 

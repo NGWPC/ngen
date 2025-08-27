@@ -10,7 +10,6 @@
 #include <sstream>
 #include <iostream>
 #include <iterator>
-
 #include "forcing/MetMeshPolicy.h"
 #include "forcing/FlowMeshPolicy.h"
 #include "forcing/TidalMeshPolicy.h"
@@ -42,7 +41,6 @@ NetCDFMeshPointsDataProvider<MeshPolicy>::NetCDFMeshPointsDataProvider(std::stri
     MeshPolicy::getTimes( *nc_file, sim_start, this->time_vals, this->time_stride );
 
     this->variable_names = MeshPolicy::getVarNames( *nc_file );
-
 }
 
 template <typename MeshPolicy>
@@ -179,7 +177,6 @@ typename NetCDFMeshPointsDataProvider<MeshPolicy>::data_type NetCDFMeshPointsDat
 
     // Map the init_time to time_index
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
-
     double value = MeshPolicy::get_value( *(this->nc_file), selector, m,
 		                              pt_index,
 	                                      time_index,
@@ -199,7 +196,6 @@ void NetCDFMeshPointsDataProvider<MeshPolicy>::cache_variable(std::string const&
     if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
 
     auto ncvar = nc_file->getVar(var_name);
-
     std::string native_units = "N/A";
     try {
        auto units_att = ncvar.getAtt("units");
