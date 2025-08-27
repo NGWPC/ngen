@@ -3,8 +3,11 @@
 #if NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI
 
 #include <iostream>
-#include <realizations/coastal/SchismFormulation.hpp>
+#include <algorithm>
+#include <map>
+#include <string>
 #include <utilities/parallel_utils.h>
+#include <realizations/coastal/SchismFormulation.hpp>
 
 const static auto s_schism_registration_function = "register_bmi";
 
@@ -40,6 +43,24 @@ std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
         "VY",
         "BEDLEVEL"
     };
+
+
+void SchismFormulation::check_forcing_provider( ProviderType const& provider, 
+		SchismFormulation::ForcingSelector selector )
+{
+          auto available_variables = provider.get_available_variable_names();
+          for (auto const& expected : SchismFormulation::expected_input_variables_) {
+              SchismFormulation::InputMapping const& mapping = expected.second;
+              if (mapping.selector == selector ) {
+                auto pos = std::find(available_variables.begin(), available_variables.end(), 
+				  mapping.name);
+#ifdef DEBUG_NETCDFMESH
+		std::cerr << "checking variable: " << mapping.name << std::endl;
+#endif 
+		assert( pos != available_variables.end() );
+              }
+	  }
+}
 
 SchismFormulation::SchismFormulation(
                                      std::string const& id
@@ -101,7 +122,7 @@ void SchismFormulation::initialize()
         input_variable_type_[name] = bmi_->GetVarType(name);
         input_variable_count_[name] = mesh_size(name);
 #ifdef DEBUG_NETCDFMESH
-	std::cerr << "input_variable_count_[" << name << "]="
+	std::cerr << "input_variable_count_[" << name << "]=" 
 		<< input_variable_count_[name] << std::endl;
 #endif //#ifdef DEBUG_NETCDFMESH
     }
@@ -232,15 +253,14 @@ size_t SchismFormulation::mesh_size(std::string const& variable_name)
 
 void SchismFormulation::update_until( double const& time )
 {
-    double current = this->get_current_time();
-    std::cerr << "current = " << current << std::endl;
-    while ( current <= time ) {
-        set_inputs();
-        bmi_->Update();
-        current = this->get_current_time();
-        std::cerr << "current = " << current << ", time = " << time << std::endl;
-        current_time_ += time_step_length_;
-    }
+       double current = this->get_current_time();
+       while ( current <= time )
+       {
+           set_inputs();
+           bmi_->Update();
+           current = this->get_current_time();
+           current_time_ += time_step_length_;
+       }
 }
 
 double SchismFormulation::get_current_time()

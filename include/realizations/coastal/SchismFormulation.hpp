@@ -54,6 +54,10 @@ public:
     struct InputMapping { ForcingSelector selector; std::string name; };
     static std::map<std::string, InputMapping> expected_input_variables_;
 
+    static void check_forcing_provider( ProviderType const& provider, 
+		                    SchismFormulation::ForcingSelector selector );
+
+
 protected:
     size_t mesh_size(std::string const& variable_name) override;
 
