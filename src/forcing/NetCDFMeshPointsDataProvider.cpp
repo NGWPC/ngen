@@ -13,6 +13,7 @@
 
 #include "forcing/MetMeshPolicy.h"
 #include "forcing/FlowMeshPolicy.h"
+#include "forcing/TidalMeshPolicy.h"
 
 namespace data_access {
 
@@ -32,6 +33,10 @@ NetCDFMeshPointsDataProvider<MeshPolicy>::NetCDFMeshPointsDataProvider(std::stri
     : sim_start_date_time_epoch(sim_start)
     , sim_end_date_time_epoch(sim_end)
 {
+#ifdef DEBUG_NETCDFMESH
+	std::cerr << "ncfile = " << input_path << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
+
     nc_file = std::make_shared<netCDF::NcFile>(input_path, netCDF::NcFile::read);
 
     MeshPolicy::getTimes( *nc_file, sim_start, this->time_vals, this->time_stride );
@@ -110,6 +115,14 @@ size_t NetCDFMeshPointsDataProvider<MeshPolicy>::get_ts_index_for_time(const tim
     {
         auto offset = epoch_time - start_time;
         auto index = offset / time_stride;
+#ifdef DEBUG_NETCDFMESH
+    std::cerr << "NetCDFMeshPointsDataProvider::get_ts_index_for_time: offset = "
+	    << offset.count() << std::endl;
+    std::cerr << "NetCDFMeshPointsDataProvider::get_ts_index_for_time: time_stride = "
+	    << time_stride.count() << std::endl;
+    std::cerr << "NetCDFMeshPointsDataProvider::get_ts_index_for_time: index = "
+	    << index << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
         return index;
     }
     else
@@ -221,6 +234,7 @@ void NetCDFMeshPointsDataProvider<MeshPolicy>::cache_variable(std::string const&
 //Explicitly instantiate the needed types.
 template class NetCDFMeshPointsDataProvider< MetMeshPolicy >; 
 template class NetCDFMeshPointsDataProvider< FlowMeshPolicy >; 
+template class NetCDFMeshPointsDataProvider< TidalMeshPolicy >; 
 
 }
 

@@ -8,11 +8,11 @@ class SchismCreator : public ModelCreator {
 public:
     std::unique_ptr<CoastalFormulation>
                     createCoastalFormulation( coastal_config_params const&,
-				              Simulation_Time const&  ) const override;
+                                              Simulation_Time const&  ) const override;
     SchismCreator* clone() const override;
 private:
     void writeInitConfig(coastal_config_params const&,
-		         Simulation_Time const& ) const;
+                         Simulation_Time const& ) const;
 };
 
 #endif // #ifndef SCHISM_CREATOR_HEADER
