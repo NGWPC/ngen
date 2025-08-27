@@ -76,13 +76,12 @@ namespace realization {
                     }
                 } catch (const std::exception &e) {
                     std::stringstream error_message;
-                    error_message << "Call to " << (update_method == 0 ? "Update" : "UpdateUntil")
-                        << " of model " << get_bmi_model()->get_model_name()
-                        << " failed for catchment \"" << this->get_catchment_id() << "\""
-                           " at t_index = " << t_index << ","
-                           " next_step_index = " << next_time_step_index << ".\n";
+                    error_message << "Model " << (update_method == 0 ? "Update" : "UpdateUntil")
+                        << " failed on catchment " << this->get_catchment_id()
+                        << ". t_index=" << t_index
+                        << ", next_step_index=" << next_time_step_index << "\n";
                     append_model_inputs_to_stream(model_initial_time, t_delta, error_message);
-                    Logger::Log(LogLevel::SEVERE, error_message.str());
+                    Logger::Log(LogLevel::FATAL, error_message.str());
                     throw;
                 }
                 // TODO: again, consider whether we should store any historic response, ts_delta, or other var values
