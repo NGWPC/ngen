@@ -1,27 +1,39 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <netcdf>
 #include <UnitsHelper.hpp>
 #include "forcing/FlowMeshPolicy.h"
-#include "forcing/NetCDFMeshPointsDataProvider.hpp"
 
 void data_access::FlowMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
-		             time_point_type const& start_time,
-		             std::vector< time_point_type >& times,
+                             time_point_type const& start_time,
+                             std::vector< time_point_type >& times,
                              std::chrono::seconds& stride )
 {
+#ifdef DEBUG_NETCDFMESH
+    std::cerr << "FlowMeshPolicy::getTimes: " << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
     auto source_num_times = nc_file.getDim("time_vsource").getSize();
+#ifdef DEBUG_NETCDFMESH
+    std::cerr << "FlowMeshPolicy::getTimes: get time_vsink" << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
     auto sink_num_times = nc_file.getDim("time_vsink").getSize();
     if ( source_num_times != sink_num_times ) {
         throw std::runtime_error("'time_vsource' and 'time_vsink' have different dimensions!");
     }
 
+#ifdef DEBUG_NETCDFMESH
+    std::cerr << "FlowMeshPolicy::getTimes: get time_vsource" << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
     auto source_time_var = nc_file.getVar("time_vsource");
 
     if (source_time_var.getDimCount() != 1) {
         throw std::runtime_error("'time_vsource' variable has dimension other than 1");
     }
 
+#ifdef DEBUG_NETCDFMESH
+    std::cerr << "FlowMeshPolicy::getTimes: get var vsink" << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
     auto sink_time_var = nc_file.getVar("time_vsink");
 
     if (sink_time_var.getDimCount() != 1) {
@@ -37,7 +49,7 @@ void data_access::FlowMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
         // Assume that the system clock's epoch matches Unix time.
         // This is guaranteed from C++20 onwards
         times.push_back(time_point_type(
-		start_time + std::chrono::duration_cast<time_point_type::duration>(raw_time[i])));
+                start_time + std::chrono::duration_cast<time_point_type::duration>(raw_time[i])));
     }
 
     stride = std::chrono::duration_cast<std::chrono::seconds>(times[1] - times[0]);
@@ -53,6 +65,9 @@ void data_access::FlowMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
             throw std::runtime_error("Time intervals in forcing file are not constant");
         }
     }
+#ifdef DEBUG_NETCDFMESH
+    std::cerr << "leaving FlowMeshPolicy::getTimes: " << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
 }
 
 std::vector< std::string > data_access::FlowMeshPolicy::getVarNames( netCDF::NcFile const& nc_file )
@@ -60,17 +75,17 @@ std::vector< std::string > data_access::FlowMeshPolicy::getVarNames( netCDF::NcF
     std::vector< std::string > varnames;
     std::multimap< std::string, netCDF::NcVar > vars = nc_file.getVars();
     std::transform(vars.begin(), vars.end(), 
-		    std::back_inserter(varnames),
+                    std::back_inserter(varnames),
           [](const std::pair< std::string, netCDF::NcVar >& pair) { 
-	         if ( pair.first == "vsource" )
-		 {
-		     return std::string( "Q_bnd_source" );
-		 }
-	         if ( pair.first == "vsink" )
-		 {
-		     return std::string( "Q_bnd_sink" );
-		 }
-	         return pair.first; });
+                 if ( pair.first == "vsource" )
+                 {
+                     return std::string( "Q_bnd_source" );
+                 }
+                 if ( pair.first == "vsink" )
+                 {
+                     return std::string( "Q_bnd_sink" );
+                 }
+                 return pair.first; });
 #ifdef DEBUG_NETCDFMESH
     std::cerr << "var names: " << std::endl;
     std::copy( varnames.begin(), varnames.end(),
@@ -80,14 +95,14 @@ std::vector< std::string > data_access::FlowMeshPolicy::getVarNames( netCDF::NcF
 }
 
 void data_access::FlowMeshPolicy::get_values( netCDF::NcFile const& nc_file,
-		                              MeshPointsSelector const& selector,
-					      boost::span<double> data,
-	                                      size_t const& time_index,
-					      netCDF::NcVar const& ncvar,
-	                                      std::string const& source_units,
-					      double const& scale_factor,
-					      double const& offset
-	                                      	)
+                                              MeshPointsSelector const& selector,
+                                              boost::span<double> data,
+                                              size_t const& time_index,
+                                              netCDF::NcVar const& ncvar,
+                                              std::string const& source_units,
+                                              double const& scale_factor,
+                                              double const& offset
+                                                      )
 {
 #ifdef DEBUG_NETCDFMESH
     std::cerr << "time_index = " << time_index << std::endl;
@@ -108,14 +123,14 @@ void data_access::FlowMeshPolicy::get_values( netCDF::NcFile const& nc_file,
 }
 
 double data_access::FlowMeshPolicy::get_value( netCDF::NcFile const& nc_file,
-		              MeshPointsSelector const& selector, data_access::ReSampleMethod m,
-			      size_t const& pt_index,
-	                      size_t const& time_index,
-			netCDF::NcVar const& ncvar,
-	                std::string const& source_units,
-			double const& scale_factor,
-			double const& offset
-	       	)
+                              MeshPointsSelector const& selector, data_access::ReSampleMethod m,
+                              size_t const& pt_index,
+                              size_t const& time_index,
+                        netCDF::NcVar const& ncvar,
+                        std::string const& source_units,
+                        double const& scale_factor,
+                        double const& offset
+                       )
 {
     size_t n_elem = nc_file.getDim( "nsources" ).getSize();
 
@@ -159,9 +174,9 @@ double data_access::FlowMeshPolicy::get_value( netCDF::NcFile const& nc_file,
                 ncvar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<float>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
-	    } else if (vartype == NC_DOUBLE) {
+            } else if (vartype == NC_DOUBLE) {
                 double fv; 
-		ncvar.getAtt("_FillValue").getValues(&fv);
+                ncvar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<double>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data).");
             } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
@@ -170,7 +185,7 @@ double data_access::FlowMeshPolicy::get_value( netCDF::NcFile const& nc_file,
                 if (static_cast<int>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
             }
-	} else {
+        } else {
             // No _FillValue attribute — use NetCDF library defaults
             if (vartype == NC_DOUBLE && raw_value == static_cast<double>(NC_FILL_DOUBLE))
                 throw std::runtime_error("Encountered default NC_FILL_DOUBLE missing data.");
@@ -191,11 +206,11 @@ std::string data_access::FlowMeshPolicy::convertVarName( std::string const& var_
 {
       if ( var_name_in == std::string( "Q_bnd_source" ) )
       {
-	 return std::string( "vsource" );
+         return std::string( "vsource" );
       }
       if ( var_name_in == std::string( "Q_bnd_sink" ) )
       {
-	 return std::string( "vsink" );
+         return std::string( "vsink" );
       }
       return std::string();
 }

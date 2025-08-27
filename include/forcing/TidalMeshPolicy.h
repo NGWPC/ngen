@@ -1,5 +1,5 @@
-#ifndef METMESHPOLICY_H
-#define METMESHPOLICY_H
+#ifndef TIDALMESHPOLICY_H
+#define TIDALMESHPOLICY_H
 
 #include <string>
 #include <chrono>
@@ -12,8 +12,8 @@ namespace netCDF {
 }
 
 namespace data_access {
-    class MetMeshPolicy
-    {//MetMeshPolicy
+    class TidalMeshPolicy
+    {//TidalMeshPolicy
         using time_point_type = std::chrono::time_point<std::chrono::system_clock>;
         public:
                 static void getTimes( netCDF::NcFile const& nc_file,
@@ -34,16 +34,19 @@ namespace data_access {
 
             static  double get_value( netCDF::NcFile const& nc_file,
                                        MeshPointsSelector const& selector, 
-                                        data_access::ReSampleMethod m,
-                              size_t const& pt_index,
-                              size_t const& time_index,
-                        netCDF::NcVar const& ncvar,
-                        std::string const& source_units,
-                        double const& scale_factor,
-                        double const& offset );
+                                       data_access::ReSampleMethod m,
+                                       size_t const& pt_index,
+                                       size_t const& time_index,
+                                       netCDF::NcVar const& ncvar,
+                                       std::string const& source_units,
+                                       double const& scale_factor,
+                                       double const& offset );
 
          static std::string convertVarName( std::string const& var_name_in );
 
-    };//MetMeshPolicy
+        private:
+         static time_point_type stringToTimePoint(std::string const& datetime_str, 
+                                                 std::string const& format_str);
+    };//TidalMeshPolicy
 }
-#endif //#ifndef METMESHPOLICY_H
+#endif //#ifndef TIDALMESHPOLICY_H

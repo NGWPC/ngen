@@ -15,8 +15,6 @@ class SchismFormulation final : public CoastalFormulation
 public:
     using ProviderType = data_access::MeshPointsDataProvider;
 
-    static void check_forcing_provider( ProviderType const& provider );
-
     SchismFormulation(
                       std::string const& id
                       , std::string const& library_path
@@ -55,6 +53,10 @@ public:
     enum ForcingSelector { METEO, OFFSHORE, CHANNEL_FLOW };
     struct InputMapping { ForcingSelector selector; std::string name; };
     static std::map<std::string, InputMapping> expected_input_variables_;
+
+    static void check_forcing_provider( ProviderType const& provider, 
+		                    SchismFormulation::ForcingSelector selector );
+
 
 protected:
     size_t mesh_size(std::string const& variable_name) override;
