@@ -6,18 +6,17 @@
 #include <algorithm>
 #include <map>
 #include <string>
+#include <stdexcept>
 #include <utilities/parallel_utils.h>
 #include <realizations/coastal/SfincsFormulation.hpp>
 
 static const char* s_sfincs_registration_function = "register_bmi";
 
-// NOTE: Current BMI advertises *no* inputs.
-// The moment you add, e.g., "rain_rate" to BMI input list:
-//   expected_input_variables_["rain_rate"] = { METEO, "RAINRATE" };
-//   (provider_name = variable name in forcing NetCDF)
+// BMI input mapping: BMI variable name -> { provider selector, name in provider }
+// Your Fortran BMI exposes "rain_rate" (m s-1) on the z-grid.
 std::map<std::string, SfincsFormulation::InputMapping>
 SfincsFormulation::expected_input_variables_ = {
-    // {"rain_rate", { SfincsFormulation::METEO, "RAINRATE" }},
+    {"rain_rate", { SfincsFormulation::METEO, "RAINRATE" }},
 };
 
 std::vector<std::string> SfincsFormulation::exported_output_variable_names_ = {
@@ -65,7 +64,7 @@ SfincsFormulation::~SfincsFormulation() = default;
 
 void SfincsFormulation::initialize()
 {
-    // Inputs (if BMI exposes any)
+    // ~~~~~ Inputs (BMI-advertised) ~~~~~
     auto const& input_vars = bmi_->GetInputVarNames();
     for (auto const& name : input_vars) {
         input_variable_units_[name]  = bmi_->GetVarUnits(name);
@@ -73,7 +72,14 @@ void SfincsFormulation::initialize()
         input_variable_count_[name]  = mesh_size(name);
     }
 
-    // Sanity if you *expect* inputs (currently empty – OK)
+    // If we have providers and we expect inputs, sanity-check both sides
+    if (meteorological_forcings_provider_)
+        check_forcing_provider(*meteorological_forcings_provider_);
+    if (offshore_boundary_provider_)
+        check_forcing_provider(*offshore_boundary_provider_);
+    if (channel_flow_boundary_provider_)
+        check_forcing_provider(*channel_flow_boundary_provider_);
+
     for (auto const& kv : expected_input_variables_) {
         auto const& name = kv.first;
         if (input_variable_units_.find(name) == input_variable_units_.end()) {
@@ -81,7 +87,7 @@ void SfincsFormulation::initialize()
         }
     }
 
-    // Outputs
+    // ~~~~~ Outputs ~~~~~
     auto const& output_vars = bmi_->GetOutputVarNames();
     for (auto const& name : output_vars) {
         output_variable_units_[name] = bmi_->GetVarUnits(name);
@@ -94,13 +100,20 @@ void SfincsFormulation::initialize()
         }
     }
 
-    time_step_length_ = std::chrono::seconds((long long)bmi_->GetTimeStep());
-    // Initialize current_time_ to model start
+    // Time bookkeeping
+    auto ts = bmi_->GetTimeStep();
+    if (ts <= 0.0) {
+        throw std::runtime_error("SFINCS BMI returned non-positive time step");
+    }
+    time_step_length_ = std::chrono::seconds(static_cast<long long>(ts));
+
+    // Anchor current_time_ to the model's start time (model seconds tick)
     current_time_ = std::chrono::system_clock::time_point{
-        std::chrono::seconds((long long)bmi_->GetStartTime())
+        std::chrono::seconds(static_cast<long long>(bmi_->GetStartTime()))
     };
 
-    set_inputs(); // will no-op if none expected/advertised
+    // Initial input push (no-op if no providers or mapping)
+    set_inputs();
 }
 
 void SfincsFormulation::finalize()
@@ -114,50 +127,54 @@ void SfincsFormulation::finalize()
 
 void SfincsFormulation::set_inputs()
 {
-    // Only set inputs BMI advertises and you mapped above
-    if (expected_input_variables_.empty()) return;
+    if (expected_input_variables_.empty())
+        return;
 
     for (auto const& kv : expected_input_variables_) {
-        auto const& bmi_name   = kv.first;
-        auto const& mapping    = kv.second;
+        auto const& bmi_name      = kv.first;
+        auto const& mapping       = kv.second;
         auto const& provider_name = mapping.provider_name;
 
         ProviderType* provider = [this, sel = mapping.selector]() {
-            switch(sel) {
-            case METEO:        return meteorological_forcings_provider_.get();
-            case OFFSHORE:     return offshore_boundary_provider_.get();
-            case CHANNEL_FLOW: return channel_flow_boundary_provider_.get();
-            default:           return (ProviderType*)nullptr;
+            switch (sel) {
+                case METEO:        return meteorological_forcings_provider_.get();
+                case OFFSHORE:     return offshore_boundary_provider_.get();
+                case CHANNEL_FLOW: return channel_flow_boundary_provider_.get();
+                default:           return (ProviderType*)nullptr;
             }
         }();
 
-        if (!provider) continue;
+        if (!provider)
+            continue; // nothing wired for this mapping
 
+        // Use BMI-declared units for the variable when asking provider
         auto units = input_variable_units_.at(bmi_name);
         auto n     = mesh_size(bmi_name);
-        auto points = MeshPointsSelector{provider_name, current_time_, time_step_length_, units, all_points};
+
+        // Select "all points" for this time slice
+        MeshPointsSelector points{provider_name, current_time_, time_step_length_, units, all_points};
 
         std::vector<double> buf(n);
-        provider->get_values(points, buf);
-        bmi_->SetValue(bmi_name, buf.data());
+        provider->get_values(points, buf);     // fill from forcing
+        bmi_->SetValue(bmi_name, buf.data());  // pass to BMI
     }
 }
 
 void SfincsFormulation::update()
 {
-    current_time_ += time_step_length_;
+    // Push new inputs for this step, then advance SFINCS
     set_inputs();
     bmi_->Update();
+    current_time_ += time_step_length_;
 }
 
 void SfincsFormulation::update_until(double const& time)
 {
-    // NOTE: Here 'time' is in model seconds; keep consistent with SCHISM style
-    double current = this->get_current_time();
-    while (current <= time) {
+    // Advance until BMI model time reaches 'time' (model seconds)
+    // Keep inputs flowing each step.
+    for (double t = get_current_time(); t < time; t = get_current_time()) {
         set_inputs();
         bmi_->Update();
-        current = this->get_current_time();
         current_time_ += time_step_length_;
     }
 }
@@ -171,19 +188,17 @@ size_t SfincsFormulation::mesh_size(std::string const& variable_name)
 {
     auto nbytes   = bmi_->GetVarNbytes(variable_name);
     auto itemsize = bmi_->GetVarItemsize(variable_name);
-    if (nbytes % itemsize != 0) {
-        throw std::runtime_error("SFINCS variable '" + variable_name + "': itemsize " +
-                                 std::to_string(itemsize) + " does not divide nbytes " +
-                                 std::to_string(nbytes));
+    if (itemsize <= 0 || (nbytes % itemsize) != 0) {
+        throw std::runtime_error("SFINCS variable '" + variable_name + "': bad sizes (itemsize="
+                                 + std::to_string(itemsize) + ", nbytes=" + std::to_string(nbytes) + ")");
     }
-    return nbytes / itemsize;
+    return static_cast<size_t>(nbytes / itemsize);
 }
 
 // DataProvider pass-through for outputs
 SfincsFormulation::data_type
 SfincsFormulation::get_value(const selection_type& selector, data_access::ReSampleMethod)
 {
-    // single value selection helper – not used by coastal path typically
     std::vector<double> tmp(1, 0.0);
     get_values(selector, tmp);
     return tmp.front();
@@ -194,7 +209,7 @@ void SfincsFormulation::get_values(const selection_type& selector, boost::span<d
     bmi_->GetValue(selector.variable_name, data.data());
 }
 
-// Unused in coastal path (throw like SCHISM)
+// Unused in coastal path
 long  SfincsFormulation::get_data_start_time() const { throw std::runtime_error(__func__); }
 long  SfincsFormulation::get_data_stop_time()  const { throw std::runtime_error(__func__); }
 long  SfincsFormulation::record_duration()     const { throw std::runtime_error(__func__); }

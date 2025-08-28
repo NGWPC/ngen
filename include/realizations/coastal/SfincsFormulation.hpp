@@ -59,7 +59,7 @@ protected:
 private:
     std::unique_ptr<models::bmi::Bmi_Fortran_Adapter> bmi_;
 
-    // Input metadata (empty for now – BMI advertises none)
+    // Input metadata (BMI-advertised inputs)
     std::map<std::string, std::string> input_variable_units_;
     std::map<std::string, std::string> input_variable_type_;
     std::map<std::string, size_t>      input_variable_count_;
