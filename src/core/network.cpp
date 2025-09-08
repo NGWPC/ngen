@@ -113,42 +113,44 @@ void Network::init_indices(){
 }
 
 Network::Network( geojson::GeoJSON features, std::string const* link_key ){
-
   std::string feature_id, downstream_id;
   Graph::vertex_descriptor v1, v2;
+  const std::string terminal = "wb-TERMINAL_SENTINEL-";
 
   //TODO ensure all features are the same logical HY_Features type?
-  for(auto& feature: *features)
-  {
+  for (auto& feature: *features) {
     feature_id = feature->get_id();
-    if( this->descriptor_map.find( feature_id ) == this->descriptor_map.end() )
-    {
+    if (this->descriptor_map.find( feature_id ) == this->descriptor_map.end()) {
       //Haven't visited this feature yet, add it to graph
       //add vertex to graph
       v1 = add_vertex( feature_id, this->graph );
       this->descriptor_map.emplace( feature_id, v1 );
-    }
-    else{
+    } else {
       v1 = this->descriptor_map[ feature_id ];
     }
 
-      if (link_key != nullptr and feature->has_property(*link_key)) {
-
-          downstream_id = feature->get_property(*link_key).as_string();
-          if( this->descriptor_map.find(downstream_id) != this->descriptor_map.end() )
-          {
-            v2 = this->descriptor_map[ downstream_id ];
-          }
-          else {
-            v2 = add_vertex( downstream_id, this->graph );
-            this->descriptor_map.emplace( downstream_id, v2 );
-          }
-            add_edge(v1, v2, this->graph);
+    if (link_key == nullptr)
+      continue;
+    
+    if (feature->has_property(*link_key)) {
+      downstream_id = feature->get_property(*link_key).as_string();
+      std::cout << feature_id << " -> " << downstream_id << std::endl;
+      if (this->descriptor_map.find(downstream_id) != this->descriptor_map.end()) {
+        v2 = this->descriptor_map[ downstream_id ];
+      } else {
+        v2 = add_vertex( downstream_id, this->graph );
+        this->descriptor_map.emplace( downstream_id, v2 );
       }
+    } else {
+      std::cout << feature_id << " getting sentinel added\n";
+      downstream_id = terminal + feature_id;
+      v2 = add_vertex( downstream_id, this->graph );
+      this->descriptor_map.emplace( downstream_id, v2 );
+    }
+    add_edge(v1, v2, this->graph);
   }
 
   init_indices();
-
 }
 
 NetworkIndexT::const_reverse_iterator Network::begin(){

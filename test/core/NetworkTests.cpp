@@ -113,20 +113,23 @@ public:
     auto context = GetParam();
     switch( context )
     {
+        //case TestContext::CASE_2:
       case TestContext::CASE_1:
       {
         //Test construction from an already linked geojson feature collection fabric
         n = Network(this->get_fabric());
         break;
       }
-      case TestContext::CASE_2:
+#if 1
+    case TestContext::CASE_2:
       {
         //Test construction from just a single feature collection
         n = Network(catchments,  &link_key);
         break;
       }
+#endif
     }
-
+    //n.print_network();
   }
 
   ~Network_Test1(){}
@@ -144,20 +147,21 @@ public:
     this->add_catchment("cat-4", "nex-1");
     this->add_nexus("nex-1");
     n =  Network(this->get_fabric());
+    //n.print_network();
   }
 };
 
 //! Test that a network can be created.
 TEST_P(Network_Test1, TestNetworkConstructionNumberOfNodes)
 {
-  //Test basic construction, network should have three nodes when done
+  //Test basic construction, network should have four nodes when done
   /*
   for(auto it = n.begin(); it != n.end(); it++)
   {
     std::cout<< n.get_id(*it)<<std::endl;
   }
   */
-    ASSERT_EQ( n.size(), 3 );
+    ASSERT_EQ( n.size(), 4 );
 
 }
 
@@ -178,10 +182,12 @@ TEST_P(Network_Test1, TestNetworkTailwaterIndex)
   NetworkIndexT::const_iterator begin, end;
   boost::tie(begin, end) = n.tailwaters();
 
+  n.print_network();
+  
   for(auto it = begin; it != end; ++it)
   {
     std::string id =  n.get_id(*it);
-    ASSERT_EQ(id, "nex-0");
+    ASSERT_EQ(id, "wb-TERMINAL_SENTINEL-nex-0");
   }
 }
 
@@ -193,7 +199,7 @@ TEST_P(Network_Test1, TestNetworkTopologicalIndex)
 
   while( expected_it != expected_topo_order.end() && network_it != n.end() )
   {
-    ASSERT_TRUE( *expected_it == n.get_id(*network_it) );
+    ASSERT_EQ( *expected_it, n.get_id(*network_it) );
     ++expected_it;
     ++network_it;
   }
@@ -225,7 +231,7 @@ TEST_P(Network_Test1, TestNetwork_get_id_1)
 TEST_P(Network_Test1, TestNetwork_get_id_2)
 {
   //Test an invalid vertex descriptor on the edge of the valid range
-  int idx = 3;
+  int idx = 4;
   try {
     n.get_id(idx);
     FAIL();
@@ -257,7 +263,7 @@ TEST_F(Network_Test2, test_construction)
     std::cout<< n.get_id(*it)<<std::endl;
   }
   */
-    ASSERT_EQ( n.size(), 7 );
+    ASSERT_EQ( n.size(), 8 );
 
 }
 TEST_F(Network_Test2, test_get_origination_ids)
@@ -272,7 +278,7 @@ TEST_F(Network_Test2, test_get_origination_ids)
 TEST_F(Network_Test2, test_get_destination_ids)
 {
   std::vector<std::string> ids = n.get_destination_ids("nex-1");
-  ASSERT_EQ( ids.size(), 0);
+  ASSERT_EQ( ids.size(), 1);
 }
 
 TEST_F(Network_Test2, test_get_destination_ids1)
@@ -320,7 +326,7 @@ TEST_F(Network_Test2, test_nexus_filter)
   auto nexus_it = nexuses.begin();
     while( expected_it != expected_topo_order.end() && nexus_it != nexuses.end() )
   {
-      ASSERT_TRUE( *expected_it == *nexus_it );
+    ASSERT_EQ( *expected_it, *nexus_it );
     ++expected_it;
     ++nexus_it;
   }
@@ -330,7 +336,7 @@ TEST_F(Network_Test2, test_bad_filter)
 {
   //Test a bad prefix gives no results
   auto results = n.filter("fs");
-  ASSERT_TRUE( results.begin() == results.end() );
+  ASSERT_EQ( results.begin(), results.end() );
 }
 
 TEST_F(Network_Test2, test_dfr_filter)
