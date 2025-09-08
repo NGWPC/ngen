@@ -3,14 +3,15 @@
 ##############################
 # Stage: Base – Common Setup
 ##############################
-FROM rockylinux:8 AS base
+ARG NGEN_FORCING_IMAGE_TAG=latest
+FROM fe-bmi:${NGEN_FORCING_IMAGE_TAG} AS base
 
 # cannot remove LANG even though https://bugs.python.org/issue19846 is fixed
 # last attempted removal of LANG broke many users:
 # https://github.com/docker-library/python/pull/570
 ENV LANG="C.UTF-8" \
     \
-    PYTHON_VERSION="3.10.14" \
+    PYTHON_VERSION="3.11.13" \
     SZIP_VERSION="2.1.1" \
     HDF5_VERSION="1.10.11" \
     NETCDF_C_VERSION="4.7.4" \
@@ -36,6 +37,7 @@ RUN set -eux && \
         udunits2 udunits2-devel \
         bzip2 bzip2-devel \
         zlib zlib-devel \
+        xz-devel \
 ## FIXME: replace openmpi with Intel MPI libraries ##
         openmpi openmpi-devel \
         openssl openssl-devel \
@@ -166,7 +168,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-boost \
 ENV VIRTUAL_ENV="/ngen-app/ngen-python"
 
 # Create virtual environment for the application and upgrade pip within it
-RUN python3.10 -m venv ${VIRTUAL_ENV}
+RUN python3.11 -m venv --system-site-packages ${VIRTUAL_ENV}
 
 ENV PATH=${VIRTUAL_ENV}/bin:${PATH}
 
@@ -179,8 +181,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
       'bmipy' \
       'pandas' \
       'pyyml' \
-      'torch'
-
+      'torch' && \
+    pip install -e /ngen-app/ngen-forcing/
 
 WORKDIR /ngen-app/
 
@@ -234,7 +236,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
           -DNGEN_WITH_TESTS=ON \
           -DNGEN_WITH_ROUTING=ON \
           -DNGEN_QUIET=ON \
-          -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
+          -DNGEN_UPDATE_GIT_SUBMODULES=ON \
           -DBOOST_ROOT=/opt/boost && \
       cmake --build cmake_build --target all
 
