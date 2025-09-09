@@ -1,8 +1,9 @@
 <map id="data_access::WrappedDataProvider" name="data_access::WrappedDataProvider">
-<area shape="rect" id="node1" title="Simple implementation that basically wraps another instance." alt="" coords="41,668,225,928"/>
-<area shape="rect" id="node5" href="$classdata__access_1_1_deferred_wrapped_provider.html" title="A specialized @WrappedDataProvider that is created without first knowing the backing source it wraps." alt="" coords="29,977,236,1193"/>
-<area shape="rect" id="node2" href="$classdata__access_1_1_generic_data_provider.html" title=" " alt="" coords="43,564,222,619"/>
-<area shape="rect" id="node3" href="$classdata__access_1_1_data_provider.html" title=" " alt="" coords="5,299,260,515"/>
-<area shape="rect" id="node4" href="$classdata__access_1_1_data_provider.html" title=" " alt="" coords="37,5,228,221"/>
-<area shape="rect" id="node6" href="$classdata__access_1_1_optional_wrapped_data_provider.html" title="Extension of DeferredWrappedProvider, where default values can be used instead of a backing provider." alt="" coords="23,1243,242,1547"/>
+<area shape="rect" id="Node000001" title="Simple implementation that basically wraps another instance." alt="" coords="24,333,193,668"/>
+<area shape="rect" id="Node000003" href="$classdata__access_1_1_deferred_wrapped_provider.html" title="A specialized @WrappedDataProvider that is created without first knowing the backing source it wraps." alt="" coords="13,716,204,975"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="111,683,111,716,106,716,106,683"/>
+<area shape="rect" id="Node000002" href="$classdata__access_1_1_data_provider.html" title=" " alt="" coords="29,5,188,285"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="111,300,111,333,106,333,106,300"/>
+<area shape="rect" id="Node000004" href="$classdata__access_1_1_optional_wrapped_data_provider.html" title="Extension of DeferredWrappedProvider, where default values can be used instead of a backing provider." alt="" coords="5,1023,211,1409"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="111,990,111,1023,106,1023,106,990"/>
 </map>

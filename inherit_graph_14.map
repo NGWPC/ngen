@@ -1,3 +1,5 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$structboost_1_1detail_1_1span__has__size_3_01_r_00_01typename_01std_1_1enable__if_3_01std_1_1is_895570961d4abb94bb76eb9662c26a69.html" title=" " alt="" coords="5,5,173,119"/>
+<area shape="rect" id="Node000000" href="$classgeojson_1_1_feature_visitor.html" title="An abstract class used to operate on the children of FeatureBase." alt="" coords="5,5,159,31"/>
+<area shape="rect" id="Node000001" href="$class_visitor.html" title=" " alt="" coords="207,5,265,31"/>
+<area shape="poly" id="edge59_Node000000_Node000001" title=" " alt="" coords="174,16,206,16,206,21,174,21"/>
 </map>

@@ -6,15 +6,16 @@
 | ------------- |:------------- | :-----:| :-------: |
 | [Google Test](#google-test) | submodule  | `release-1.10.0` | |
 | [C/C++ Compiler](#c-and-c-compiler) | external | see below |  |
-| [CMake](#cmake) | external | \>= `3.14` | |
-| [Boost (Headers Only)](#boost-headers-only) | external | `1.72.0` | headers only library |
+| [CMake](#cmake) | external | \>= `3.17` | |
+| [Boost (Headers Only)](#boost-headers-only) | external | `1.79.0` | headers only library |
 | [Udunits libraries](https://www.unidata.ucar.edu/software/udunits) | external | >= 2.0 | Can be installed via package manager or from source |
 | [MPI](https://www.mpi-forum.org) | external | No current implementation or version requirements | Required for [multi-process distributed execution](DISTRIBUTED_PROCESSING.md) |
-| [Python 3 Libraries](#python-3-libraries) | external | \> `3.6.8` | Can be [excluded](#overriding-python-dependency). |
+| [Python 3 Libraries](#python-3-libraries) | external | \>= `3.8.0` | Can be [excluded](#overriding-python-dependency). |
 | [pybind11](#pybind11) | submodule | `v2.6.0` | Can be [excluded](#overriding-pybind11-dependency). |
 | [dmod.subsetservice](#the-dmodsubsetservice-package) | external | `>= 0.3.0` | Only required to perform integrated [hydrofabric file subdividing](DISTRIBUTED_PROCESSING.md#subdivided-hydrofabric) for distributed processing . |
 | [t-route](#t-route) | submodule | see below | Module required to enable channel-routing.  Requires pybind11 to enable |
-
+| [NetCDF Libraries](#netcdf-libraries) | external | \>= `4.7.4` | Enables NetCDF I/O support |
+| [SQLite3](https://www.sqlite.org/cintro.html) | external | \> `3.7.17` | Enables GeoPackage reading support |
 # Details
 
 ## Google Test
@@ -55,8 +56,6 @@ Additionally, C++ compilers needs to be compatible (ideally officially *tested* 
 
 Based on [this page](https://gcc.gnu.org/projects/cxx-status.html#cxx14), the C++ 14 support requirement probably equates to a version of GCC \>= version `5.0.0`.
 
-Note also that the [Boost.Geometry](https://www.boost.org/doc/libs/1_72_0/libs/geometry/doc/html/geometry/compilation.html) documentation for `1.72.0` lists GCC `5.0.0` as the latest *tested* compatible GCC version.
-
 #### Clang
 
 The Clang versioning scheme is a little convoluted.  Using the official scheme, Clang 3.4 and later should support all C++ 14 features.
@@ -79,7 +78,7 @@ Currently, a version of CMake >= `3.14.0` is required.
 
 ## Boost (Headers Only)
 
-Boost libraries are used by this project.  In particular, [Boost.Geometry](https://www.boost.org/doc/libs/1_72_0/libs/geometry/doc/html/geometry/compilation.html) is used, but others are also.  
+Boost libraries are used by this project.  In particular, [Boost.Geometry](https://www.boost.org/doc/libs/1_79_0/libs/geometry/doc/html/geometry/compilation.html) is used, but others are also.
 
 Currently, only headers-only Boost libraries are utilized.  As such, they are not exhaustively listed here since getting one essentially gets them all.
 
@@ -89,7 +88,7 @@ Since only headers-only libraries are needed, the Boost headers simply need to b
 
 There are a variety of different ways to get the Boost headers locally.  Various OS may have packages specifically to install them, though one should take note of whether such packages provide a version of Boost that meets this project's requirements.  
 
-Alternatively, the Boost distribution itself can be manually downloaded and unpacked, as described for both [Unix-variants](https://www.boost.org/doc/libs/1_72_0/more/getting_started/unix-variants.html) and [Windows](https://www.boost.org/doc/libs/1_72_0/more/getting_started/windows.html) on the Boost website.
+Alternatively, the Boost distribution itself can be manually downloaded and unpacked, as described for both [Unix-variants](https://www.boost.org/doc/libs/1_79_0/more/getting_started/unix-variants.html) and [Windows](https://www.boost.org/doc/libs/1_79_0/more/getting_started/windows.html) on the Boost website.
 
 #### Setting **BOOST_ROOT**
 
@@ -97,11 +96,11 @@ If necessary, the project's CMake config is able to use the value of the **BOOST
   
 However, it will often be necessary to set **BOOST_ROOT** if Boost was manually set up by downloading the distribution.
 
-The variable should be set to the value of the **boost root directory**, which is something like `<some_path>/boost_1_72_0`.
+The variable should be set to the value of the **boost root directory**, which is something like `<some_path>/boost_1_79_0`.
 
 ### Version Requirements
 
-At present, a version >= `1.72.0` is required.
+At present, a version >= `1.79.0` is required.
 
 ## Udunits
 
@@ -143,7 +142,7 @@ Further, the Python environment must have NumPy and a few other libraries instal
 
 It is possible to run the build, build artifacts, etc. in a way that excludes Python-related functionality, thereby relieving this as a dependency.  This may be useful in runtime environments that will not interact with a Python external model, and/or installing Python is prohibitively difficult.
 
-To do this, set either the `NGEN_ACTIVATE_PYTHON` environment variable to `false` or include the `-DNGEN_ACTIVATE_PYTHON:BOOL=false` option when running the `cmake` build on the command line to generate the build system.
+To do this, set either the `NGEN_WITH_PYTHON` environment variable to `false` or include the `-DNGEN_WITH_PYTHON:BOOL=false` option when running the `cmake` build on the command line to generate the build system.
 
 ### Setup
 
@@ -221,3 +220,10 @@ Be sure to build ngen with Python and Routing support as discussed there, and if
 ```sh
 source venv/bin/activate
 ```
+
+## NetCDF Libraries
+
+### Setup
+
+First, check if your compute system already have a version that is up to date, usually in the sub-directories (include/ and lib64/) under /usr. If not, you will have to install your own version. For instructions on how to install netCDF, some randomly selected references are [here](https://docs.unidata.ucar.edu/nug/current/getting_and_building_netcdf.html) and [here](https://docs.geoserver.org/main/en/user/extensions/netcdf-out/nc4.html).
+

@@ -35,15 +35,15 @@ cd ngen
 **Download the Boost Libraries:**
 
 ```shell
-curl -L -o boost_1_72_0.tar.bz2 https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2/download \
-    && tar -xjf boost_1_72_0.tar.bz2 \
-    && rm boost_1_72_0.tar.bz2
+curl -L -o boost_1_79_0.tar.bz2 https://sourceforge.net/projects/boost/files/boost/1.79.0/boost_1_79_0.tar.bz2/download \
+    && tar -xjf boost_1_79_0.tar.bz2 \
+    && rm boost_1_79_0.tar.bz2
 ```
 
 **Set the ENV for Boost and C compiler:**
 
 ```shell
-set BOOST_ROOT="/boost_1_72_0"
+set BOOST_ROOT="/boost_1_79_0"
 set CXX=/usr/bin/g++
 ```
 
@@ -60,24 +60,26 @@ In addition to normal CMake options, the following `ngen` configuration options 
 
 Option                | Description
 --------------------- | -----------
-NETCDF_ACTIVE         | Include NetCDF support
+NGEN_WITH_NETCDF      | Include NetCDF support
 NGEN_WITH_SQLITE3     | Include SQLite3 support (GeoPackage support)
-UDUNITS_ACTIVE        | Include UDUNITS support
-MPI_ACTIVE            | Include MPI (Parallel Execuation) support
-BMI_FORTRAN_ACTIVE    | Include Fortran BMI support
-BMI_C_LIB_ACTIVE      | Include C BMI support
-NGEN_ACTIVATE_PYTHON  | Include Python support
-NGEN_ACTIVATE_ROUTING | Include `t-route` integration
+NGEN_WITH_UDUNITS     | Include UDUNITS support
+NGEN_WITH_MPI         | Include MPI (Parallel Execuation) support
+NGEN_WITH_BMI_FORTRAN | Include Fortran BMI support
+NGEN_WITH_BMI_C       | Include C BMI support
+NGEN_WITH_PYTHON      | Include Python support
+NGEN_WITH_ROUTING     | Include `t-route` integration
+NGEN_WITH_TESTS       | Include unit and integration tests
+NGEN_QUIET            | Include suppressing unwanted message output
 
-> These can be included by adding `-D{Option}=[ON/OFF]` to the following CMake command.
+> These can be included by adding `-D{Option:BOOL}=[ON/OFF]` to the following CMake command.
 
-> **Note**: if `-DNGEN_ACTIVATE_PYTHON=ON`, and you are using an *activated* virtual environment, then CMake will bind its Python configuration to your virtual environment. This means, when you run the `ngen` executable, your virtual environment must be activated.
+> **Note**: if `-DNGEN_WITH_PYTHON:BOOL=ON`, and you are using an *activated* virtual environment, then CMake will bind its Python configuration to your virtual environment. This means, when you run the `ngen` executable, your virtual environment must be activated.
 
 The following CMake command will configure the build:
 
 ```shell
 cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
-      -DBOOST_ROOT=boost_1_72_0 \
+      -DBOOST_ROOT=boost_1_79_0 \
       -B /build \
       -S .
 ```
@@ -105,4 +107,4 @@ cmake --build build --target ngen -- -j 2
 
 **Further information on each step:**
 
-Make sure all necessary [dependencies](doc/DEPENDENCIES.md) are installed, and then [build the main ngen target with CMake](doc/BUILDS_AND_CMAKE.md).  Then run the executable, as described [here for basic use](README.md#usage) or [here for distributed execution](doc/DISTRIBUTED_PROCESSING.md#examples).
+Make sure all necessary [dependencies](doc/DEPENDENCIES.md) are installed, and then [build the main ngen target with CMake](doc/BUILDS_AND_CMAKE.md).  Then run the executable, as described [here for basic use](README.md#usage) or [here for distributed execution](doc/DISTRIBUTED_PROCESSING.md#examples). A step by step [instruction](https://github.com/NOAA-OWP/ngen/wiki/NGen-Tutorial) and install with more [options](https://github.com/NOAA-OWP/ngen/wiki/Building) are also provided on our wiki page.

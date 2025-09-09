@@ -1,9 +1,16 @@
 <map id="ngen::detail::variable&lt; SupportedTypes &gt;" name="ngen::detail::variable&lt; SupportedTypes &gt;">
-<area shape="rect" id="node1" title="Variable Key." alt="" coords="236,623,379,912"/>
-<area shape="rect" id="node2" title=" " alt="" coords="283,109,366,149"/>
-<area shape="rect" id="node5" href="$structngen_1_1detail_1_1dimension.html" title="Dimension Key." alt="" coords="171,212,327,443"/>
-<area shape="rect" id="node3" title=" " alt="" coords="261,5,389,60"/>
-<area shape="rect" id="node4" title=" " alt="" coords="185,505,315,560"/>
-<area shape="rect" id="node6" title=" " alt="" coords="5,307,121,347"/>
-<area shape="rect" id="node7" title=" " alt="" coords="44,109,83,149"/>
+<area shape="rect" id="Node000001" title="Variable Key." alt="" coords="230,763,356,1129"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="269,136,336,202"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="324,201,333,226,349,302,358,368,361,426,360,481,349,594,333,739,332,746,327,746,328,738,344,594,355,480,356,426,353,368,344,303,328,227,319,203"/>
+<area shape="rect" id="Node000005" href="$structngen_1_1detail_1_1dimension.html" title="Dimension Key." alt="" coords="171,265,311,555"/>
+<area shape="poly" id="edge5_Node000005_Node000002" title=" " alt="" coords="286,203,276,227,269,249,264,248,271,225,281,201"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="246,5,359,87"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="305,101,305,136,300,136,300,101"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="180,618,297,700"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="240,699,242,738,243,746,238,747,237,739,234,700"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="242,555,242,602,236,602,237,555"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="5,377,106,444"/>
+<area shape="poly" id="edge6_Node000004_Node000006" title=" " alt="" coords="52,458,51,491,55,527,64,562,81,593,102,613,127,628,181,647,179,652,125,633,99,617,77,596,59,564,50,527,46,491,47,458"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="46,136,65,202"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="58,202,58,360,53,360,53,202"/>
 </map>

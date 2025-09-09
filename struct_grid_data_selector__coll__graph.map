@@ -1,0 +1,17 @@
+<map id="GridDataSelector" name="GridDataSelector">
+<area shape="rect" id="Node000001" title=" " alt="" coords="70,505,208,896"/>
+<area shape="rect" id="Node000002" href="$struct_selector_config.html" title=" " alt="" coords="5,355,131,442"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="81,441,92,488,87,489,76,442"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="35,180,102,246"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="71,246,71,338,66,338,66,246"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="12,5,125,87"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="71,102,71,180,66,180,66,102"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="155,365,270,432"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="207,432,193,489,188,488,202,431"/>
+<area shape="rect" id="Node000006" href="$struct_cell.html" title=" " alt="" coords="176,150,230,277"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="208,277,211,331,212,348,207,348,206,331,203,277"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="254,180,355,246"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="299,262,290,297,275,332,249,367,244,364,270,330,285,295,294,260"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="295,13,314,79"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="307,79,307,163,302,163,302,79"/>
+</map>

@@ -1,5 +1,7 @@
 <map id="network::VertexProperty" name="network::VertexProperty">
-<area shape="rect" id="node1" title=" " alt="" coords="5,212,168,252"/>
-<area shape="rect" id="node2" title=" " alt="" coords="45,109,128,149"/>
-<area shape="rect" id="node3" title=" " alt="" coords="23,5,151,60"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,265,153,332"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="46,136,112,202"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="82,202,82,248,76,248,76,202"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="23,5,136,87"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="82,101,82,136,76,136,76,101"/>
 </map>

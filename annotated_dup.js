@@ -3,37 +3,9 @@ var annotated_dup =
     [ "bmi", "namespacebmi.html", [
       [ "Bmi", "classbmi_1_1_bmi.html", "classbmi_1_1_bmi" ]
     ] ],
-    [ "boost", "namespaceboost.html", [
-      [ "detail", "namespaceboost_1_1detail.html", [
-        [ "span_bytes", "structboost_1_1detail_1_1span__bytes.html", "structboost_1_1detail_1_1span__bytes" ],
-        [ "span_bytes< T, boost::dynamic_extent >", "structboost_1_1detail_1_1span__bytes_3_01_t_00_01boost_1_1dynamic__extent_01_4.html", "structboost_1_1detail_1_1span__bytes_3_01_t_00_01boost_1_1dynamic__extent_01_4" ],
-        [ "span_capacity", "structboost_1_1detail_1_1span__capacity.html", "structboost_1_1detail_1_1span__capacity" ],
-        [ "span_compatible", "structboost_1_1detail_1_1span__compatible.html", "structboost_1_1detail_1_1span__compatible" ],
-        [ "span_convertible", "structboost_1_1detail_1_1span__convertible.html", "structboost_1_1detail_1_1span__convertible" ],
-        [ "span_copyable", "structboost_1_1detail_1_1span__copyable.html", "structboost_1_1detail_1_1span__copyable" ],
-        [ "span_data", "structboost_1_1detail_1_1span__data.html", null ],
-        [ "span_data< T, typename std::enable_if< std::is_pointer< span_ptr< T > >::value >::type >", "structboost_1_1detail_1_1span__data_3_01_t_00_01typename_01std_1_1enable__if_3_01std_1_1is__poin78544bb9d841e85969596fc838b560c1.html", "structboost_1_1detail_1_1span__data_3_01_t_00_01typename_01std_1_1enable__if_3_01std_1_1is__poin78544bb9d841e85969596fc838b560c1" ],
-        [ "span_has_data", "structboost_1_1detail_1_1span__has__data.html", "structboost_1_1detail_1_1span__has__data" ],
-        [ "span_has_data< R, T, typename std::enable_if< span_convertible< typename span_data< R >::type, T >::value >::type >", "structboost_1_1detail_1_1span__has__data_3_01_r_00_01_t_00_01typename_01std_1_1enable__if_3_01sp388a2003c5c8c3bc5d4e6ff6b6321c39.html", "structboost_1_1detail_1_1span__has__data_3_01_r_00_01_t_00_01typename_01std_1_1enable__if_3_01sp388a2003c5c8c3bc5d4e6ff6b6321c39" ],
-        [ "span_has_size", "structboost_1_1detail_1_1span__has__size.html", "structboost_1_1detail_1_1span__has__size" ],
-        [ "span_has_size< R, typename std::enable_if< std::is_convertible< decltype(std::declval< R & >().size()), std::size_t >::value >::type >", "structboost_1_1detail_1_1span__has__size_3_01_r_00_01typename_01std_1_1enable__if_3_01std_1_1is_895570961d4abb94bb76eb9662c26a69.html", "structboost_1_1detail_1_1span__has__size_3_01_r_00_01typename_01std_1_1enable__if_3_01std_1_1is_895570961d4abb94bb76eb9662c26a69" ],
-        [ "span_implicit", "structboost_1_1detail_1_1span__implicit.html", "structboost_1_1detail_1_1span__implicit" ],
-        [ "span_is_array", "structboost_1_1detail_1_1span__is__array.html", "structboost_1_1detail_1_1span__is__array" ],
-        [ "span_is_array< std::array< T, N > >", "structboost_1_1detail_1_1span__is__array_3_01std_1_1array_3_01_t_00_01_n_01_4_01_4.html", "structboost_1_1detail_1_1span__is__array_3_01std_1_1array_3_01_t_00_01_n_01_4_01_4" ],
-        [ "span_is_range", "structboost_1_1detail_1_1span__is__range.html", "structboost_1_1detail_1_1span__is__range" ],
-        [ "span_is_span", "structboost_1_1detail_1_1span__is__span.html", "structboost_1_1detail_1_1span__is__span" ],
-        [ "span_is_span< boost::span< T, E > >", "structboost_1_1detail_1_1span__is__span_3_01boost_1_1span_3_01_t_00_01_e_01_4_01_4.html", "structboost_1_1detail_1_1span__is__span_3_01boost_1_1span_3_01_t_00_01_e_01_4_01_4" ],
-        [ "span_store", "structboost_1_1detail_1_1span__store.html", "structboost_1_1detail_1_1span__store" ],
-        [ "span_store< T, boost::dynamic_extent >", "structboost_1_1detail_1_1span__store_3_01_t_00_01boost_1_1dynamic__extent_01_4.html", "structboost_1_1detail_1_1span__store_3_01_t_00_01boost_1_1dynamic__extent_01_4" ],
-        [ "span_sub", "structboost_1_1detail_1_1span__sub.html", "structboost_1_1detail_1_1span__sub" ]
-      ] ],
-      [ "span", "classboost_1_1span.html", "classboost_1_1span" ]
-    ] ],
     [ "data_access", "namespacedata__access.html", [
-      [ "AsyncDataProvider", "classdata__access_1_1_async_data_provider.html", "classdata__access_1_1_async_data_provider" ],
       [ "DataProvider", "classdata__access_1_1_data_provider.html", "classdata__access_1_1_data_provider" ],
       [ "DeferredWrappedProvider", "classdata__access_1_1_deferred_wrapped_provider.html", "classdata__access_1_1_deferred_wrapped_provider" ],
-      [ "GenericDataProvider", "classdata__access_1_1_generic_data_provider.html", "classdata__access_1_1_generic_data_provider" ],
       [ "OptionalWrappedDataProvider", "classdata__access_1_1_optional_wrapped_data_provider.html", "classdata__access_1_1_optional_wrapped_data_provider" ],
       [ "WrappedDataProvider", "classdata__access_1_1_wrapped_data_provider.html", "classdata__access_1_1_wrapped_data_provider" ]
     ] ],
@@ -79,9 +51,6 @@ var annotated_dup =
       [ "preorder_visitor", "structnetwork_1_1preorder__visitor.html", "structnetwork_1_1preorder__visitor" ],
       [ "VertexProperty", "structnetwork_1_1_vertex_property.html", "structnetwork_1_1_vertex_property" ]
     ] ],
-    [ "nexus", "namespacenexus.html", [
-      [ "Nexus_Manager", "classnexus_1_1_nexus___manager.html", "classnexus_1_1_nexus___manager" ]
-    ] ],
     [ "ngen", "namespacengen.html", [
       [ "detail", "namespacengen_1_1detail.html", [
         [ "visitors", "namespacengen_1_1detail_1_1visitors.html", [
@@ -109,6 +78,7 @@ var annotated_dup =
         [ "bool_pack", "structngen_1_1traits_1_1bool__pack.html", null ],
         [ "type_list", "structngen_1_1traits_1_1type__list.html", "structngen_1_1traits_1_1type__list" ]
       ] ],
+      [ "DomainLayer", "classngen_1_1_domain_layer.html", "classngen_1_1_domain_layer" ],
       [ "Layer", "classngen_1_1_layer.html", "classngen_1_1_layer" ],
       [ "LayerDataStorage", "classngen_1_1_layer_data_storage.html", "classngen_1_1_layer_data_storage" ],
       [ "LayerDescription", "structngen_1_1_layer_description.html", "structngen_1_1_layer_description" ],
@@ -117,6 +87,14 @@ var annotated_dup =
       [ "SurfaceLayer", "classngen_1_1_surface_layer.html", "classngen_1_1_surface_layer" ]
     ] ],
     [ "realization", "namespacerealization.html", [
+      [ "config", "namespacerealization_1_1config.html", [
+        [ "Config", "structrealization_1_1config_1_1_config.html", "structrealization_1_1config_1_1_config" ],
+        [ "Forcing", "structrealization_1_1config_1_1_forcing.html", "structrealization_1_1config_1_1_forcing" ],
+        [ "Formulation", "structrealization_1_1config_1_1_formulation.html", "structrealization_1_1config_1_1_formulation" ],
+        [ "Layer", "structrealization_1_1config_1_1_layer.html", "structrealization_1_1config_1_1_layer" ],
+        [ "Routing", "structrealization_1_1config_1_1_routing.html", "structrealization_1_1config_1_1_routing" ],
+        [ "Time", "structrealization_1_1config_1_1_time.html", "structrealization_1_1config_1_1_time" ]
+      ] ],
       [ "Bmi_C_Formulation", "classrealization_1_1_bmi___c___formulation.html", "classrealization_1_1_bmi___c___formulation" ],
       [ "Bmi_Cpp_Formulation", "classrealization_1_1_bmi___cpp___formulation.html", "classrealization_1_1_bmi___cpp___formulation" ],
       [ "Bmi_Formulation", "classrealization_1_1_bmi___formulation.html", "classrealization_1_1_bmi___formulation" ],
@@ -135,16 +113,18 @@ var annotated_dup =
     [ "add_to_summed_nexus", "structadd__to__summed__nexus.html", "structadd__to__summed__nexus" ],
     [ "AORC_data", "struct_a_o_r_c__data.html", "struct_a_o_r_c__data" ],
     [ "Bmi", "struct_bmi.html", "struct_bmi" ],
-    [ "BMIDataSelector", "class_b_m_i_data_selector.html", "class_b_m_i_data_selector" ],
+    [ "BoundingBox", "struct_bounding_box.html", "struct_bounding_box" ],
     [ "CatchmentAggrDataSelector", "class_catchment_aggr_data_selector.html", "class_catchment_aggr_data_selector" ],
+    [ "Cell", "struct_cell.html", "struct_cell" ],
     [ "completed_time_step", "structcompleted__time__step.html", "structcompleted__time__step" ],
-    [ "CSVDataSelector", "class_c_s_v_data_selector.html", "class_c_s_v_data_selector" ],
     [ "CsvPerFeatureForcingProvider", "class_csv_per_feature_forcing_provider.html", "class_csv_per_feature_forcing_provider" ],
     [ "CSVReader", "class_c_s_v_reader.html", "class_c_s_v_reader" ],
     [ "Feature_Test", "class_feature___test.html", "class_feature___test" ],
     [ "FeatureCollection_Test", "class_feature_collection___test.html", "class_feature_collection___test" ],
     [ "forcing_params", "structforcing__params.html", "structforcing__params" ],
     [ "GM_Object", "class_g_m___object.html", "class_g_m___object" ],
+    [ "GridDataSelector", "struct_grid_data_selector.html", "struct_grid_data_selector" ],
+    [ "GridSpecification", "struct_grid_specification.html", "struct_grid_specification" ],
     [ "HY_CartographicRealization", "class_h_y___cartographic_realization.html", "class_h_y___cartographic_realization" ],
     [ "HY_Catchment", "class_h_y___catchment.html", "class_h_y___catchment" ],
     [ "HY_CatchmentAggregate", "class_h_y___catchment_aggregate.html", "class_h_y___catchment_aggregate" ],
@@ -162,6 +142,7 @@ var annotated_dup =
     [ "invalid_time_step", "structinvalid__time__step.html", "structinvalid__time__step" ],
     [ "JSONGeometry_Test", "class_j_s_o_n_geometry___test.html", "class_j_s_o_n_geometry___test" ],
     [ "JSONProperty_Test", "class_j_s_o_n_property___test.html", "class_j_s_o_n_property___test" ],
+    [ "Logger", "class_logger.html", "class_logger" ],
     [ "MultiLayerParserTest", "class_multi_layer_parser_test.html", "class_multi_layer_parser_test" ],
     [ "Network_Test", "class_network___test.html", "class_network___test" ],
     [ "Network_Test1", "class_network___test1.html", "class_network___test1" ],
@@ -169,10 +150,14 @@ var annotated_dup =
     [ "Nexus_Remote_Test", "class_nexus___remote___test.html", "class_nexus___remote___test" ],
     [ "Nexus_Test", "class_nexus___test.html", "class_nexus___test" ],
     [ "NullForcingProvider", "class_null_forcing_provider.html", "class_null_forcing_provider" ],
+    [ "Partition_One", "class_partition___one.html", "class_partition___one" ],
+    [ "PartitionData", "struct_partition_data.html", "struct_partition_data" ],
+    [ "Partitions_Parser", "class_partitions___parser.html", "class_partitions___parser" ],
     [ "request_from_empty_nexus", "structrequest__from__empty__nexus.html", "structrequest__from__empty__nexus" ],
     [ "ReservoirKernelTest", "class_reservoir_kernel_test.html", "class_reservoir_kernel_test" ],
     [ "ReservoirTimelessKernelTest", "class_reservoir_timeless_kernel_test.html", "class_reservoir_timeless_kernel_test" ],
     [ "routing_params", "structrouting__params.html", "structrouting__params" ],
+    [ "SelectorConfig", "struct_selector_config.html", "struct_selector_config" ],
     [ "Simulation_Time", "class_simulation___time.html", "class_simulation___time" ],
     [ "simulation_time_params", "structsimulation__time__params.html", "structsimulation__time__params" ],
     [ "UnitsHelper", "class_units_helper.html", "class_units_helper" ],
