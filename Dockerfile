@@ -238,38 +238,45 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
           -DNGEN_QUIET=ON \
           -DNGEN_UPDATE_GIT_SUBMODULES=ON \
           -DBOOST_ROOT=/opt/boost && \
-      cmake --build cmake_build --target all
+      cmake --build cmake_build --target all && \
+      rm -rf cmake_build
 
 # Build each submodule in a separate layer, using cache for CMake as well
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
     set -eux && \
     cmake -B extern/LASAM/cmake_build -S extern/LASAM/ -DNGEN=ON && \
-    cmake --build extern/LASAM/cmake_build/
+    cmake --build extern/LASAM/cmake_build/ && \
+    rm -rf extern/LASAM/cmake_build/
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
     set -eux && \
     cmake -B extern/snow17/cmake_build -S extern/snow17/ && \
-    cmake --build extern/snow17/cmake_build/
+    cmake --build extern/snow17/cmake_build/ && \
+    rm -rf extern/snow17/cmake_build/
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     set -eux && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ && \
-    cmake --build extern/sac-sma/cmake_build/
+    cmake --build extern/sac-sma/cmake_build/ && \
+    rm -rf extern/sac-sma/cmake_build/
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
     set -eux && \
     cmake -B extern/SoilMoistureProfiles/cmake_build -S extern/SoilMoistureProfiles/SoilMoistureProfiles/ -DNGEN=ON && \
-    cmake --build extern/SoilMoistureProfiles/cmake_build/
+    cmake --build extern/SoilMoistureProfiles/cmake_build/ && \ 
+    rm -rf extern/SoilMoistureProfiles/cmake_build/
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
     set -eux && \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ -DNGEN=ON && \
-    cmake --build extern/SoilFreezeThaw/cmake_build/
+    cmake --build extern/SoilFreezeThaw/cmake_build/ && \
+    rm -rf extern/SoilFreezeThaw/cmake_build/
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
     set -eux && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ && \
-    cmake --build extern/ueb-bmi/cmake_build/
+    cmake --build extern/ueb-bmi/cmake_build/ && \
+    rm -rf extern/ueb-bmi/cmake_build/
 
 RUN set -eux && \
     mkdir --parents /ngencerf/data/ngen-run-logs/ && \
