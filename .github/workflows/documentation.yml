@@ -10,6 +10,9 @@ on:
   #pull_request:
     #branches: [ master ]
 
+env:
+  ORG: NOAA-OWP
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "document"
@@ -21,42 +24,54 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v4
-    
+      if: ${{ github.repository_owner == env.ORG }}
+
+
     - name: Make sure initial ownership is correct
+      if: ${{ github.repository_owner == env.ORG }}
       run: sudo chown -R runner:docker docs/
 
     # Runs a single command using the runners shell
     - uses: mattnotmitt/doxygen-action@v1
+      if: ${{ github.repository_owner == env.ORG }}
       with:
           working-directory: '.'
-          doxyfile-path: './Doxyfile'       
-    
+          doxyfile-path: './Doxyfile'
+
     - name: Make sure ownership of generated items is correct
+      if: ${{ github.repository_owner == env.ORG }}
       run: sudo chown -R runner:docker docs/
-          
+
     - name: Switch to gh-pages
+      if: ${{ github.repository_owner == env.ORG }}
       uses: actions/checkout@v4
       with:
         ref: gh-pages
         clean: false
 
     - name: Move generated files where git can see them
+      if: ${{ github.repository_owner == env.ORG }}
       run: cp -rp docs/html/* .
-        
+
     - name: Prevent generated docs dir from being committed and overwriting on the next run.
+      if: ${{ github.repository_owner == env.ORG }}
       run: rm -Rf docs/html
 
     - name: Update branch information
+      if: ${{ github.repository_owner == env.ORG }}
       run: git fetch --all; git branch --list -r;
-      
+
     - name: Grab the latest markdown files
+      if: ${{ github.repository_owner == env.ORG }}
       run: git checkout origin/master -- `git ls-tree origin/master -r --name-only | grep ".md"`;
            git add -f .;
 
     - name: Commit files
+      if: ${{ github.repository_owner == env.ORG }}
       run: echo ${{ github.ref }};
         git config --local user.name "GitHub Action";
         git commit -m "Commiting Documentation" -a | exit 0;
-        
+
     - name: Push to gh-pages
+      if: ${{ github.repository_owner == env.ORG }}
       run: git push;

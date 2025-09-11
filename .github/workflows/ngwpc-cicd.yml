@@ -15,6 +15,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  ORG: NGWPC
 
 jobs:
   setup:
@@ -28,6 +29,7 @@ jobs:
       test_image_tag: ${{ steps.vars.outputs.test_image_tag }}
     steps:
       - name: Compute image vars
+        if: ${{ github.repository_owner == env.ORG }}
         id: vars
         shell: bash
         run: |
@@ -59,11 +61,13 @@ jobs:
     needs: setup
     steps:
       - uses: actions/checkout@v4
+        if: ${{ github.repository_owner == env.ORG }}
         with:
           submodules: recursive
           fetch-depth: 0
 
       - name: Verify submodules recursively
+        if: ${{ github.repository_owner == env.ORG }}
         run: |
           echo "Checking all submodules recursively..."
           git submodule update --init --recursive
@@ -77,6 +81,7 @@ jobs:
           '
 
       - name: Log in to registry
+        if: ${{ github.repository_owner == env.ORG }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -84,6 +89,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push image
+        if: ${{ github.repository_owner == env.ORG }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -102,6 +108,7 @@ jobs:
       image: ${{ needs.setup.outputs.image_base }}:${{ needs.setup.outputs.test_image_tag }}
     steps:
       - name: Run unit tests
+        if: ${{ github.repository_owner == env.ORG }}
         run: |
           echo "Running unit tests..."
           cd /ngen-app/ngen/cmake_build
@@ -115,7 +122,7 @@ jobs:
   # SonarQube scan (only runs on internal NGWPC self-hosted runners)
   sonarqube-internal:
     name: sonarqube-internal
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && github.repository_owner == 'NGWPC'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: self-hosted
     needs: [setup, build, unit-test]
     #TODO: Configure SonarQube Scans
@@ -125,9 +132,11 @@ jobs:
       options: --entrypoint="" --user 0
     steps:
       - uses: actions/checkout@v4
+        if: ${{ github.repository_owner == env.ORG }}
         with:
           fetch-depth: 0
       - name: SonarQube Scan
+        if: ${{ github.repository_owner == env.ORG }}
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -147,10 +156,12 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v4
+        if: ${{ github.repository_owner == env.ORG }}
         with:
           submodules: recursive
           fetch-depth: 0
       - name: Install build dependencies
+        if: ${{ github.repository_owner == env.ORG }}
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ mpi-default-bin libopenmpi-dev libboost-all-dev libudunits2-dev libnetcdf-dev libnetcdf-c++4-dev
@@ -159,11 +170,13 @@ jobs:
         #python3 -m pip install -r extern/t-route/requirements.txt
       # Initialize CodeQL (C++ selected)
       - name: Initialize CodeQL
+        if: ${{ github.repository_owner == env.ORG }}
         uses: github/codeql-action/init@v3
         with:
           languages: cpp
       # Build (replicate your CMake build commands from Dockerfile or local builds)
       - name: Build C++ code
+        if: ${{ github.repository_owner == env.ORG }}
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
         run: |
@@ -184,6 +197,7 @@ jobs:
             #-DBOOST_ROOT=/opt/boost
           cmake --build cmake_build --target all
       - name: Perform CodeQL Analysis
+        if: ${{ github.repository_owner == env.ORG }}
         uses: github/codeql-action/analyze@v3
 
   container-scanning:
@@ -193,6 +207,7 @@ jobs:
     needs: [setup, build]
     steps:
       - name: Scan container with Trivy
+        if: ${{ github.repository_owner == env.ORG }}
         uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: ${{ needs.setup.outputs.image_base }}:${{ needs.setup.outputs.test_image_tag }}
@@ -201,6 +216,7 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
       - name: Upload Trivy results to GitHub Security tab
+        if: ${{ github.repository_owner == env.ORG }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
@@ -212,12 +228,14 @@ jobs:
     needs: [setup, build, unit-test, sonarqube-internal, codeql-scan, container-scanning]
     steps:
       - name: Log in to registry
+        if: ${{ github.repository_owner == env.ORG }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build latest image
+        if: ${{ github.repository_owner == env.ORG }}
         run: |
           docker pull ${{ needs.setup.outputs.image_base }}:${{ needs.setup.outputs.commit_sha_short }}
           docker tag  ${{ needs.setup.outputs.image_base }}:${{ needs.setup.outputs.commit_sha_short }} ${{ needs.setup.outputs.image_base }}:latest
@@ -230,23 +248,27 @@ jobs:
     needs: setup
     steps:
       - name: Log in to registry
+        if: ${{ github.repository_owner == env.ORG }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Check out the release tag
+        if: ${{ github.repository_owner == env.ORG }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
       - name: Resolve commit sha for the tag
+        if: ${{ github.repository_owner == env.ORG }}
         id: rev
         shell: bash
         run: |
           SHORT_SHA="$(git rev-parse --short=12 HEAD)"
           echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
       - name: Tag image with release tag
+        if: ${{ github.repository_owner == env.ORG }}
         run: |
           docker pull ${{ needs.setup.outputs.image_base }}:${{ steps.rev.outputs.short_sha }}
           docker tag  ${{ needs.setup.outputs.image_base }}:${{ steps.rev.outputs.short_sha }} ${{ needs.setup.outputs.image_base }}:${{ github.event.release.tag_name }}

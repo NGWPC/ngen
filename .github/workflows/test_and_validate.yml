@@ -32,7 +32,7 @@ jobs:
     steps:
     - name: Checkout the commit
       uses: actions/checkout@v4
-    
+
     - name: Build Unit Tests
       uses: ./.github/actions/ngen-build
       with:
@@ -50,7 +50,7 @@ jobs:
         export ASAN_OPTIONS=${ASAN_OPTIONS}:detect_container_overflow=0
         ./cmake_build/test/test_geopackage
       timeout-minutes: 15
-    
+
     - name: Clean Up
       uses: ./.github/actions/clean-build
 
@@ -127,7 +127,7 @@ jobs:
 
       #make sure cxx bmi is initialized/ready
       - uses: ./.github/actions/ngen-submod-build
-        with: 
+        with:
           mod-dir: "extern/bmi-cxx/"
 
       - name: Build Unit Tests

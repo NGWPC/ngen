@@ -30,7 +30,7 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-    
+
       - name: Build NGen
         uses: ./.github/actions/ngen-build
         with:
@@ -96,7 +96,7 @@ jobs:
       #This step should come after ngen build???
       - name: Configure Fortran Compiler
         run: |
-          if [ ${{ runner.os }} == 'macOS' ] 
+          if [ ${{ runner.os }} == 'macOS' ]
           then
             sudo ln -s $(which gfortran-11) $(dirname $(which gfortran-11))/gfortran
             export FC=gfortran-11
@@ -114,16 +114,16 @@ jobs:
           pip install -U setuptools
           pip install -r requirements.txt
           pip install deprecated 'pyarrow==11.0.0' tables geopandas numpy
-          if [ ${{ runner.os }} == 'macOS' ] 
+          if [ ${{ runner.os }} == 'macOS' ]
           then
             export LIBRARY_PATH=/usr/local/lib/gcc/11/
             export LD_LIBRARY_PATH=/usr/local/lib/gcc/11/
           fi
           export NETCDFALTERNATIVE=${NETCDF}/include
           export FC=gfortran
-          export F90=gfortran 
+          export F90=gfortran
           ./compiler.sh no-e
-          
+
           deactivate
 
       - name: Run test
