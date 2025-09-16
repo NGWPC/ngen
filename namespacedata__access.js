@@ -7,6 +7,8 @@ var namespacedata__access =
     [ "DataProvider", "classdata__access_1_1_data_provider.html", "classdata__access_1_1_data_provider" ],
     [ "DeferredWrappedProvider", "classdata__access_1_1_deferred_wrapped_provider.html", "classdata__access_1_1_deferred_wrapped_provider" ],
     [ "OptionalWrappedDataProvider", "classdata__access_1_1_optional_wrapped_data_provider.html", "classdata__access_1_1_optional_wrapped_data_provider" ],
+    [ "unit_conversion_exception", "structdata__access_1_1unit__conversion__exception.html", "structdata__access_1_1unit__conversion__exception" ],
+    [ "unit_error_log_key", "structdata__access_1_1unit__error__log__key.html", "structdata__access_1_1unit__error__log__key" ],
     [ "WrappedDataProvider", "classdata__access_1_1_wrapped_data_provider.html", "classdata__access_1_1_wrapped_data_provider" ],
     [ "BaseProvider", "namespacedata__access.html#a5a786549d969ed24a18a609e171d829b", null ],
     [ "GenericDataProvider", "namespacedata__access.html#a80e53ae1180ee33222d2a54436928c24", null ],
@@ -18,5 +20,6 @@ var namespacedata__access =
       [ "BACK_FILL", "namespacedata__access.html#a46435cb3579215dfdfffedc7833e43f9a64524e829f0c293446b973b486de4681", null ]
     ] ],
     [ "convert_divide_id_stoi", "namespacedata__access.html#ad7fe206f5ee0cecbe3416ba7e80801ea", null ],
+    [ "unit_errors_reported", "namespacedata__access.html#ab2bdc56a1961ac6f43b594bd7d4c61b3", null ],
     [ "WellKnownFields", "namespacedata__access.html#a2dcd647363ddb5cc6803f9d94bd12151", null ]
 ];

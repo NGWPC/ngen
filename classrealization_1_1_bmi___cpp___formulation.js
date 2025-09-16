@@ -105,7 +105,5 @@ var classrealization_1_1_bmi___cpp___formulation =
     [ "output_text_stream", "classrealization_1_1_bmi___cpp___formulation.html#a0dd771991a46889d4bc299f8c13cb5e3", null ],
     [ "output_variable_names", "classrealization_1_1_bmi___cpp___formulation.html#a566505f80702c117ef23688ce6892a51", null ],
     [ "realized_catchment", "classrealization_1_1_bmi___cpp___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c", null ],
-    [ "REQUIRED_PARAMETERS", "classrealization_1_1_bmi___cpp___formulation.html#a23add24bf83ce887364b65ec89408bd5", null ],
-    [ "unitGetValueErrLogged", "classrealization_1_1_bmi___cpp___formulation.html#af604f56199673e388569c9f7ef579b5c", null ],
-    [ "unitGetValuesErrLogged", "classrealization_1_1_bmi___cpp___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b", null ]
+    [ "REQUIRED_PARAMETERS", "classrealization_1_1_bmi___cpp___formulation.html#a23add24bf83ce887364b65ec89408bd5", null ]
 ];

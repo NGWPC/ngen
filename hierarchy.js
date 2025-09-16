@@ -50,6 +50,7 @@ var hierarchy =
         [ "realization::Bmi_Multi_Formulation", "classrealization_1_1_bmi___multi___formulation.html", null ]
       ] ]
     ] ],
+    [ "data_access::unit_error_log_key", "structdata__access_1_1unit__error__log__key.html", null ],
     [ "forcing_params", "structforcing__params.html", null ],
     [ "geojson::FeatureBase", "classgeojson_1_1_feature_base.html", [
       [ "geojson::CollectionFeature", "classgeojson_1_1_collection_feature.html", null ],
@@ -154,6 +155,7 @@ var hierarchy =
       [ "realization::ConfigurationException", "classrealization_1_1_configuration_exception.html", null ],
       [ "request_from_empty_nexus", "structrequest__from__empty__nexus.html", null ],
       [ "std::runtime_error", null, [
+        [ "data_access::unit_conversion_exception", "structdata__access_1_1unit__conversion__exception.html", null ],
         [ "ngen::sqlite::sqlite_error", "structngen_1_1sqlite_1_1sqlite__error.html", null ]
       ] ]
     ] ],

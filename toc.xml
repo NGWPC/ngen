@@ -495,6 +495,22 @@
           <topic label="setMessage" href="classdata__access_1_1_optional_wrapped_data_provider.html#a6290c9fd3457167aabb0db8115772bf4"/>
           <topic label="wrapped_provider" href="classdata__access_1_1_optional_wrapped_data_provider.html#a04271bd600dbe1a97b35240ad13ba044"/>
         </topic>
+        <topic label="unit_conversion_exception" href="structdata__access_1_1unit__conversion__exception.html">
+          <topic label="unit_conversion_exception" href="structdata__access_1_1unit__conversion__exception.html#a8b5343085dd9df5fa6276ca055e9b8c8"/>
+          <topic label="provider_bmi_var_name" href="structdata__access_1_1unit__conversion__exception.html#ab9d21181afd44b91b8b55d602d7dc1e3"/>
+          <topic label="provider_model_name" href="structdata__access_1_1unit__conversion__exception.html#a31e1c0fc2df7964dfb93ef8f146e4ff2"/>
+          <topic label="provider_units" href="structdata__access_1_1unit__conversion__exception.html#a1730501b13ee46125b801db942f6cbac"/>
+          <topic label="unconverted_values" href="structdata__access_1_1unit__conversion__exception.html#aa54b97dfedc01fb96826f0bd9a014739"/>
+        </topic>
+        <topic label="unit_error_log_key" href="structdata__access_1_1unit__error__log__key.html">
+          <topic label="operator&lt;" href="structdata__access_1_1unit__error__log__key.html#a403f0ef7deabe1ec01fe1c620b06bdb3"/>
+          <topic label="operator==" href="structdata__access_1_1unit__error__log__key.html#a64be457edea94ab339f3a34c444b896e"/>
+          <topic label="failure_message" href="structdata__access_1_1unit__error__log__key.html#a419e1fe64372bf2c4d72aaa85fd69442"/>
+          <topic label="provider_name" href="structdata__access_1_1unit__error__log__key.html#a8e78fab4d13438513c19b6a3aacf4c75"/>
+          <topic label="provider_variable" href="structdata__access_1_1unit__error__log__key.html#a53c844325191a0c45442d03e9eeed1d3"/>
+          <topic label="requester_name" href="structdata__access_1_1unit__error__log__key.html#a1ba5cf530c4ea00e38f2489d5c1aa081"/>
+          <topic label="requester_variable" href="structdata__access_1_1unit__error__log__key.html#a07ef9cf0a8a1754d2c8409ed72abd5be"/>
+        </topic>
         <topic label="WrappedDataProvider" href="classdata__access_1_1_wrapped_data_provider.html">
           <topic label="data_type" href="classdata__access_1_1_wrapped_data_provider.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
           <topic label="selection_type" href="classdata__access_1_1_wrapped_data_provider.html#ab0b1614239c57ead01efc4f45bf7d719"/>
@@ -524,6 +540,7 @@
           <topic label="BACK_FILL" href="namespacedata__access.html#a46435cb3579215dfdfffedc7833e43f9a64524e829f0c293446b973b486de4681"/>
         </topic>
         <topic label="convert_divide_id_stoi" href="namespacedata__access.html#ad7fe206f5ee0cecbe3416ba7e80801ea"/>
+        <topic label="unit_errors_reported" href="namespacedata__access.html#ab2bdc56a1961ac6f43b594bd7d4c61b3"/>
         <topic label="WellKnownFields" href="namespacedata__access.html#a2dcd647363ddb5cc6803f9d94bd12151"/>
       </topic>
       <topic label="external" href="namespaceexternal.html">
@@ -2223,8 +2240,6 @@
           <topic label="output_variable_names" href="classrealization_1_1_bmi___c___formulation.html#a566505f80702c117ef23688ce6892a51"/>
           <topic label="realized_catchment" href="classrealization_1_1_bmi___c___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c"/>
           <topic label="REQUIRED_PARAMETERS" href="classrealization_1_1_bmi___c___formulation.html#a23add24bf83ce887364b65ec89408bd5"/>
-          <topic label="unitGetValueErrLogged" href="classrealization_1_1_bmi___c___formulation.html#af604f56199673e388569c9f7ef579b5c"/>
-          <topic label="unitGetValuesErrLogged" href="classrealization_1_1_bmi___c___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b"/>
         </topic>
         <topic label="Bmi_Cpp_Formulation" href="classrealization_1_1_bmi___cpp___formulation.html">
           <topic label="data_type" href="classrealization_1_1_bmi___cpp___formulation.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -2333,8 +2348,6 @@
           <topic label="output_variable_names" href="classrealization_1_1_bmi___cpp___formulation.html#a566505f80702c117ef23688ce6892a51"/>
           <topic label="realized_catchment" href="classrealization_1_1_bmi___cpp___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c"/>
           <topic label="REQUIRED_PARAMETERS" href="classrealization_1_1_bmi___cpp___formulation.html#a23add24bf83ce887364b65ec89408bd5"/>
-          <topic label="unitGetValueErrLogged" href="classrealization_1_1_bmi___cpp___formulation.html#af604f56199673e388569c9f7ef579b5c"/>
-          <topic label="unitGetValuesErrLogged" href="classrealization_1_1_bmi___cpp___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b"/>
         </topic>
         <topic label="Bmi_Formulation" href="classrealization_1_1_bmi___formulation.html">
           <topic label="data_type" href="classrealization_1_1_bmi___formulation.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -2519,8 +2532,6 @@
           <topic label="output_variable_names" href="classrealization_1_1_bmi___module___formulation.html#a566505f80702c117ef23688ce6892a51"/>
           <topic label="realized_catchment" href="classrealization_1_1_bmi___module___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c"/>
           <topic label="REQUIRED_PARAMETERS" href="classrealization_1_1_bmi___module___formulation.html#a23add24bf83ce887364b65ec89408bd5"/>
-          <topic label="unitGetValueErrLogged" href="classrealization_1_1_bmi___module___formulation.html#af604f56199673e388569c9f7ef579b5c"/>
-          <topic label="unitGetValuesErrLogged" href="classrealization_1_1_bmi___module___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b"/>
         </topic>
         <topic label="Bmi_Multi_Formulation" href="classrealization_1_1_bmi___multi___formulation.html">
           <topic label="data_type" href="classrealization_1_1_bmi___multi___formulation.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -2890,6 +2901,22 @@
           <topic label="providedOutputs" href="classdata__access_1_1_optional_wrapped_data_provider.html#a20c7ab984ad34e8f71225a6abc422fbd"/>
           <topic label="setMessage" href="classdata__access_1_1_optional_wrapped_data_provider.html#a6290c9fd3457167aabb0db8115772bf4"/>
           <topic label="wrapped_provider" href="classdata__access_1_1_optional_wrapped_data_provider.html#a04271bd600dbe1a97b35240ad13ba044"/>
+        </topic>
+        <topic label="unit_conversion_exception" href="structdata__access_1_1unit__conversion__exception.html">
+          <topic label="unit_conversion_exception" href="structdata__access_1_1unit__conversion__exception.html#a8b5343085dd9df5fa6276ca055e9b8c8"/>
+          <topic label="provider_bmi_var_name" href="structdata__access_1_1unit__conversion__exception.html#ab9d21181afd44b91b8b55d602d7dc1e3"/>
+          <topic label="provider_model_name" href="structdata__access_1_1unit__conversion__exception.html#a31e1c0fc2df7964dfb93ef8f146e4ff2"/>
+          <topic label="provider_units" href="structdata__access_1_1unit__conversion__exception.html#a1730501b13ee46125b801db942f6cbac"/>
+          <topic label="unconverted_values" href="structdata__access_1_1unit__conversion__exception.html#aa54b97dfedc01fb96826f0bd9a014739"/>
+        </topic>
+        <topic label="unit_error_log_key" href="structdata__access_1_1unit__error__log__key.html">
+          <topic label="operator&lt;" href="structdata__access_1_1unit__error__log__key.html#a403f0ef7deabe1ec01fe1c620b06bdb3"/>
+          <topic label="operator==" href="structdata__access_1_1unit__error__log__key.html#a64be457edea94ab339f3a34c444b896e"/>
+          <topic label="failure_message" href="structdata__access_1_1unit__error__log__key.html#a419e1fe64372bf2c4d72aaa85fd69442"/>
+          <topic label="provider_name" href="structdata__access_1_1unit__error__log__key.html#a8e78fab4d13438513c19b6a3aacf4c75"/>
+          <topic label="provider_variable" href="structdata__access_1_1unit__error__log__key.html#a53c844325191a0c45442d03e9eeed1d3"/>
+          <topic label="requester_name" href="structdata__access_1_1unit__error__log__key.html#a1ba5cf530c4ea00e38f2489d5c1aa081"/>
+          <topic label="requester_variable" href="structdata__access_1_1unit__error__log__key.html#a07ef9cf0a8a1754d2c8409ed72abd5be"/>
         </topic>
         <topic label="WrappedDataProvider" href="classdata__access_1_1_wrapped_data_provider.html">
           <topic label="data_type" href="classdata__access_1_1_wrapped_data_provider.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -4443,8 +4470,6 @@
           <topic label="output_variable_names" href="classrealization_1_1_bmi___c___formulation.html#a566505f80702c117ef23688ce6892a51"/>
           <topic label="realized_catchment" href="classrealization_1_1_bmi___c___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c"/>
           <topic label="REQUIRED_PARAMETERS" href="classrealization_1_1_bmi___c___formulation.html#a23add24bf83ce887364b65ec89408bd5"/>
-          <topic label="unitGetValueErrLogged" href="classrealization_1_1_bmi___c___formulation.html#af604f56199673e388569c9f7ef579b5c"/>
-          <topic label="unitGetValuesErrLogged" href="classrealization_1_1_bmi___c___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b"/>
         </topic>
         <topic label="Bmi_Cpp_Formulation" href="classrealization_1_1_bmi___cpp___formulation.html">
           <topic label="data_type" href="classrealization_1_1_bmi___cpp___formulation.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -4553,8 +4578,6 @@
           <topic label="output_variable_names" href="classrealization_1_1_bmi___cpp___formulation.html#a566505f80702c117ef23688ce6892a51"/>
           <topic label="realized_catchment" href="classrealization_1_1_bmi___cpp___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c"/>
           <topic label="REQUIRED_PARAMETERS" href="classrealization_1_1_bmi___cpp___formulation.html#a23add24bf83ce887364b65ec89408bd5"/>
-          <topic label="unitGetValueErrLogged" href="classrealization_1_1_bmi___cpp___formulation.html#af604f56199673e388569c9f7ef579b5c"/>
-          <topic label="unitGetValuesErrLogged" href="classrealization_1_1_bmi___cpp___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b"/>
         </topic>
         <topic label="Bmi_Formulation" href="classrealization_1_1_bmi___formulation.html">
           <topic label="data_type" href="classrealization_1_1_bmi___formulation.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -4739,8 +4762,6 @@
           <topic label="output_variable_names" href="classrealization_1_1_bmi___module___formulation.html#a566505f80702c117ef23688ce6892a51"/>
           <topic label="realized_catchment" href="classrealization_1_1_bmi___module___formulation.html#aa92f9bd07b2cdf99ce74367fd7988b1c"/>
           <topic label="REQUIRED_PARAMETERS" href="classrealization_1_1_bmi___module___formulation.html#a23add24bf83ce887364b65ec89408bd5"/>
-          <topic label="unitGetValueErrLogged" href="classrealization_1_1_bmi___module___formulation.html#af604f56199673e388569c9f7ef579b5c"/>
-          <topic label="unitGetValuesErrLogged" href="classrealization_1_1_bmi___module___formulation.html#a8881ac55a1d121e96e45f4a22bbefd3b"/>
         </topic>
         <topic label="Bmi_Multi_Formulation" href="classrealization_1_1_bmi___multi___formulation.html">
           <topic label="data_type" href="classrealization_1_1_bmi___multi___formulation.html#a0d14bbf2549386ef2baefc87248ae3ad"/>
@@ -5758,6 +5779,7 @@
           <topic label="realization::Bmi_Multi_Formulation" href="classrealization_1_1_bmi___multi___formulation.html"/>
         </topic>
       </topic>
+      <topic label="data_access::unit_error_log_key" href="structdata__access_1_1unit__error__log__key.html"/>
       <topic label="forcing_params" href="structforcing__params.html"/>
       <topic label="geojson::FeatureBase" href="classgeojson_1_1_feature_base.html">
         <topic label="geojson::CollectionFeature" href="classgeojson_1_1_collection_feature.html"/>
@@ -5862,6 +5884,7 @@
         <topic label="realization::ConfigurationException" href="classrealization_1_1_configuration_exception.html"/>
         <topic label="request_from_empty_nexus" href="structrequest__from__empty__nexus.html"/>
         <topic label="std::runtime_error">
+          <topic label="data_access::unit_conversion_exception" href="structdata__access_1_1unit__conversion__exception.html"/>
           <topic label="ngen::sqlite::sqlite_error" href="structngen_1_1sqlite_1_1sqlite__error.html"/>
         </topic>
       </topic>

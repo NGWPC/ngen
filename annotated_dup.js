@@ -7,6 +7,8 @@ var annotated_dup =
       [ "DataProvider", "classdata__access_1_1_data_provider.html", "classdata__access_1_1_data_provider" ],
       [ "DeferredWrappedProvider", "classdata__access_1_1_deferred_wrapped_provider.html", "classdata__access_1_1_deferred_wrapped_provider" ],
       [ "OptionalWrappedDataProvider", "classdata__access_1_1_optional_wrapped_data_provider.html", "classdata__access_1_1_optional_wrapped_data_provider" ],
+      [ "unit_conversion_exception", "structdata__access_1_1unit__conversion__exception.html", "structdata__access_1_1unit__conversion__exception" ],
+      [ "unit_error_log_key", "structdata__access_1_1unit__error__log__key.html", "structdata__access_1_1unit__error__log__key" ],
       [ "WrappedDataProvider", "classdata__access_1_1_wrapped_data_provider.html", "classdata__access_1_1_wrapped_data_provider" ]
     ] ],
     [ "external", "namespaceexternal.html", [
