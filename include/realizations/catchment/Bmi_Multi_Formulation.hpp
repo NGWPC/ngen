@@ -569,38 +569,56 @@ namespace realization {
          * @param var_name
          * @return
          */
-        double get_var_value_as_double(const int& index, const std::string& var_name) override {
-            auto data_provider_iter = availableData.find(var_name);
-            if (data_provider_iter == availableData.end()) {
-                throw external::ExternalIntegrationException(
-                        "Multi BMI formulation can't find correct nested module for BMI variable " + var_name + SOURCE_LOC);
-            }
-            // Otherwise, we have a provider, and we can cast it based on the documented assumptions
-            try {
-                auto const& nested_module = data_provider_iter->second;
-                long nested_module_time = nested_module->get_data_start_time() + ( this->get_model_current_time() - this->get_model_start_time() );
-                auto selector = CatchmentAggrDataSelector(this->get_catchment_id(),var_name,nested_module_time,this->record_duration(),"1");
-                //TODO: After merge PR#405, try re-adding support for index
-                return nested_module->get_value(selector);
-            }
-            catch (data_access::unit_conversion_exception &uce) {
-                // We asked for it as a dimensionless quantity, "1", just above
-                static bool no_conversion_message_logged = false;
-                if (!no_conversion_message_logged) {
-                    no_conversion_message_logged = true;
-                    LOG("Emitting output variables from Bmi_Multi_Formulation without unit conversion - see NGWPC-7604", LogLevel::WARNING);
-                }
-                return uce.unconverted_values[0];
-            }
-            // If there was any problem with the cast and extraction of the value, throw runtime error
-            catch (std::exception &e) {
-                std::string throw_msg; throw_msg.assign("Multi BMI formulation can't use associated data provider as a nested module"
-                                         " when attempting to get values of BMI variable " + var_name + SOURCE_LOC);
-                LOG(throw_msg, LogLevel::WARNING);
-                throw std::runtime_error(throw_msg);
-                // TODO: look at adjusting defs to move this function up in class hierarchy (or at least add TODO there)
-            }
+	double get_var_value_as_double(const int& index, const std::string& var_name) override {
+    auto data_provider_iter = availableData.find(var_name);
+    if (data_provider_iter == availableData.end()) {
+        throw external::ExternalIntegrationException(
+                "Multi BMI formulation can't find correct nested module for BMI variable " + var_name + SOURCE_LOC);
+    }
+    // Otherwise, we have a provider, and we can cast it based on the documented assumptions
+    try {
+        auto const& nested_module = data_provider_iter->second;
+        long nested_module_time = nested_module->get_data_start_time() + ( this->get_model_current_time() - this->get_model_start_time() );
+
+        // **Minimal fix**: do NOT request dimensionless "1" here; pass "" to avoid any UDUNITS conversion attempt.
+        auto selector = CatchmentAggrDataSelector(this->get_catchment_id(), var_name, nested_module_time, this->record_duration(), "");
+
+        // TODO: After merge PR#405, try re-adding support for index
+        return nested_module->get_value(selector);
+    }
+    catch (data_access::unit_conversion_exception &uce) {
+        // We now avoid conversion by passing "", but keep this path as a safety net.
+        static bool no_conversion_message_logged = false;
+        if (!no_conversion_message_logged) {
+            no_conversion_message_logged = true;
+            LOG("Emitting output variables from Bmi_Multi_Formulation without unit conversion - see NGWPC-7604", LogLevel::WARNING);
         }
+        return uce.unconverted_values.empty() ? 0.0 : uce.unconverted_values[0];
+    }
+    // If there was any problem with the cast and extraction of the value, avoid hard abort:
+    catch (std::exception &e) {
+        std::string msg = e.what();
+        // Soften both UDUNITS and nested-provider guard failures
+        if (msg.find("ut_get_converter()") != std::string::npos ||
+            msg.find("Units not convertible") != std::string::npos ||
+            msg.find("Multi BMI formulation can't use associated data provider as a nested module") != std::string::npos) {
+
+            std::stringstream warn;
+            warn << "BMI multi output fetch warning for var '" << var_name
+                 << "' in catchment '" << this->get_catchment_id()
+                 << "': " << msg << " — using fallback 0 this step.";
+            LOG(warn.str(), LogLevel::WARNING);
+            return 0.0;
+        }
+
+        // Unexpected error: keep previous behavior (log and throw) to avoid masking real bugs
+        std::string throw_msg; throw_msg.assign("Multi BMI formulation can't use associated data provider as a nested module"
+                                 " when attempting to get values of BMI variable " + var_name + SOURCE_LOC);
+        LOG(throw_msg, LogLevel::WARNING);
+        throw std::runtime_error(throw_msg);
+    }
+}
+
 
         /**
          * Initialize the deferred associations with the providers in @ref deferredProviders.

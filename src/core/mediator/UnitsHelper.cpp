@@ -58,6 +58,78 @@ std::shared_ptr<cv_converter> UnitsHelper::get_converter(const std::string& in_u
 
 double UnitsHelper::get_converted_value(const std::string &in_units, const double &value, const std::string &out_units)
 {
+    auto is_noneish = [](const std::string& u)->bool {
+        return u.empty() || u == "none" || u == "unitless" || u == "dimensionless" || u == "-";
+    };
+
+    // Normalize input units: map none-ish → "1"
+    const std::string in_norm = is_noneish(in_units) ? std::string("1") : in_units;
+
+    // Normalize requested units:
+    //  - none-ish → "1" if input is "1"; otherwise "" (unspecified → skip conversion)
+    std::string out_norm;
+    if (is_noneish(out_units)) {
+        out_norm = (in_norm == "1") ? std::string("1") : std::string("");
+    }
+    else {
+        out_norm = out_units;
+    }
+
+    // Early outs (no UDUNITS parsing or converter creation)
+    if (out_norm.empty() || in_norm == out_norm) {
+        return value;
+    }
+
+    std::call_once(unit_system_inited, init_unit_system);
+
+    auto converter = get_converter(in_norm, out_norm);
+
+    double r = cv_convert_double(converter.get(), value);
+    return r;
+}
+
+double* UnitsHelper::convert_values(const std::string &in_units, double* in_values, const std::string &out_units, double* out_values, const size_t& count)
+{
+    auto is_noneish = [](const std::string& u)->bool {
+        return u.empty() || u == "none" || u == "unitless" || u == "dimensionless" || u == "-";
+    };
+
+    // Normalize input units: map none-ish → "1"
+    const std::string in_norm = is_noneish(in_units) ? std::string("1") : in_units;
+
+    // Normalize requested units:
+    //  - none-ish → "1" if input is "1"; otherwise "" (unspecified → skip conversion)
+    std::string out_norm;
+    if (is_noneish(out_units)) {
+        out_norm = (in_norm == "1") ? std::string("1") : std::string("");
+    }
+    else {
+        out_norm = out_units;
+    }
+
+    // Early outs (no UDUNITS parsing or converter creation)
+    if (out_norm.empty() || in_norm == out_norm) {
+        // Pass-through
+        if (in_values == out_values) {
+            return in_values;
+        } else {
+            std::memcpy(out_values, in_values, sizeof(double)*count);
+            return out_values;
+        }
+    }
+
+    std::call_once(unit_system_inited, init_unit_system);
+
+    auto converter = get_converter(in_norm, out_norm);
+
+    cv_convert_doubles(converter.get(), in_values, count, out_values);
+
+    return out_values;
+}
+
+/*
+double UnitsHelper::get_converted_value(const std::string &in_units, const double &value, const std::string &out_units)
+{
     if(in_units == out_units){
         return value; // Early-out optimization
     }
@@ -88,4 +160,4 @@ double* UnitsHelper::convert_values(const std::string &in_units, double* in_valu
 
     return out_values;
 }
-
+*/
