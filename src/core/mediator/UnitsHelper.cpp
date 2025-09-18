@@ -126,38 +126,3 @@ double* UnitsHelper::convert_values(const std::string &in_units, double* in_valu
 
     return out_values;
 }
-
-/*
-double UnitsHelper::get_converted_value(const std::string &in_units, const double &value, const std::string &out_units)
-{
-    if(in_units == out_units){
-        return value; // Early-out optimization
-    }
-    std::call_once(unit_system_inited, init_unit_system);
-
-    auto converter = get_converter(in_units, out_units);
-
-    double r = cv_convert_double(converter.get(), value);
-    return r;
-}
-
-double* UnitsHelper::convert_values(const std::string &in_units, double* in_values, const std::string &out_units, double* out_values, const size_t& count)
-{
-    if(in_units == out_units){
-        // Early-out optimization
-        if(in_values == out_values){
-            return in_values;
-        } else {
-            memcpy(out_values, in_values, sizeof(double)*count);
-            return out_values;
-        }
-    }
-    std::call_once(unit_system_inited, init_unit_system);
-    
-    auto converter = get_converter(in_units, out_units);
-
-    cv_convert_doubles(converter.get(), in_values, count, out_values);
-
-    return out_values;
-}
-*/
