@@ -120,6 +120,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-szip \
 	nproc="$(nproc)" && \
 	make -j "$nproc" && \
 	make install && \
+    strip --strip-debug /usr/local/lib/libsz*.so.* || true && \
     rm --recursive --force /usr/src/szip szip.tar.gz
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
@@ -131,7 +132,9 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
 	./configure --prefix=/usr/local/ --with-szlib=/usr/local/ && \
 	make check -j "$(nproc)" && \
     make install && \
-    rm --recursive --force /usr/src/hdf5 hdf5.tar.gz
+    strip --strip-debug /usr/local/lib/libhdf5*.so.* || true && \
+    rm -f /usr/local/lib/libhdf5*.a && \
+    rm --recursive --force /usr/src/hdf5 hdf5.tar.gz 
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
     set -eux && \
@@ -142,6 +145,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
     cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
+    #strip --strip-debug /usr/local/lib64/libnetcdf*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-c netcdf-c.tar.gz
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
@@ -154,6 +158,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
        -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
+    #strip --strip-debug /usr/local/lib/libnetcdff*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-fortran netcdf-fortran.tar.gz
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-boost \
@@ -163,7 +168,9 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-boost \
     tar --extract --directory /opt/boost --strip-components=1 --file boost.tar.gz && \
     rm boost.tar.gz \
     # build boost libraries
-    && cd /opt/boost && ./bootstrap.sh && ./b2 && ./b2 install --prefix=/usr/local
+    && cd /opt/boost && ./bootstrap.sh && ./b2 && ./b2 install --prefix=/usr/local && \
+    strip --strip-debug /usr/local/lib/libboost_*.so.* || true && \
+    rm -f /usr/local/lib/libboost_*.a
 
 ENV VIRTUAL_ENV="/ngen-app/ngen-python"
 
@@ -182,13 +189,13 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
       'pandas' \
       'pyyml' \
       'torch' && \
-    pip install -e /ngen-app/ngen-forcing/
+    pip install /ngen-app/ngen-forcing/
 
 WORKDIR /ngen-app/
 
 # TODO This will invalidate the cache for all subsequent stages so we don't really want to do this
 # Copy the remainder of your application code
-COPY . /ngen-app/ngen/
+ COPY . /ngen-app/ngen/
 
 ##############################
 # Stage: Submodules Build
@@ -196,6 +203,9 @@ COPY . /ngen-app/ngen/
 FROM base AS submodules
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
+
+#WORKDIR /ngen-app/
+#COPY . /ngen-app/ngen/
 
 WORKDIR /ngen-app/ngen/
 
@@ -216,13 +226,19 @@ ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
 RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
     set -eux && \
     cd extern/t-route && \
-   echo "Running compiler.sh" && \
+    echo "Running compiler.sh" && \
     LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
-    ./compiler.sh no-e
+    ./compiler.sh no-e && \
+    rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
+    find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
+    find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
 
 # Configure the build with cache for CMake
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
     set -eux && \
+        export FFLAGS="-fPIC" && \
+        export FCFLAGS="-fPIC" && \
+        export CMAKE_Fortran_FLAGS="-fPIC" && \
         cmake -B cmake_build -S . \
 ## FIXME: figure out why running with MPI enabled throws errors
 ##      and re-enable it.
@@ -238,51 +254,55 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
           -DNGEN_QUIET=ON \
           -DNGEN_UPDATE_GIT_SUBMODULES=ON \
           -DBOOST_ROOT=/opt/boost && \
-      cmake --build cmake_build --target all && \
-      rm -rf cmake_build
+    cmake --build cmake_build --target all && \
+    rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
+    rm -rf /ngen-app/ngen/cmake_build/src/core/CMakeFiles && \
+    find /ngen-app/ngen/cmake_build -name "*.a" -exec rm -f {} + && \
+    find /ngen-app/ngen/cmake_build -name "*.o" -exec rm -f {} +
 
 # Build each submodule in a separate layer, using cache for CMake as well
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
     set -eux && \
     cmake -B extern/LASAM/cmake_build -S extern/LASAM/ -DNGEN=ON && \
     cmake --build extern/LASAM/cmake_build/ && \
-    rm -rf extern/LASAM/cmake_build/
+    find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
     set -eux && \
     cmake -B extern/snow17/cmake_build -S extern/snow17/ && \
     cmake --build extern/snow17/cmake_build/ && \
-    rm -rf extern/snow17/cmake_build/
+    find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     set -eux && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ && \
-    cmake --build extern/sac-sma/cmake_build/ && \
-    rm -rf extern/sac-sma/cmake_build/
+    cmake --build extern/sac-sma/cmake_build/ && \ 
+    find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
     set -eux && \
     cmake -B extern/SoilMoistureProfiles/cmake_build -S extern/SoilMoistureProfiles/SoilMoistureProfiles/ -DNGEN=ON && \
-    cmake --build extern/SoilMoistureProfiles/cmake_build/ && \ 
-    rm -rf extern/SoilMoistureProfiles/cmake_build/
+    cmake --build extern/SoilMoistureProfiles/cmake_build/ && \
+    find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
     set -eux && \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ -DNGEN=ON && \
     cmake --build extern/SoilFreezeThaw/cmake_build/ && \
-    rm -rf extern/SoilFreezeThaw/cmake_build/
+    find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
     set -eux && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ && \
     cmake --build extern/ueb-bmi/cmake_build/ && \
-    rm -rf extern/ueb-bmi/cmake_build/
+    find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
 
 RUN set -eux && \
     mkdir --parents /ngencerf/data/ngen-run-logs/ && \
     mkdir --parents /ngen-app/bin/ && \
     mv run-ngen.sh /ngen-app/bin/ && \
-    chmod +x /ngen-app/bin/run-ngen.sh
+    chmod +x /ngen-app/bin/run-ngen.sh && \
+    find /ngen-app/ngen -name "*.so" -exec chmod 755 {} \;
 
 WORKDIR /ngen-app/ngen
 
