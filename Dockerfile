@@ -3,8 +3,10 @@
 ##############################
 # Stage: Base – Common Setup
 ##############################
+ARG NGEN_FORCING_REGISTRY=ghcr.io
+ARG NGEN_FORCING_ORG=ngwpc
 ARG NGEN_FORCING_IMAGE_TAG=latest
-FROM fe-bmi:${NGEN_FORCING_IMAGE_TAG} AS base
+FROM ${NGEN_FORCING_REGISTRY}/${NGEN_FORCING_ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG} AS base
 
 # cannot remove LANG even though https://bugs.python.org/issue19846 is fixed
 # last attempted removal of LANG broke many users:
@@ -134,7 +136,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
     make install && \
     strip --strip-debug /usr/local/lib/libhdf5*.so.* || true && \
     rm -f /usr/local/lib/libhdf5*.a && \
-    rm --recursive --force /usr/src/hdf5 hdf5.tar.gz 
+    rm --recursive --force /usr/src/hdf5 hdf5.tar.gz
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
     set -eux && \
@@ -210,7 +212,7 @@ SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 WORKDIR /ngen-app/ngen/
 
 # Copy only the requirements files first for dependency installation caching
-COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt 
+COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
 COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
 
 # Install Python dependencies and remove the temporary requirements files
@@ -276,7 +278,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     set -eux && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ && \
-    cmake --build extern/sac-sma/cmake_build/ && \ 
+    cmake --build extern/sac-sma/cmake_build/ && \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \

@@ -21,6 +21,7 @@ jobs:
     name: setup
     runs-on: ubuntu-latest
     outputs:
+      org: ${{ steps.vars.outputs.org }}
       image_base: ${{ steps.vars.outputs.image_base }}
       pr_tag: ${{ steps.vars.outputs.pr_tag }}
       commit_sha: ${{ steps.vars.outputs.commit_sha }}
@@ -35,6 +36,7 @@ jobs:
           ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           REPO="$(basename "${GITHUB_REPOSITORY}")"
           IMAGE_BASE="${REGISTRY}/${ORG}/${REPO}"
+          echo "org=${ORG}" >> "$GITHUB_OUTPUT"
           echo "image_base=${IMAGE_BASE}" >> "$GITHUB_OUTPUT"
 
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
@@ -89,6 +91,10 @@ jobs:
           context: .
           push: true
           tags: ${{ needs.setup.outputs.image_base }}:${{ needs.setup.outputs.test_image_tag }}
+          build-args: |
+            NGEN_FORCING_REGISTRY=${{ env.NGEN_FORCING_REGISTRY || env.REGISTRY }}
+            NGEN_FORCING_ORG=${{ env.NGEN_FORCING_ORG  || needs.setup.outputs.org }}
+            NGEN_FORCING_IMAGE_TAG=${{ env.NGEN_FORCING_IMAGE_TAG  || 'latest' }}
 
   unit-test:
     name: unit-test
