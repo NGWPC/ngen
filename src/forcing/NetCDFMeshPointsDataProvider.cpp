@@ -14,6 +14,9 @@
 #include "forcing/FlowMeshPolicy.h"
 #include "forcing/TidalMeshPolicy.h"
 
+#include "forcing/MetMeshPolicy.h"
+#include "forcing/FlowMeshPolicy.h"
+
 namespace data_access {
 
 // Out-of-line class definition after forward-declaration so that the
@@ -177,6 +180,7 @@ typename NetCDFMeshPointsDataProvider<MeshPolicy>::data_type NetCDFMeshPointsDat
 
     // Map the init_time to time_index
     size_t time_index = get_ts_index_for_time(std::chrono::system_clock::to_time_t(selector.init_time));
+
     double value = MeshPolicy::get_value( *(this->nc_file), selector, m,
 		                              pt_index,
 	                                      time_index,
@@ -196,6 +200,7 @@ void NetCDFMeshPointsDataProvider<MeshPolicy>::cache_variable(std::string const&
     if (ncvar_cache.find(var_name) != ncvar_cache.end()) return;
 
     auto ncvar = nc_file->getVar(var_name);
+
     std::string native_units = "N/A";
     try {
        auto units_att = ncvar.getAtt("units");
