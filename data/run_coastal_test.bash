@@ -11,6 +11,5 @@ source /contrib/software/py_venvs/ngen_python_3_10_14/bin/activate
 
 cd ../
 
-mpirun -n ${NPROCS} cmake_build_test/ngen data/gauge_01073000/gauge_01073000.gpkg "all" data/gauge_01073000/gauge_01073000.gpkg "all" data/gauge_01073000/example_bmi_multi_realization_config_w_routing_w_coastal.json 
-
+mpirun -n ${NPROCS} ../ngen_coastal_github/cmake_build_test/ngen data/gauge_01073000/gauge_01073000.gpkg "all" data/gauge_01073000/gauge_01073000.gpkg "all" data/gauge_01073000/example_bmi_multi_realization_config_w_routing_w_coastal.json 
 

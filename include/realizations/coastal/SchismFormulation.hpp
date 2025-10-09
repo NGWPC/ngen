@@ -51,7 +51,9 @@ public:
 
     // Visible only for testing use
     enum ForcingSelector { METEO, OFFSHORE, CHANNEL_FLOW };
-    struct InputMapping { ForcingSelector selector; std::string name; };
+    enum MeshLocationSelector {NODES, ELEMENTS, BOUNDARY, UNKNOWN };
+    struct InputMapping { ForcingSelector selector; 
+	     MeshLocationSelector meshLocSelector;  std::string name; };
     static std::map<std::string, InputMapping> expected_input_variables_;
 
     static void check_forcing_provider( ProviderType const& provider, 
