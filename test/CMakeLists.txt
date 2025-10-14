@@ -2,6 +2,20 @@ add_subdirectory(googletest)
 add_compile_definitions(NGEN_BMI_CPP_LIB_TESTS_ACTIVE)
 
 # =============================================================================
+# Enable SCHISM by default; allow disabling via -DNGEN_ENABLE_SCHISM=OFF
+if(NOT DEFINED NGEN_ENABLE_SCHISM)
+  option(NGEN_ENABLE_SCHISM "Build SCHISM coastal integration" ON)
+endif()
+
+if(NOT NGEN_ENABLE_SCHISM)
+  set(_schism_test "${CMAKE_CURRENT_LIST_DIR}/coastal/SchismFormulation_Test.cpp")
+  if(EXISTS "${_schism_test}")
+    # Don’t compile or link this source
+    set_source_files_properties("${_schism_test}" PROPERTIES HEADER_FILE_ONLY TRUE)
+    message(STATUS "Tests: excluding SCHISM coastal test: ${_schism_test}")
+  endif()
+endif()
+
 
 # If ${NGEN_ROOT_DIR} and ${PROJECT_BINARY_DIR} are the same, then we have an in-source build
 # and this is not necessary.

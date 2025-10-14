@@ -198,6 +198,14 @@ void SfincsFormulation::set_inputs()
     }
 }
 
+// ---------- added: out-of-line definition; currently a no-op ----------
+void SfincsFormulation::check_forcing_provider(
+    data_access::DataProvider<double, MeshPointsSelector> const& /*provider*/
+){
+    // No-op for SFINCS today.  Add capability checks here when wiring providers,
+    // e.g., units/variable presence, selection support, etc.
+}
+
 // Not used by coastal formulation path
 long  SfincsFormulation::get_data_start_time() const { throw std::runtime_error(__func__); }
 long  SfincsFormulation::get_data_stop_time()  const { throw std::runtime_error(__func__); }
@@ -205,3 +213,4 @@ long  SfincsFormulation::record_duration()     const { throw std::runtime_error(
 size_t SfincsFormulation::get_ts_index_for_time(const time_t&) const { throw std::runtime_error(__func__); }
 
 #endif // NGEN_WITH_BMI_FORTRAN
+

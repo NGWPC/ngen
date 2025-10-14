@@ -1,39 +1,71 @@
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <iostream>
+#include <cerrno>
+#include <cstring>
 #include <fstream>
-#include <cassert>
+#include <iostream>
 #include <stdexcept>
 #include <string>
-
-#if __has_include(<filesystem>)
-  #include <filesystem>
-  namespace fs = std::filesystem;
-#else
-  #include <experimental/filesystem>
-  namespace fs = std::experimental::filesystem;
-#endif
+#include <vector>
 
 #include "realizations/coastal/SfincsCreator.h"
 #include "realizations/coastal/SfincsFormulation.hpp"
 
-// ----------------- local helpers -----------------
+// ----------------- small POSIX helpers -----------------
 
-static inline void ensure_dir_exists(const std::string& dir) {
-    std::error_code ec;
-    if (fs::exists(dir, ec)) {
-        if (!fs::is_directory(dir, ec)) {
-            throw std::runtime_error("SfincsCreator: working_dir exists but is not a directory: " + dir);
+static bool path_exists(const std::string& p) {
+    struct stat st{};
+    return ::stat(p.c_str(), &st) == 0;
+}
+static bool is_dir(const std::string& p) {
+    struct stat st{};
+    return (::stat(p.c_str(), &st) == 0) && S_ISDIR(st.st_mode);
+}
+static bool is_file(const std::string& p) {
+    struct stat st{};
+    return (::stat(p.c_str(), &st) == 0) && S_ISREG(st.st_mode);
+}
+
+// Recursively create a directory like `mkdir -p`
+static void mkpath(const std::string& dir) {
+    if (dir.empty() || is_dir(dir)) return;
+
+    // Split components
+    std::vector<std::string> parts;
+    {
+        std::string cur;
+        for (char c : dir) {
+            if (c == '/') {
+                if (!cur.empty()) { parts.push_back(cur); cur.clear(); }
+            } else cur.push_back(c);
         }
-        return;
+        if (!cur.empty()) parts.push_back(cur);
     }
-    if (!fs::create_directories(dir, ec)) {
-        throw std::runtime_error("SfincsCreator: failed to create working_dir: " + dir + " (" + ec.message() + ")");
+
+    std::string acc = (dir[0] == '/') ? "/" : "";
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (!acc.empty() && acc.back() != '/') acc.push_back('/');
+        acc += parts[i];
+        if (is_dir(acc)) continue;
+
+        if (::mkdir(acc.c_str(), 0755) != 0) {
+            if (errno == EEXIST && is_dir(acc)) continue;
+            throw std::runtime_error(std::string("SfincsCreator: mkdir failed for ")
+                                     + acc + ": " + std::strerror(errno));
+        }
     }
 }
 
+static inline void ensure_dir_exists(const std::string& dir) {
+    if (path_exists(dir) && !is_dir(dir)) {
+        throw std::runtime_error("SfincsCreator: working_dir exists but is not a directory: " + dir);
+    }
+    if (!path_exists(dir)) mkpath(dir);
+}
+
 static inline void ensure_file_exists(const std::string& path, const char* what) {
-    std::error_code ec;
-    if (!fs::exists(path, ec) || !fs::is_regular_file(path, ec)) {
+    if (!is_file(path)) {
         throw std::runtime_error(std::string("SfincsCreator: missing or invalid ") + what + ": " + path);
     }
 }
@@ -44,10 +76,9 @@ std::unique_ptr<CoastalFormulation>
 SfincsCreator::createCoastalFormulation(coastal_config_params const& config,
                                         Simulation_Time const& sim_time) const
 {
-    // Pull the “params” block exactly like other coastal creators
     auto params = config.params.get_child("params");
 
-    // Required
+    // Required fields
     const std::string model_id     = params.get<std::string>("model_type_name");
     const std::string library_file = params.get<std::string>("library_file");
     const std::string working_dir  = params.get<std::string>("working_dir");
@@ -55,18 +86,17 @@ SfincsCreator::createCoastalFormulation(coastal_config_params const& config,
     ensure_file_exists(library_file, "library_file");
     ensure_dir_exists(working_dir);
 
-    // Create/write the init file SFINCS BMI will parse in initialize(config_path)
+    // Write init config that SFINCS BMI Initialize() will read
     writeInitConfig(config, sim_time);
     const std::string init_config = working_dir + "/sfincs_config.txt";
 
-    // Optional: switch CWD to working_dir for convenience (safe to ignore failures)
-    if (chdir(working_dir.c_str()) != 0) {
-        std::cerr << "SfincsCreator: warning: failed changing cwd to " << working_dir
-                  << " (continuing; using absolute paths)\n";
+    // (Optional) switch cwd for convenience; non-fatal if it fails.
+    if (::chdir(working_dir.c_str()) != 0) {
+        std::cerr << "SfincsCreator: warning: failed changing cwd to "
+                  << working_dir << " (" << std::strerror(errno) << ")\n";
     }
 
-    // If/when you wire providers, build them here (mirroring SchismCreator).
-    // For now pass nullptrs.
+    // TODO: Wire providers here in future (met/offshore/channel).
     return std::make_unique<SfincsFormulation>(
         model_id,
         library_file,
@@ -87,11 +117,9 @@ void SfincsCreator::writeInitConfig(coastal_config_params const& config,
     auto params = config.params.get_child("params");
     const std::string working_dir = params.get<std::string>("working_dir");
 
-    // Defaults that match the SFINCS BMI expectations you set up
-    const int    model_dt_secs    = params.get<int>("model_time_step_in_secs", 60);
-    const int    end_time_seconds = params.get<int>("end_time_seconds", 86400);
+    const int model_dt_secs    = params.get<int>("model_time_step_in_secs", 60);
+    const int end_time_seconds = params.get<int>("end_time_seconds", 3600);
 
-    // Start time as UTC YYYYMMDDHHMMSS from Simulation_Time
     const time_t start_time_t = sim_time.get_start_date_time_epoch();
     char buffer[32] = {0};
     {
@@ -105,19 +133,18 @@ void SfincsCreator::writeInitConfig(coastal_config_params const& config,
         throw std::runtime_error(std::string("SfincsCreator: unable to open init config: ") + init_config);
     }
 
-    // Minimal, self-describing init file (extend freely as your BMI parser supports)
     ofs << "# SFINCS BMI init file\n";
-    ofs << "start_datetime = " << buffer << "\n";      // e.g., 20150101000000 (UTC)
-    ofs << "dt_seconds = "     << model_dt_secs << "\n";
+    ofs << "start_datetime = "   << buffer         << "\n";
+    ofs << "dt_seconds = "       << model_dt_secs  << "\n";
     ofs << "end_time_seconds = " << end_time_seconds << "\n";
 
-    // Optional grid/geo hints (only write if present)
-    if (params.count("nx")  > 0) ofs << "nx = "  << params.get<int>("nx")  << "\n";
-    if (params.count("ny")  > 0) ofs << "ny = "  << params.get<int>("ny")  << "\n";
-    if (params.count("dx")  > 0) ofs << "dx = "  << params.get<double>("dx")  << "\n";
-    if (params.count("dy")  > 0) ofs << "dy = "  << params.get<double>("dy")  << "\n";
-    if (params.count("x0")  > 0) ofs << "x0 = "  << params.get<double>("x0")  << "\n";
-    if (params.count("y0")  > 0) ofs << "y0 = "  << params.get<double>("y0")  << "\n";
+    // Optional grid hints
+    if (params.count("nx") > 0) ofs << "nx = " << params.get<int>("nx") << "\n";
+    if (params.count("ny") > 0) ofs << "ny = " << params.get<int>("ny") << "\n";
+    if (params.count("dx") > 0) ofs << "dx = " << params.get<double>("dx") << "\n";
+    if (params.count("dy") > 0) ofs << "dy = " << params.get<double>("dy") << "\n";
+    if (params.count("x0") > 0) ofs << "x0 = " << params.get<double>("x0") << "\n";
+    if (params.count("y0") > 0) ofs << "y0 = " << params.get<double>("y0") << "\n";
 
     ofs.close();
 }
