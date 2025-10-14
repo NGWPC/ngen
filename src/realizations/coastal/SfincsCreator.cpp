@@ -16,75 +16,61 @@
 #include "realizations/coastal/SfincsCreator.h"
 #include "realizations/coastal/SfincsFormulation.hpp"
 
-// Optional mesh forcing providers (kept here for future inputs)
-#include "realizations/coastal/MockProvider.h"
-#include "forcing/NetCDFMeshPointsDataProvider.hpp"
-#include "forcing/MetMeshPolicy.h"
-#include "forcing/FlowMeshPolicy.h"
+// ----------------- local helpers -----------------
 
-static void ensure_dir_exists(const std::string& dir) {
-    if (dir.empty()) return;
+static inline void ensure_dir_exists(const std::string& dir) {
     std::error_code ec;
-    if (!fs::exists(dir, ec)) {
-        if (!fs::create_directories(dir, ec) && ec) {
-            throw std::runtime_error("Failed to create working_dir: " + dir + " (" + ec.message() + ")");
+    if (fs::exists(dir, ec)) {
+        if (!fs::is_directory(dir, ec)) {
+            throw std::runtime_error("SfincsCreator: working_dir exists but is not a directory: " + dir);
         }
-    } else if (!fs::is_directory(dir, ec)) {
-        throw std::runtime_error("working_dir exists but is not a directory: " + dir);
+        return;
+    }
+    if (!fs::create_directories(dir, ec)) {
+        throw std::runtime_error("SfincsCreator: failed to create working_dir: " + dir + " (" + ec.message() + ")");
     }
 }
 
-static void require_file_exists(const std::string& path, const char* what) {
+static inline void ensure_file_exists(const std::string& path, const char* what) {
     std::error_code ec;
     if (!fs::exists(path, ec) || !fs::is_regular_file(path, ec)) {
-        throw std::runtime_error(std::string("Missing or invalid ") + what + ": " + path);
+        throw std::runtime_error(std::string("SfincsCreator: missing or invalid ") + what + ": " + path);
     }
 }
+
+// ----------------- class methods -----------------
 
 std::unique_ptr<CoastalFormulation>
 SfincsCreator::createCoastalFormulation(coastal_config_params const& config,
                                         Simulation_Time const& sim_time) const
 {
-    auto param_tree = config.params.get_child("params");
+    // Pull the “params” block exactly like other coastal creators
+    auto params = config.params.get_child("params");
 
-    const std::string model_id     = param_tree.get<std::string>("model_type_name");
-    const std::string library_file = param_tree.get<std::string>("library_file");
-    const std::string working_dir  = param_tree.get<std::string>("working_dir");
+    // Required
+    const std::string model_id     = params.get<std::string>("model_type_name");
+    const std::string library_file = params.get<std::string>("library_file");
+    const std::string working_dir  = params.get<std::string>("working_dir");
 
-    // Optional – only needed when you add inputs and want to drive them from NetCDF
-    // const std::string met_forcing_file = param_tree.get<std::string>("met_forcing_netcdf_path", "");
-
+    ensure_file_exists(library_file, "library_file");
     ensure_dir_exists(working_dir);
-    require_file_exists(library_file, "library_file");
 
-    // Prepare init file for BMI initialize(config_file)
+    // Create/write the init file SFINCS BMI will parse in initialize(config_path)
     writeInitConfig(config, sim_time);
     const std::string init_config = working_dir + "/sfincs_config.txt";
 
-    // Change CWD (kept to match prior behavior; OK to remove if not needed)
+    // Optional: switch CWD to working_dir for convenience (safe to ignore failures)
     if (chdir(working_dir.c_str()) != 0) {
-        std::cerr << "Warning: Failed changing cwd to " << working_dir
-                  << " (continuing; absolute paths will be used)\n";
+        std::cerr << "SfincsCreator: warning: failed changing cwd to " << working_dir
+                  << " (continuing; using absolute paths)\n";
     }
 
-    // If you want to pre-size something for testing without data files:
-    // size_t meshsize = 1000;
-    // auto mock = std::make_shared<MockProvider>(meshsize);
-
-    // Future: met provider for rain_rate (supported by BMI set_value on "rain_rate"):
-    // std::shared_ptr<NetCDFMeshPointsDataProvider<MetMeshPolicy>> met_provider = nullptr;
-    // if (!met_forcing_file.empty()) {
-    //     met_provider = std::make_shared<NetCDFMeshPointsDataProvider<MetMeshPolicy>>(
-    //         met_forcing_file, /*var_name=*/"rain_rate"  // units m s-1 to match BMI
-    //     );
-    // }
-
-    // Create the formulation. Current example passes nullptr providers.
+    // If/when you wire providers, build them here (mirroring SchismCreator).
+    // For now pass nullptrs.
     return std::make_unique<SfincsFormulation>(
         model_id,
         library_file,
         init_config,
-        MPI_COMM_SELF,
         /* met */ nullptr,
         /* offshore */ nullptr,
         /* channel_flow */ nullptr
@@ -98,40 +84,40 @@ SfincsCreator* SfincsCreator::clone() const {
 void SfincsCreator::writeInitConfig(coastal_config_params const& config,
                                     Simulation_Time const& sim_time) const
 {
-    auto param_tree = config.params.get_child("params");
-    const std::string working_dir = param_tree.get<std::string>("working_dir");
+    auto params = config.params.get_child("params");
+    const std::string working_dir = params.get<std::string>("working_dir");
 
-    // Defaults that align with sfincs_bmi2.f90 (dt defaults to 60 s there)
-    const int model_dt_secs     = param_tree.get<int>("model_time_step_in_secs", 60);
-    const int end_time_seconds  = param_tree.get<int>("end_time_seconds", 86400); // 1 day default in BMI
+    // Defaults that match the SFINCS BMI expectations you set up
+    const int    model_dt_secs    = params.get<int>("model_time_step_in_secs", 60);
+    const int    end_time_seconds = params.get<int>("end_time_seconds", 86400);
 
-    // Optional pre-sizing for future Fortran parsing (safe to write now)
-    const int nz = param_tree.get<int>("nz", 0);
-    const int nu = param_tree.get<int>("nu", 0);
-    const int nv = param_tree.get<int>("nv", 0);
-
-    time_t start_time_t = sim_time.get_start_date_time_epoch();
-
-    char buffer[32];
-    auto* tinfo = gmtime(&start_time_t);
-    strftime(buffer, sizeof(buffer), "%Y%m%d%H%M%S", tinfo);
+    // Start time as UTC YYYYMMDDHHMMSS from Simulation_Time
+    const time_t start_time_t = sim_time.get_start_date_time_epoch();
+    char buffer[32] = {0};
+    {
+        struct tm* timeInfo = gmtime(&start_time_t);
+        strftime(buffer, sizeof(buffer), "%Y%m%d%H%M%S", timeInfo);
+    }
 
     const std::string init_config = working_dir + "/sfincs_config.txt";
     std::ofstream ofs(init_config);
-    if (!ofs) {
-        throw std::runtime_error(std::string("Unable to open init config: ") + init_config);
+    if (!ofs.is_open()) {
+        throw std::runtime_error(std::string("SfincsCreator: unable to open init config: ") + init_config);
     }
 
-    // Trivial text config; Fortran side can parse these later.
+    // Minimal, self-describing init file (extend freely as your BMI parser supports)
     ofs << "# SFINCS BMI init file\n";
-    ofs << "start_datetime = " << buffer << "\n";
-    ofs << "dt_seconds = " << model_dt_secs << "\n";
+    ofs << "start_datetime = " << buffer << "\n";      // e.g., 20150101000000 (UTC)
+    ofs << "dt_seconds = "     << model_dt_secs << "\n";
     ofs << "end_time_seconds = " << end_time_seconds << "\n";
 
-    // Future-friendly (ignored by current Fortran, but won’t hurt)
-    if (nz > 0) ofs << "nz = " << nz << "\n";
-    if (nu > 0) ofs << "nu = " << nu << "\n";
-    if (nv > 0) ofs << "nv = " << nv << "\n";
+    // Optional grid/geo hints (only write if present)
+    if (params.count("nx")  > 0) ofs << "nx = "  << params.get<int>("nx")  << "\n";
+    if (params.count("ny")  > 0) ofs << "ny = "  << params.get<int>("ny")  << "\n";
+    if (params.count("dx")  > 0) ofs << "dx = "  << params.get<double>("dx")  << "\n";
+    if (params.count("dy")  > 0) ofs << "dy = "  << params.get<double>("dy")  << "\n";
+    if (params.count("x0")  > 0) ofs << "x0 = "  << params.get<double>("x0")  << "\n";
+    if (params.count("y0")  > 0) ofs << "y0 = "  << params.get<double>("y0")  << "\n";
 
     ofs.close();
 }
