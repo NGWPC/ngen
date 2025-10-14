@@ -1,8 +1,12 @@
 #ifndef NGEN_BMI_MULTI_FORMULATION_HPP
 #define NGEN_BMI_MULTI_FORMULATION_HPP
+#include "Logger.hpp"
 
 #include <map>
 #include <vector>
+#include <iostream>
+#include <stdexcept>
+#include <string>
 #include "Bmi_Formulation.hpp"
 #include "Bmi_Module_Formulation.hpp"
 #include "bmi.hpp"
@@ -10,6 +14,7 @@
 #include "OptionalWrappedDataProvider.hpp"
 #include "ConfigurationException.hpp"
 #include "ExternalIntegrationException.hpp"
+
 
 #define BMI_REALIZATION_CFG_PARAM_REQ__MODULES "modules"
 #define BMI_REALIZATION_CFG_PARAM_OPT__DEFAULT_OUT_VALS "default_output_values"
@@ -243,7 +248,9 @@ namespace realization {
             }
             // If not found ...
             if (availableData.empty() || availableData.find(var_name) == availableData.end()) {
-                throw std::runtime_error(get_formulation_type() + " cannot get output time for unknown \"" + variable_name + "\"");
+                std::string throw_msg; throw_msg.assign(get_formulation_type() + " cannot get output time for unknown \"" + variable_name + "\"");
+                LOG(throw_msg, LogLevel::WARNING);
+                throw std::runtime_error(throw_msg);
             }
             return availableData.at(var_name)->get_data_start_time();
         }
@@ -282,7 +289,9 @@ namespace realization {
             }
             // If not found ...
             if (availableData.empty() || availableData.find(var_name) == availableData.end()) {
-                throw std::runtime_error(get_formulation_type() + " cannot get output time for unknown \"" + variable_name + "\"");
+                std::string throw_msg; throw_msg.assign(get_formulation_type() + " cannot get output time for unknown \"" + variable_name + "\"");
+                LOG(throw_msg, LogLevel::WARNING);
+                throw std::runtime_error(throw_msg);
             }
             return availableData.at(var_name)->get_data_stop_time();
         }
@@ -303,7 +312,6 @@ namespace realization {
                 }
                 break;
             }
-
             // If not found ...
             if (availableData.empty() || availableData.find(var_name) == availableData.end()) {
                 throw std::runtime_error(get_formulation_type() + " cannot get output record duration for unknown \"" + var_name + "\"");
@@ -361,7 +369,9 @@ namespace realization {
          */
         size_t get_ts_index_for_time(const time_t &epoch_time) const override {
             // TODO: come back and implement if actually necessary for this type; for now don't use
-            throw std::runtime_error("Bmi_Multi_Formulation does not yet implement get_ts_index_for_time");
+            std::string throw_msg; throw_msg.assign("Bmi_Multi_Formulation does not yet implement get_ts_index_for_time");
+            LOG(throw_msg, LogLevel::WARNING);
+            throw std::runtime_error(throw_msg);
         }
 
         /**
@@ -394,7 +404,9 @@ namespace realization {
             
             // If not found ...
             if (availableData.empty() || availableData.find(output_name) == availableData.end()) {
-                throw std::runtime_error(get_formulation_type() + " cannot get output value for unknown " + output_name + SOURCE_LOC);
+                std::string throw_msg; throw_msg.assign(get_formulation_type() + " cannot get output value for unknown " + output_name + SOURCE_LOC);
+                LOG(throw_msg, LogLevel::WARNING);
+                throw std::runtime_error(throw_msg);
             }
             return availableData[output_name]->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),output_name, init_time, duration_s, output_units), m);
         }
@@ -407,7 +419,9 @@ namespace realization {
             std::string output_units = selector.get_output_units();
 
             if (availableData.empty() || availableData.find(output_name) == availableData.end()) {
-                throw std::runtime_error(get_formulation_type() + " cannot get output values for unknown " + output_name + SOURCE_LOC);
+                std::string throw_msg; throw_msg.assign(get_formulation_type() + " cannot get output values for unknown " + output_name + SOURCE_LOC);
+                LOG(throw_msg, LogLevel::WARNING);
+                throw std::runtime_error(throw_msg);
             }
             return availableData[output_name]->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),output_name, init_time, duration_s, output_units), m);
         }
@@ -450,8 +464,10 @@ namespace realization {
          */
         bool is_property_sum_over_time_step(const std::string &name) const override {
             if (availableData.empty() || availableData.find(name) == availableData.end()) {
-                throw std::runtime_error(
+                std::string throw_msg; throw_msg.assign(
                         get_formulation_type() + " cannot get whether unknown property " + name + " is summation");
+                LOG(throw_msg, LogLevel::WARNING);
+                throw std::runtime_error(throw_msg);
             }
             return availableData.at(name)->is_property_sum_over_time_step(name);
         }
@@ -512,7 +528,9 @@ namespace realization {
             for (int i = 0; i < output_var_names.size(); ++i) {
                 auto it = std::find(available_var_names.begin(), available_var_names.end(), output_var_names[i]);
                 if (it == available_var_names.end()) {
-                    throw std::runtime_error(output_var_names[i] + " does not exist in the output name list" + SOURCE_LOC);
+                    std::string throw_msg; throw_msg.assign(output_var_names[i] + " does not exist in the output name list" + SOURCE_LOC);
+                    LOG(throw_msg, LogLevel::WARNING);
+                    throw std::runtime_error(throw_msg);
                 }
             }
         }
@@ -561,14 +579,25 @@ namespace realization {
             try {
                 auto const& nested_module = data_provider_iter->second;
                 long nested_module_time = nested_module->get_data_start_time() + ( this->get_model_current_time() - this->get_model_start_time() );
-                auto selector = CatchmentAggrDataSelector(this->get_catchment_id(),var_name,nested_module_time,this->record_duration(),"1");
+		auto selector = CatchmentAggrDataSelector(this->get_catchment_id(),var_name,nested_module_time,this->record_duration(),"");
                 //TODO: After merge PR#405, try re-adding support for index
                 return nested_module->get_value(selector);
             }
+            catch (data_access::unit_conversion_exception &uce) {
+                // We asked for it as a dimensionless quantity, "1", just above
+                static bool no_conversion_message_logged = false;
+                if (!no_conversion_message_logged) {
+                    no_conversion_message_logged = true;
+                    LOG("Output variables do not have unit conversion. Capability not yet implemented in ngen.", LogLevel::WARNING);
+                }
+                return uce.unconverted_values[0];
+            }
             // If there was any problem with the cast and extraction of the value, throw runtime error
             catch (std::exception &e) {
-                throw std::runtime_error("Multi BMI formulation can't use associated data provider as a nested module"
+                std::string throw_msg; throw_msg.assign("Multi BMI formulation can't use associated data provider as a nested module"
                                          " when attempting to get values of BMI variable " + var_name + SOURCE_LOC);
+                LOG(throw_msg, LogLevel::WARNING);
+                throw std::runtime_error(throw_msg);
                 // TODO: look at adjusting defs to move this function up in class hierarchy (or at least add TODO there)
             }
         }
@@ -665,11 +694,13 @@ namespace realization {
                 std::string framework_alias = mod->get_config_mapped_variable_name(var_name);
                 (*var_aliases)[framework_alias] = var_name;
                 if (availableData.count(framework_alias) > 0) {
-                    throw std::runtime_error(
+                    std::string throw_msg; throw_msg.assign(
                             "Multi BMI cannot be created with module " + mod->get_model_type_name() +
                             " with output variable " + framework_alias +
                             (var_name == framework_alias ? "" : " (an alias of BMI variable " + var_name + ")") +
                             " because a previous module is using this output variable name/alias.");
+                    LOG(throw_msg, LogLevel::WARNING);
+                    throw std::runtime_error(throw_msg);
                 }
                 availableData[framework_alias] = mod;
             }

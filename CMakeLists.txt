@@ -322,6 +322,7 @@ add_subdirectory("src/forcing")
 add_subdirectory("src/utilities/mdarray")
 add_subdirectory("src/utilities/mdframe")
 add_subdirectory("src/utilities/logging")
+add_subdirectory("src/utilities/python")
 
 target_link_libraries(ngen
     PUBLIC
@@ -348,6 +349,7 @@ if(NGEN_WITH_ROUTING)
 endif()
 
 add_executable(partitionGenerator src/partitionGenerator.cpp)
+target_link_libraries(partitionGenerator PUBLIC NGen::logging)
 target_include_directories(partitionGenerator PUBLIC "${PROJECT_BINARY_DIR}/include")
 if(NGEN_WITH_SQLITE)
     target_include_directories(partitionGenerator PUBLIC AFTER "${NGEN_INC_DIR}/geopackage")
@@ -403,6 +405,7 @@ message(STATUS "----------------------------------------------------------------
 ngen_multiline_message(
 "NGen version: ${ngen_VERSION}"
 "Build configuration summary:"
+"  Source directory: ${CMAKE_SOURCE_DIR}"
 "  Generator: ${CMAKE_GENERATOR}"
 "  Build type: ${CMAKE_BUILD_TYPE}"
 "  System: ${CMAKE_SYSTEM_NAME}"
@@ -435,7 +438,8 @@ ngen_multiline_message(
 "Environment summary:"
 "  Boost:"
 "    Version: ${Boost_VERSION}"
-"    Include: ${Boost_INCLUDE_DIRS}")
+"    Include: ${Boost_INCLUDE_DIRS}"
+"    Library: ${Boost_LIBRARY_DIRS}")
 ngen_dependent_multiline_message(INTEL_DPCPP
 "  Intel DPC++:"
 "    Version: ${SYCL_LANGUAGE_VERSION}"
