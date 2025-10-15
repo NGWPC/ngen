@@ -194,7 +194,6 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -315,7 +314,6 @@ ngen_add_test(
         NGen::core
         NGen::geojson
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
     REQUIRES
@@ -333,7 +331,6 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -351,7 +348,6 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -370,7 +366,6 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -389,7 +384,6 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -406,7 +400,6 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -435,7 +428,6 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -454,7 +446,6 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -497,7 +488,6 @@ ngen_add_test(
         NGen::forcing
         NGen::geojson
         NGen::realizations_catchment
-        NGen::realizations_coastal
     REQUIRES
         NGEN_WITH_NETCDF
 )
@@ -533,7 +523,6 @@ ngen_add_test(
         NGen::forcing
         NGen::geojson
         NGen::realizations_catchment
-        NGen::realizations_coastal
         NGen::mdarray
         NGen::mdframe
         NGen::logging
