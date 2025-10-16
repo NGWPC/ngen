@@ -2,8 +2,12 @@
 
 #if NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI
 
-#include <realizations/coastal/SchismFormulation.hpp>
+#include <iostream>
+#include <algorithm>
+#include <map>
+#include <string>
 #include <utilities/parallel_utils.h>
+#include <realizations/coastal/SchismFormulation.hpp>
 
 const static auto s_schism_registration_function = "register_bmi";
 
@@ -11,24 +15,24 @@ std::map<std::string, SchismFormulation::InputMapping> SchismFormulation::expect
     {
         /* Meteorological Forcings */
         // RAINRATE - precipitation
-        {"RAINRATE", { SchismFormulation::METEO, "RAINRATE"}},
+        {"RAINRATE", { SchismFormulation::METEO, SchismFormulation::MeshLocationSelector::ELEMENTS, "RAINRATE"}},
         // SFCPRS - surface atmospheric pressure
-        {"SFCPRS", { SchismFormulation::METEO, "PSFC"}},
+        {"SFCPRS", { SchismFormulation::METEO, MeshLocationSelector::NODES,"PSFC"}},
         // SPFH2m - specific humidity at 2m
-        {"SPFH2m", { SchismFormulation::METEO, "Q2D"}},
+        {"SPFH2m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"Q2D"}},
         // TMP2m - temperature at 2m
-        {"TMP2m", { SchismFormulation::METEO, "T2D"}},
+        {"TMP2m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"T2D"}},
         // UU10m, VV10m - wind velocity components at 10m
-        {"U10m", { SchismFormulation::METEO, "U2D"}},
-        {"V10m", { SchismFormulation::METEO, "V2D"}},
+        {"U10m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"U2D"}},
+        {"V10m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"V2D"}},
 
         /* Input Boundary Conditions */
         // ETA2_bnd - water surface elevation at the boundaries
-        {"ETA2_bnd", { SchismFormulation::OFFSHORE, "ETA2_bnd"}},
+        {"ETA2_bnd", { SchismFormulation::OFFSHORE, MeshLocationSelector::BOUNDARY, "ETA2_bnd"}},
         // Q_bnd - flows at boundaries
-        {"Q_bnd_source", { SchismFormulation::CHANNEL_FLOW, "Q_bnd_source"}},
+        {"Q_bnd_source", { SchismFormulation::CHANNEL_FLOW, MeshLocationSelector::UNKNOWN, "Q_bnd_source"}},
         // Q_bnd - flows at boundaries
-        {"Q_bnd_sink", { SchismFormulation::CHANNEL_FLOW, "Q_bnd_sink"}},
+        {"Q_bnd_sink", { SchismFormulation::CHANNEL_FLOW, MeshLocationSelector::UNKNOWN, "Q_bnd_sink"}},
     };
 
 std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
@@ -39,6 +43,24 @@ std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
         "VY",
         "BEDLEVEL"
     };
+
+
+void SchismFormulation::check_forcing_provider( ProviderType const& provider, 
+		SchismFormulation::ForcingSelector selector )
+{
+          auto available_variables = provider.get_available_variable_names();
+          for (auto const& expected : SchismFormulation::expected_input_variables_) {
+              SchismFormulation::InputMapping const& mapping = expected.second;
+              if (mapping.selector == selector ) {
+                auto pos = std::find(available_variables.begin(), available_variables.end(), 
+				  mapping.name);
+#ifdef DEBUG_NETCDFMESH
+		std::cerr << "checking variable: " << mapping.name << std::endl;
+#endif 
+		assert( pos != available_variables.end() );
+              }
+	  }
+}
 
 SchismFormulation::SchismFormulation(
                                      std::string const& id
@@ -56,7 +78,7 @@ SchismFormulation::SchismFormulation(
 {
     bmi_ = std::make_unique<models::bmi::Bmi_Fortran_Adapter>
         (
-         "schism_coastal_formulation"
+         id
          , library_path
          , init_config_path
          , /* model_time_step_fixed = */ true
@@ -99,6 +121,10 @@ void SchismFormulation::initialize()
         input_variable_units_[name] = bmi_->GetVarUnits(name);
         input_variable_type_[name] = bmi_->GetVarType(name);
         input_variable_count_[name] = mesh_size(name);
+#ifdef DEBUG_NETCDFMESH
+	std::cerr << "input_variable_count_[" << name << "]=" 
+		<< input_variable_count_[name] << std::endl;
+#endif //#ifdef DEBUG_NETCDFMESH
     }
 
     for (auto const& var : expected_input_variables_) {
@@ -149,8 +175,21 @@ void SchismFormulation::set_inputs()
         auto const& name = var.first;
         auto const& mapping = var.second;
         auto selector = mapping.selector;
+        auto locationSelector = mapping.meshLocSelector;
         auto const& source_name = mapping.name;
-        auto points = MeshPointsSelector{source_name, current_time_, time_step_length_, input_variable_units_[name], all_points};
+
+	MeshPointsSelector points;
+        switch(locationSelector) {
+	    case ELEMENTS: 
+	       points = MeshPointsSelector{source_name, current_time_, time_step_length_, 
+		       input_variable_units_[name], all_element_points};
+	    case NODES: 
+	       points = MeshPointsSelector{source_name, current_time_, time_step_length_, 
+		       input_variable_units_[name], all_node_points};
+            default:
+	       points = MeshPointsSelector{source_name, current_time_, time_step_length_, 
+		       input_variable_units_[name], all_points};
+	}
 
         ProviderType* provider = [this, selector](){
             switch(selector) {
@@ -224,4 +263,33 @@ size_t SchismFormulation::mesh_size(std::string const& variable_name)
     return nbytes / itemsize;
 }
 
+
+void SchismFormulation::update_until( double const& time )
+{
+       double current = this->get_current_time();
+       while ( current <= time )
+       {
+           set_inputs();
+           bmi_->Update();
+           current = this->get_current_time();
+           current_time_ += time_step_length_;
+       }
+}
+
+double SchismFormulation::get_current_time()
+{
+    return bmi_->GetCurrentTime();
+}
+double SchismFormulation::get_start_time()
+{
+    return bmi_->GetStartTime();
+}
+double SchismFormulation::get_end_time()
+{
+    return bmi_->GetEndTime();
+}
+double SchismFormulation::get_time_step()
+{
+    return bmi_->GetTimeStep();
+}
 #endif // NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI

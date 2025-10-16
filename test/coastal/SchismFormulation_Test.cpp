@@ -6,10 +6,11 @@
 #include <limits>
 #include <iostream>
 #include <NetCDFMeshPointsDataProvider.hpp>
+#include "forcing/MetMeshPolicy.h"
 
-const static std::string library_path = "/mnt/BUILD/schism_2025-07-02-linux/lib/libschism_bmi.so";
-const static std::string init_config_path = "/mnt/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input";
-const static std::string met_forcing_netcdf_path = "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_output_201104302300.nc";
+const static std::string library_path = "/contrib/Zhengtao.Cui/home/ngwpc/schism/build/lib/libschism_bmi.so";
+const static std::string init_config_path = "/contrib/Zhengtao.Cui/home/ngwpc/ngen_coastal/data/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input";
+const static std::string met_forcing_netcdf_path = "/efs/coastal_testdata/hrrr_scratch/NextGen_Forcings_Engine_MESH_output_202402201200.nc";
 
 #if 0
 struct Schism_Formulation_IT : public ::testing::Test
@@ -71,10 +72,12 @@ struct MockProvider : data_access::DataProvider<double, MeshPointsSelector>
     }
 };
 
-void test_netcdf_met_provider(std::shared_ptr<data_access::NetCDFMeshPointsDataProvider> provider)
+void test_netcdf_met_provider(
+		std::shared_ptr<data_access::NetCDFMeshPointsDataProvider 
+		                                  <data_access::MetMeshPolicy> > provider)
 {
 
-    return;
+ //   return;
     auto available_variables = provider->get_available_variable_names();
     for (auto const& expected : SchismFormulation::expected_input_variables_) {
         SchismFormulation::InputMapping const& mapping = expected.second;
@@ -93,33 +96,37 @@ int main(int argc, char **argv)
     auto provider = std::make_shared<MockProvider>();
 
     std::tm start_time_tm{};
-    start_time_tm.tm_year = 2011 - 1900;
-    start_time_tm.tm_mon = 5 - 1;
-    start_time_tm.tm_mday = 2;
+    start_time_tm.tm_year = 2024 - 1900;
+    start_time_tm.tm_mon = 2 - 1;
+    start_time_tm.tm_mday = 20;
     auto start_time_t = std::mktime(&start_time_tm);
 
     std::tm stop_time_tm{};
-    stop_time_tm.tm_year = 2011 - 1900;
-    stop_time_tm.tm_mon = 5 - 1;
-    stop_time_tm.tm_mday = 3;
+    stop_time_tm.tm_year = 2024 - 1900;
+    stop_time_tm.tm_mon = 2 - 1;
+    stop_time_tm.tm_mday = 21;
     auto stop_time_t = std::mktime(&stop_time_tm);
 
-    auto netcdf_met_provider = std::make_shared<data_access::NetCDFMeshPointsDataProvider>(met_forcing_netcdf_path,
-                                                                                           std::chrono::system_clock::from_time_t(start_time_t),
-                                                                                           std::chrono::system_clock::from_time_t(stop_time_t));
+    auto netcdf_met_provider = 
+	    std::make_shared<data_access::NetCDFMeshPointsDataProvider< data_access::MetMeshPolicy >>
+	    (met_forcing_netcdf_path, std::chrono::system_clock::from_time_t(start_time_t),
+                                     std::chrono::system_clock::from_time_t(stop_time_t));
 
     test_netcdf_met_provider(netcdf_met_provider);
 
+    std::cerr << "create object ..." << std::endl;
     std::unique_ptr<CoastalFormulation> schism =
         std::make_unique<SchismFormulation>(/*id=*/ "test_schism_formulation",
                                             library_path,
                                             init_config_path,
                                             MPI_COMM_SELF,
-                                            netcdf_met_provider,
+                                            //netcdf_met_provider,
+                                            provider,
                                             provider,
                                             provider
                                             );
 
+    std::cerr << "initialize .." << std::endl;
     schism->initialize();
 
     for (int i = 0; i < 3; ++i) {

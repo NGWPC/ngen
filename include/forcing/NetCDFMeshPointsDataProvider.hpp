@@ -21,6 +21,7 @@ namespace netCDF {
 
 namespace data_access
 {
+    template <typename MeshPolicy>
     class NetCDFMeshPointsDataProvider : public MeshPointsDataProvider
     {
         public:

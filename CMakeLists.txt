@@ -331,6 +331,7 @@ target_link_libraries(ngen
         NGen::core_nexus
         NGen::geojson
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::forcing
         NGen::core_mediator
         NGen::logging

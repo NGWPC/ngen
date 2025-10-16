@@ -18,7 +18,8 @@ namespace data_access
             MEAN,
             SUM,
             FRONT_FILL,
-            BACK_FILL
+            BACK_FILL,
+            UNKNOWN
     };
 
     template <class DataType, class SelectionType> class DataProvider
