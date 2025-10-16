@@ -9,6 +9,8 @@
 #include "realizations/catchment/Formulation_Manager.hpp"
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
+#include "realizations/coastal/ModelCreatorRegistry.h"
+#include "realizations/coastal/SchismCreator.h"
 
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
@@ -600,7 +602,25 @@ int main(int argc, char *argv[]) {
                   << std::endl;
     }
 
-  manager->finalize();
+    if (manager->get_using_coastal()) {
+        auto coastal_conf = manager->get_coastal_config();
+
+        // create the factory registry
+        ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
+        // add the Schism factory to the registry
+        registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
+        // add more factories for coastal models, e.g. sfincs
+        //....
+
+        // retrieve the creator for the model selected
+        std::unique_ptr<ModelCreator> coastal_creator =
+            registry.getCreator(coastal_conf->getModelType());
+        // now run the schism model
+        coastal_creator->executeModel( *coastal_conf,
+                                       *(manager->Simulation_Time_Object) );
+    }
+
+    manager->finalize();
 
 #if NGEN_WITH_MPI
     MPI_Finalize();

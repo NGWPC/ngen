@@ -41,13 +41,24 @@ public:
     void initialize() override;
     void finalize() override;
     void update() override;
+    void update_until( double const& time );
+    double get_current_time() override;
+    double get_start_time() override;
+    double get_end_time() override;
+    double get_time_step() override;
 
     void get_values(const selection_type& selector, boost::span<data_type> data) override;
 
     // Visible only for testing use
     enum ForcingSelector { METEO, OFFSHORE, CHANNEL_FLOW };
-    struct InputMapping { ForcingSelector selector; std::string name; };
+    enum MeshLocationSelector {NODES, ELEMENTS, BOUNDARY, UNKNOWN };
+    struct InputMapping { ForcingSelector selector; 
+	     MeshLocationSelector meshLocSelector;  std::string name; };
     static std::map<std::string, InputMapping> expected_input_variables_;
+
+    static void check_forcing_provider( ProviderType const& provider, 
+		                    SchismFormulation::ForcingSelector selector );
+
 
 protected:
     size_t mesh_size(std::string const& variable_name) override;
