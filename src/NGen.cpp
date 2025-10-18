@@ -9,8 +9,8 @@
 #include "realizations/catchment/Formulation_Manager.hpp"
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
-#include "realizations/coastal/ModelCreatorRegistry.h"
-#include "realizations/coastal/SchismCreator.h"
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+#include "realizations/coastal/SchismCreator.hpp"
 
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>

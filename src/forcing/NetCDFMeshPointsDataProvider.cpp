@@ -10,12 +10,12 @@
 #include <sstream>
 #include <iostream>
 #include <iterator>
-#include "forcing/MetMeshPolicy.h"
-#include "forcing/FlowMeshPolicy.h"
-#include "forcing/TidalMeshPolicy.h"
+#include "forcing/MetMeshPolicy.hpp"
+#include "forcing/FlowMeshPolicy.hpp"
+#include "forcing/TidalMeshPolicy.hpp"
 
-#include "forcing/MetMeshPolicy.h"
-#include "forcing/FlowMeshPolicy.h"
+#include "forcing/MetMeshPolicy.hpp"
+#include "forcing/FlowMeshPolicy.hpp"
 
 namespace data_access {
 

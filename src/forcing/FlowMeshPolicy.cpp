@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <netcdf>
 #include <UnitsHelper.hpp>
-#include "forcing/FlowMeshPolicy.h"
+#include "forcing/FlowMeshPolicy.hpp"
 
 void data_access::FlowMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
                              time_point_type const& start_time,

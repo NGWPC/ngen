@@ -1,4 +1,4 @@
-#include "realizations/coastal/MockProvider.h"
+#include "realizations/coastal/MockProvider.hpp"
 #include "forcing/GenericDataProvider.hpp"
 
 std::vector<MockProvider::data_type> MockProvider::get_values(const selection_type& selector,
