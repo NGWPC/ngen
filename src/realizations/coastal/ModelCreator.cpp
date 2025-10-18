@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <iostream>
-#include "realizations/coastal/ModelCreator.h"
+#include "realizations/coastal/ModelCreator.hpp"
 
 void ModelCreator::executeModel( coastal_config_params const& config,
                     Simulation_Time const& sim_time ){

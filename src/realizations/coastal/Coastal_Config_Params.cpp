@@ -3,7 +3,7 @@
  */
 
 #include "utilities/logging_utils.h"
-#include "realizations/coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
 
 bool coastal_config_params::isValid()
 {

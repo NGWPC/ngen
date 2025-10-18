@@ -10,7 +10,7 @@
 #include <limits>
 #include <iostream>
 #include "realizations/coastal/CoastalFormulation.hpp"
-#include "realizations/coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
 #include "simulation_time/Simulation_Time.hpp"
 
 // AbstractFactory

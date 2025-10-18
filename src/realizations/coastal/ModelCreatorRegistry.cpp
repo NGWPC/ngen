@@ -1,4 +1,4 @@
-#include "ModelCreatorRegistry.h"
+#include "ModelCreatorRegistry.hpp"
 
 ModelCreatorRegistry& ModelCreatorRegistry::getInstance() {
     static ModelCreatorRegistry instance;

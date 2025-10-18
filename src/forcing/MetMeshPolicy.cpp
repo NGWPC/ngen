@@ -2,7 +2,7 @@
 #include <vector>
 #include <netcdf>
 #include <UnitsHelper.hpp>
-#include "forcing/MetMeshPolicy.h"
+#include "forcing/MetMeshPolicy.hpp"
 #include "forcing/NetCDFMeshPointsDataProvider.hpp"
 
 void data_access::MetMeshPolicy::getTimes( netCDF::NcFile const& nc_file,

@@ -6,7 +6,7 @@
 #include <limits>
 #include <iostream>
 #include <NetCDFMeshPointsDataProvider.hpp>
-#include "forcing/MetMeshPolicy.h"
+#include "forcing/MetMeshPolicy.hpp"
 
 const static std::string library_path = "/contrib/Zhengtao.Cui/home/ngwpc/schism/build/lib/libschism_bmi.so";
 const static std::string init_config_path = "/contrib/Zhengtao.Cui/home/ngwpc/ngen_coastal/data/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input";
