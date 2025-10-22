@@ -391,6 +391,10 @@ namespace realization {
                 for (int i = 0; i < out_vars_json_list.size(); ++i) {
                     out_vars[i] = out_vars_json_list[i].as_string();
                 }
+                if (out_vars.size() == 1 && out_vars[0].empty()) {
+                    // empty array may be read as [""], so make it empty
+                    out_vars.pop_back();
+                }
                 set_output_variable_names(out_vars);
             }
                 // Otherwise, just take what literally is provided by the model
@@ -400,7 +404,7 @@ namespace realization {
 
             // Output header fields, if present
             auto out_headers_it = properties.find(BMI_REALIZATION_CFG_PARAM_OPT__OUT_HEADER_FIELDS);
-            if (out_headers_it != properties.end()) {
+            if (out_headers_it != properties.end() && get_output_variable_names().size() != 0) {
                 std::vector<geojson::JSONProperty> out_headers_json_list = out_var_it->second.as_list();
                 std::vector<std::string> out_headers(out_headers_json_list.size());
                 for (int i = 0; i < out_headers_json_list.size(); ++i) {
