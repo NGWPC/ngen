@@ -73,10 +73,12 @@ namespace ngen
                             +" at domain layer "+description.name
                             +" (layer id: "+std::to_string(description.id)+")";
                 throw models::external::State_Exception(msg);
-            } 
-            std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
-            formulation->get_output_line_for_timestep(output_time_index)+"\n";
-            formulation->write_output(output);
+            }
+            if (formulation->get_output_header_count() > 0) {
+                std::string output = std::to_string(output_time_index)+","+current_timestamp+","
+                    + formulation->get_output_line_for_timestep(output_time_index)+"\n";
+                formulation->write_output(output);
+            }
             ++output_time_index;
             if ( output_time_index < simulation_time.get_total_output_times() )
             {

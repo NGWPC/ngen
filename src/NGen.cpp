@@ -63,8 +63,6 @@ int mpi_num_procs;
 #include <SurfaceLayer.hpp>
 std::stringstream ss("");
 
-std::unordered_map<std::string, std::ofstream> nexus_outfiles;
-
 void ngen::exec_info::runtime_summary(std::ostream& stream) noexcept {
     stream << "Runtime configuration summary:\n";
 
@@ -547,27 +545,6 @@ int main(int argc, char* argv[]) {
 
     nexus_collection.reset();
 
-    // Still hacking nexus output for the moment
-    for (const auto& id : features.nexuses()) {
-#if NGEN_WITH_MPI
-        if (mpi_num_procs > 1) {
-            if (!features.is_remote_sender_nexus(id)) {
-                nexus_outfiles[id].open(
-                    manager->get_output_root() + id + "_output.csv",
-                    std::ios::trunc
-                );
-            }
-        } else {
-            nexus_outfiles[id].open(
-                manager->get_output_root() + id + "_output.csv",
-                std::ios::trunc
-            );
-        }
-#else
-        nexus_outfiles[id].open(manager->get_output_root() + id + "_output.csv", std::ios::trunc);
-#endif
-    }
-
     ss << "Running Models" << std::endl;
     LOG(ss.str(), LogLevel::INFO);
     ss.str("");
@@ -639,8 +616,7 @@ int main(int argc, char* argv[]) {
                     features,
                     catchment_collection,
                     0,
-                    nexus_subset_ids,
-                    nexus_outfiles
+                    nexus_subset_ids
                 );
             }
         }

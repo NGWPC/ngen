@@ -10,17 +10,16 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
                                        std::unordered_map<std::string, int> &nexus_indexes,
                                        int current_step)
 {
-    long current_time_index = output_time_index;
     
     Layer::update_models(catchment_outflows, catchment_indexes, nexus_downstream_flows, nexus_indexes, current_step);
 
+#if NGEN_WITH_ROUTING
+    long current_time_index = output_time_index;
     //At this point, could make an internal routing pass, extracting flows from nexuses and routing
     //across the flowpath to the next nexus.
     //Once everything is updated for this timestep, dump the nexus output
     for(const auto& id : features.nexuses()) 
     {
-        std::string current_timestamp = simulation_time.get_timestamp(current_time_index);
-        
         #if NGEN_WITH_MPI
         if (!features.is_remote_sender_nexus(id)) { //Ensures only one side of the dual sided remote nexus actually doing this...
         #endif
@@ -39,14 +38,8 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
         }
 
         //std::cerr << "Requesting water from nexus, id = " << id << " at time = " <<current_time_index << ",  percent = 100, destination = " << cat_id << std::endl;
-        double contribution_at_t = features.nexus_at(id)->get_downstream_flow(cat_id, current_time_index, 100.0);
-#if NGEN_WITH_ROUTING
         int nexus_index = nexus_indexes[id];
-        nexus_downstream_flows[nexus_index] += contribution_at_t;
-#endif // NGEN_WITH_ROUTING
-        if(nexus_outfiles[id].is_open()) {
-        nexus_outfiles[id] << current_time_index << ", " << current_timestamp << ", " << contribution_at_t << std::endl;
-        }
+        nexus_downstream_flows[nexus_index] += nexus->get_downstream_flow(cat_id, current_time_index, 100.0);
 
         #if NGEN_WITH_MPI
         }
@@ -57,4 +50,5 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
         //If using below, then another single time vector would be needed to hold the timestamp
         //nexus_flows[id].push_back(contribution_at_t); 
     } //done nexuses
+#endif // NGEN_WITH_ROUTING
 }
