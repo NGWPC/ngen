@@ -3,18 +3,16 @@
 /***
  * @brief Run one simulation timestep for each model in this layer, then gather catchment output
 */
-
 void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows, 
                                        std::unordered_map<std::string, int> &catchment_indexes,
                                        boost::span<double> nexus_downstream_flows,
                                        std::unordered_map<std::string, int> &nexus_indexes,
                                        int current_step)
 {
-    
+    long current_time_index = output_time_index;
+
     Layer::update_models(catchment_outflows, catchment_indexes, nexus_downstream_flows, nexus_indexes, current_step);
 
-#if NGEN_WITH_ROUTING
-    long current_time_index = output_time_index;
     //At this point, could make an internal routing pass, extracting flows from nexuses and routing
     //across the flowpath to the next nexus.
     //Once everything is updated for this timestep, dump the nexus output
@@ -38,8 +36,12 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
         }
 
         //std::cerr << "Requesting water from nexus, id = " << id << " at time = " <<current_time_index << ",  percent = 100, destination = " << cat_id << std::endl;
+#if NGEN_WITH_ROUTING
         int nexus_index = nexus_indexes[id];
         nexus_downstream_flows[nexus_index] += nexus->get_downstream_flow(cat_id, current_time_index, 100.0);
+#else // NGEN_WITH_ROUTING
+
+#endif
 
         #if NGEN_WITH_MPI
         }
@@ -50,5 +52,4 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
         //If using below, then another single time vector would be needed to hold the timestamp
         //nexus_flows[id].push_back(contribution_at_t); 
     } //done nexuses
-#endif // NGEN_WITH_ROUTING
 }
