@@ -63,7 +63,7 @@ const std::vector<std::string> allModules = {
     "SMP",
     "SNOW-17",
     "TOPMODEL",
-    "TOPOFLOW",
+    "TOPOFLOW-GLACIER",
     "T-ROUTE",
     "UEB",
     "LSTM",
@@ -179,6 +179,7 @@ void Logger::SetupLogFile(void) {
             unsetenv("TROUTE_LOGFILEPATH");
             unsetenv("UEB_BMI_LOGFILEPATH");
             unsetenv("LSTM_LOGFILEPATH");
+	    unsetenv("TFGLACR_LOGFILEPATH");
             std::cout << "Program " << MODULE_NAME << " Log File: " << logFilePath << std::endl;
             std::string logMsg = "Log File: " + logFilePath + "\n";
             LogLevel saveLevel = logLevel;
@@ -387,6 +388,7 @@ void Logger::ManageLoggingEnvVars(bool set) {
         else if (hydroModule == "SNOW-17") moduleEnv = "SNOW17_LOGLEVEL";
         else if (hydroModule == "T-ROUTE") moduleEnv = "TROUTE_LOGLEVEL";
         else if (hydroModule == "UEB") moduleEnv = "UEB_BMI_LOGLEVEL";
+	else if (hydroModule == "TOPOFLOW-GLACIER") moduleEnv = "TFGLACR_LOGLEVEL";
         else moduleEnv = hydroModule + "_LOGLEVEL";
         if (set) {
             std::string ll = ConvertLogLevelToString(moduleLogLevels[hydroModule]);
