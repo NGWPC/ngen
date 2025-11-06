@@ -1,7 +1,6 @@
 name: CI/CD Pipeline
 
 on:
-  workflow_dispatch:
   pull_request:
     branches: [main, nwm-main, development, release-candidate]
   push:
@@ -198,6 +197,7 @@ jobs:
           template: '@/contrib/sarif.tpl'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          timeout: 15m
       - name: Upload Trivy results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
