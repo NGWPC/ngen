@@ -207,7 +207,7 @@ jobs:
     name: deploy-latest-on-development
     if: github.event_name == 'push' && github.ref_name == 'development'
     runs-on: ubuntu-latest
-    needs: [setup, build, unit-test, sonarqube-internal, codeql-scan, container-scanning]
+    needs: [setup, build, unit-test, codeql-scan, container-scanning]
     steps:
       - name: Tag image with 'latest'
         shell: bash
