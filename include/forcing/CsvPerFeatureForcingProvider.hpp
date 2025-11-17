@@ -29,9 +29,6 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
 {
     public:
 
-    typedef struct tm time_type;
-
-
     CsvPerFeatureForcingProvider(forcing_params forcing_config):start_date_time_epoch(forcing_config.simulation_start_t),
                                            end_date_time_epoch(forcing_config.simulation_end_t),
                                            current_date_time_epoch(forcing_config.simulation_start_t),
@@ -238,34 +235,6 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
     private:
 
     /**
-     * @brief Checks forcing vector index bounds and adjusts index if out of vector bounds
-     * /// \todo: Bounds checking is based on precipitation vector. Consider potential for vectors of different sizes and indices.
-     */
-    inline void check_forcing_vector_index_bounds()
-    {
-        std::stringstream ss;
-        //Check if forcing index is less than zero and if so, set to zero.
-        if (forcing_vector_index < 0)
-        {
-            forcing_vector_index = 0;
-            /// \todo: Return appropriate warning
-            ss <<  "WARNING: Forcing vector index is less than zero. Therefore, setting index to zero." << std::endl;
-            LOG(ss.str(), LogLevel::SEVERE); ss.str("");
-        }
-
-        //Check if forcing index is greater than or equal to the size of the size of the time vector and if so, set to zero.
-        else if (forcing_vector_index >= time_epoch_vector.size())
-        {
-            forcing_vector_index = time_epoch_vector.size() - 1;
-            /// \todo: Return appropriate warning
-            ss << "WARNING: Reached beyond the size of the forcing vector. Therefore, setting index to last value of the vector." << std::endl;
-            LOG(ss.str(), LogLevel::SEVERE); ss.str("");
-        }
-
-        return;
-    }
-
-    /**
      * Get the current value of a forcing param identified by its name.
      *
      * @param name The name of the forcing param for which the current value is desired.
@@ -427,16 +396,7 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
 
     /// \todo: Consider making epoch time the iterator
     std::vector<time_t> time_epoch_vector;     
-    int forcing_vector_index;
 
-    /// \todo: Are these used?
-    double precipitation_rate_meters_per_second;
-    double air_temperature_fahrenheit;
-
-    double latitude; //latitude (degrees_north)
-    double longitude; //longitude (degrees_east)
-    int catchment_id;
-    int day_of_year;
     std::string forcing_file_name;
 
     time_t start_date_time_epoch;
