@@ -35,9 +35,9 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
     CsvPerFeatureForcingProvider(forcing_params forcing_config):start_date_time_epoch(forcing_config.simulation_start_t),
                                            end_date_time_epoch(forcing_config.simulation_end_t),
                                            current_date_time_epoch(forcing_config.simulation_start_t),
-                                           forcing_vector_index(-1)
+                                           forcing_file_name(forcing_config.path)
     {
-        read_csv(forcing_config.path);
+        read_csv(forcing_file_name);
     }
 
     // BEGIN DataProvider interface methods
@@ -172,7 +172,7 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
         }
         catch (const std::runtime_error& e) {
             data_access::unit_conversion_exception uce(e.what());
-            uce.provider_model_name = "CsvPerFeatureProvider " + std::to_string(catchment_id);
+            uce.provider_model_name = "CsvPerFeatureProvider (file '" + forcing_file_name + "')";
             uce.provider_bmi_var_name = output_name;
             uce.provider_units = available_forcings_units[output_name];
             uce.unconverted_values.push_back(value);
