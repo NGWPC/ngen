@@ -241,21 +241,23 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
      * @param index The index of the desired forcing time step from which to obtain the value.
      * @return The particular param's value at the given forcing time step.
      */
-    inline double get_value_for_param_name(const std::string& name, int index) {
-        if (index >= time_epoch_vector.size() ) {
+    inline double get_value_for_param_name(const std::string& name, int index) const {
+        if (index < 0 || index >= time_epoch_vector.size() ) {
             std::string throw_msg; throw_msg.assign("Forcing had bad index " + std::to_string(index) + " for value lookup of " + name);
             LOG(throw_msg, LogLevel::WARNING);
             throw std::out_of_range(throw_msg);
         }
 
-        std::string can_name = name;
-        if(data_access::WellKnownFields.count(can_name) > 0){
-            auto t = data_access::WellKnownFields.find(can_name)->second;
-            can_name = std::get<0>(t);
+        std::string const* can_name = &name;
+
+        auto wkf_iter = data_access::WellKnownFields.find(name);
+        if (wkf_iter != data_access::WellKnownFields.end()) {
+            can_name = &std::get<0>(wkf_iter->second);
         }
 
-        if (forcing_vectors.count(can_name) > 0) {
-            return forcing_vectors[can_name].at(index);
+        auto forcings_iter = forcing_vectors.find(*can_name);
+        if (forcings_iter != forcing_vectors.end()) {
+            return forcings_iter->second.at(index);
         }
         else {
             std::string throw_msg; throw_msg.assign("Cannot get forcing value for unrecognized parameter name '" + name + "'.");
