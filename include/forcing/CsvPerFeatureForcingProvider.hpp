@@ -269,7 +269,7 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
      * Reads only data within the specified model start and end date-times.
      * @param file_name Forcing file name
      */
-    void read_csv(std::string file_name)
+    void read_csv(std::string const& file_name)
     {
         int time_col_index = 0;
         //std::map<std::string, int> col_indices;
