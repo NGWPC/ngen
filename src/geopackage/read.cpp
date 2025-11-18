@@ -27,9 +27,11 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     // Check for malicious/invalid layer input
     check_table_name(layer);
 
+    LOG(LogLevel::INFO, "Creating gpkg connection");
     ngen::sqlite::database db{gpkg_path};
 
     // Check if layer exists
+    LOG(LogLevel::INFO, "Checking if layer exists.");
     if (!db.contains(layer)) {
         // Since the layer doesn't exist, we need to output some additional
         // debug information with the error. In this case, we add ALL the tables
@@ -75,6 +77,7 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     // the IDs together.
     std::string joined_ids = "";
     if (!ids.empty()) {
+        LOG(LogLevel::INFO, "Joining %d IDs", (int)ids.size());
         joined_ids = " WHERE "+id_column+" IN (?";
         for (size_t i = 1; i < ids.size(); i++) {
             joined_ids += ", ?";
@@ -83,6 +86,7 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     }
 
     // Get number of features
+    LOG(LogLevel::INFO, "Querying count");
     auto query_get_layer_count = db.query("SELECT COUNT(*) FROM " + layer + joined_ids, ids);
     query_get_layer_count.next();
     const int layer_feature_count = query_get_layer_count.get<int>(0);
@@ -102,15 +106,18 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     #endif
 
     // Get layer feature metadata (geometry column name + type)
+    LOG(LogLevel::INFO, "Querying geom column");
     auto query_get_layer_geom_meta = db.query("SELECT column_name FROM gpkg_geometry_columns WHERE table_name = ?", layer);
     query_get_layer_geom_meta.next();
     const std::string layer_geometry_column = query_get_layer_geom_meta.get<std::string>(0);
 
     // Get layer
+    LOG(LogLevel::INFO, "Getting layer reference");
     auto query_get_layer = db.query("SELECT * FROM " + layer + joined_ids, ids);
     query_get_layer.next();
 
     // build features out of layer query
+    LOG(LogLevel::INFO, "Building features list");
     std::vector<geojson::Feature> features;
     features.reserve(layer_feature_count);
     while(!query_get_layer.done()) {
@@ -123,6 +130,7 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
         features.push_back(feature);
         query_get_layer.next();
     }
+    LOG(LogLevel::INFO, "Done with sql stuff");
 
     // get layer bounding box from features
     //
