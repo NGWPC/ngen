@@ -226,13 +226,14 @@ auto database::query(
     }
 
     if (!binds.empty()) {
-        LOG(LogLevel::INFO, "Number of binds identified: %d", (int)binds.size());
         for (int i = 0; i < binds.size(); i++) {
             const int bind_code = sqlite3_bind_text(stmt, i + 1, binds[i].c_str(), -1, SQLITE_TRANSIENT);
             if (bind_code != SQLITE_OK) {
                 throw sqlite_error{"sqlite3_bind_text", code};
             }
         }
+        const char *expanded = sqlite3_expanded_sql(stmt);
+        LOG(LogLevel::INFO, "Final query statement after binds: " + statement);
     }
 
     return iterator{stmt_t{stmt}};
