@@ -746,10 +746,19 @@ int main(int argc, char* argv[]) {
     std::chrono::duration<double> time_elapsed_nexus_output = time_done_nexus_output - time_done_simulation;
     LOG("[TIMING]: Nexus outflow file writing: " + std::to_string(time_elapsed_nexus_output.count()), LogLevel::INFO);
 
-    manager->finalize();
-
 #if NGEN_WITH_MPI
+    // ForcingEngine may have shared locks between processes.
+    // To prevent trying to delete temporary data locked by another process,
+    // finalize all rank != 0 before finalizing rank == 0
     MPI_Barrier(MPI_COMM_WORLD);
+    if (mpi_rank != 0)
+        manager->finalize();
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (mpi_rank == 0)
+        manager->finalize();
+    MPI_Barrier(MPI_COMM_WORLD);
+#else
+    manager->finalize();
 #endif
 
     if (manager->get_using_routing()) {
