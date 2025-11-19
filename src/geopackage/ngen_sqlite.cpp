@@ -211,7 +211,6 @@ auto database::query(
     const boost::span<const std::string> binds
 ) -> iterator
 {
-    LOG(LogLevel::INFO, "Raw query statement: " + statement);
     sqlite3_stmt* stmt = nullptr;
     const int code = sqlite3_prepare_v2(
         connection(),
@@ -232,8 +231,6 @@ auto database::query(
                 throw sqlite_error{"sqlite3_bind_text", code};
             }
         }
-        const char *expanded = sqlite3_expanded_sql(stmt);
-        LOG(LogLevel::INFO, "Final query statement after binds: %s", expanded);
     }
 
     return iterator{stmt_t{stmt}};
