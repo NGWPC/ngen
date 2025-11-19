@@ -50,11 +50,13 @@ size_t  CsvPerFeatureForcingProvider::get_ts_index_for_time(const time_t &epoch_
 }
 
 double CsvPerFeatureForcingProvider::get_value(const CatchmentAggrDataSelector& selector, data_access::ReSampleMethod m) {
-    size_t current_index;
-    long time_remaining = selector.get_duration_secs();
     auto init_time = selector.get_init_time();
+    auto duration = selector.get_duration_secs();
     auto output_name = selector.get_variable_name();
     auto output_units = selector.get_output_units();
+
+    size_t current_index;
+    long time_remaining = selector.get_duration_secs();
 
     try {
         current_index = get_ts_index_for_time(init_time);
@@ -81,15 +83,17 @@ double CsvPerFeatureForcingProvider::get_value(const CatchmentAggrDataSelector& 
     current_index++;
 
     while (time_remaining > 0) {
-        if(current_index >= time_epoch_vector.size())
-            return involved_time_step_values[involved_time_step_values.size()-1]; //TODO: Is this the right answer? Is returning any value off the end of the range valid?
+        if (current_index >= time_epoch_vector.size()) {
+            // XXX There may be callers almost-reasonably relying on being able to request data extending one record_duration() past the end
+            Logger::logMsgAndThrowError("Requested forcing value runs past the end of the data from CSV file '" + forcing_file_name + "'");
+        }
         ts_involved_s = time_remaining > 3600 ? 3600 : time_remaining;
         involved_time_step_seconds.push_back(ts_involved_s);
         involved_time_step_values.push_back(get_value_for_param_name(output_name, current_index));
         time_remaining -= ts_involved_s;
         current_index++;
-
     }
+
     double value = 0;
     for (size_t i = 0; i < involved_time_step_values.size(); ++i) {
         if (is_param_sum_over_time_step(output_name))
@@ -273,12 +277,15 @@ void CsvPerFeatureForcingProvider::read_csv(std::string const& file_name) {
     if (i <= 1 || current_row_date_time_epoch < end_date_time_epoch) {
         /// \todo TODO: Return appropriate error
         std::stringstream ss;
-        ss << "WARNING: Forcing data ends before the model end time." << std::endl;
-        LOG(ss.str(), LogLevel::SEVERE); ss.str("");
+        ss << "CSV Forcing data ends before the model end time in file '" << forcing_file_name << "'";
+        LOG(ss.str(), LogLevel::SEVERE);
         //std::string throw_msg; throw_msg.assign("Error: Forcing data ends before the model end time.");
     }
 
     time_t duration = record_duration();
+    if (duration != 3600) {
+        Logger::logMsgAndThrowError("CSV reader is hard-coded for hour-long records");
+    }
     for (size_t i = 1; i < time_epoch_vector.size(); ++i) {
         time_t difference = time_epoch_vector[i] - time_epoch_vector[i-1];
         if (difference != duration) {
