@@ -233,7 +233,7 @@ auto database::query(
             }
         }
         const char *expanded = sqlite3_expanded_sql(stmt);
-        LOG(LogLevel::INFO, "Final query statement after binds: " + statement);
+        LOG(LogLevel::INFO, "Final query statement after binds: %s", expanded);
     }
 
     return iterator{stmt_t{stmt}};
