@@ -388,6 +388,14 @@ class CsvPerFeatureForcingProvider : public data_access::GenericDataProvider
             LOG(ss.str(), LogLevel::SEVERE); ss.str("");
             //std::string throw_msg; throw_msg.assign("Error: Forcing data ends before the model end time.");
         }
+
+        time_t duration = record_duration();
+        for (size_t i = 1; i < time_epoch_vector.size(); ++i) {
+            time_t difference = time_epoch_vector[i] - time_epoch_vector[i-1];
+            if (difference != duration) {
+                Logger::logMsgAndThrowError("Time intervals in forcing file '" + forcing_file_name + "' are not constant at row " + std::to_string(i));
+            }
+        }
     }
 
     std::vector<std::string> available_forcings;
