@@ -26,6 +26,11 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
 {
     // Check for malicious/invalid layer input
     check_table_name(layer);
+    std::vector<geojson::Feature> features;
+    double min_x = std::numeric_limits<double>::infinity();
+    double min_y = std::numeric_limits<double>::infinity();
+    double max_x = -std::numeric_limits<double>::infinity();
+    double max_y = -std::numeric_limits<double>::infinity();
 
     LOG(LogLevel::INFO, "Creating gpkg connection");
     ngen::sqlite::database db{gpkg_path};
@@ -68,6 +73,12 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
         }
     }
 
+    int limit = 900;
+    boost::span<const std::string> id_span(ids);
+    for (int i = 0; i < ids.size(); i += limit) {
+    int span_size = (i + limit >= ids.size()) ? (ids.size() - limit) : limit;
+    boost::span<const std::string> sub_ids = id_span.subspan(i, limit);
+
     // Layer exists, getting statement for it
     //
     // this creates a string in the form:
@@ -76,10 +87,10 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     // This is safer than trying to concatenate
     // the IDs together.
     std::string joined_ids = "";
-    if (!ids.empty()) {
-        LOG(LogLevel::INFO, "Joining %d IDs", (int)ids.size());
+    if (!sub_ids.empty()) {
+        LOG(LogLevel::INFO, "Joining %d IDs", (int)sub_ids.size());
         joined_ids = " WHERE "+id_column+" IN (?";
-        for (size_t i = 1; i < ids.size(); i++) {
+        for (size_t i = 1; i < sub_ids.size(); i++) {
             joined_ids += ", ?";
         }
         joined_ids += ")";
@@ -87,16 +98,16 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
 
     // Get number of features
     LOG(LogLevel::INFO, "Querying count");
-    auto query_get_layer_count = db.query("SELECT COUNT(*) FROM " + layer + joined_ids, ids);
+    auto query_get_layer_count = db.query("SELECT COUNT(*) FROM " + layer + joined_ids, sub_ids);
     query_get_layer_count.next();
     const int layer_feature_count = query_get_layer_count.get<int>(0);
 
     #ifndef NGEN_QUIET
     // output debug info on what is read exactly
     read_ss << "Reading " << layer_feature_count << " features from layer " << layer << " using ID column `"<< id_column << "`";
-    if (!ids.empty()) {
+    if (!sub_ids.empty()) {
         read_ss << " (id subset:";
-        for (auto& id : ids) {
+        for (auto& id : sub_ids) {
             read_ss << " " << id;
         }
         read_ss << ")";
@@ -113,13 +124,12 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
 
     // Get layer
     LOG(LogLevel::INFO, "Getting layer reference");
-    auto query_get_layer = db.query("SELECT * FROM " + layer + joined_ids, ids);
+    auto query_get_layer = db.query("SELECT * FROM " + layer + joined_ids, sub_ids);
     query_get_layer.next();
 
     // build features out of layer query
     LOG(LogLevel::INFO, "Building features list");
-    std::vector<geojson::Feature> features;
-    features.reserve(layer_feature_count);
+    features.reserve(features.size() + layer_feature_count);
     while(!query_get_layer.done()) {
         geojson::Feature feature = build_feature(
             query_get_layer,
@@ -138,10 +148,6 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     // however, it is in the SRS of the GPKG. By creating
     // the bbox after the features are built, the projection
     // is already done. This also should be fairly cheap to do.
-    double min_x = std::numeric_limits<double>::infinity();
-    double min_y = std::numeric_limits<double>::infinity();
-    double max_x = -std::numeric_limits<double>::infinity();
-    double max_y = -std::numeric_limits<double>::infinity();
     for (const auto& feature : features) {
         const auto& bbox = feature->get_bounding_box();
         min_x = bbox[0] < min_x ? bbox[0] : min_x;
@@ -149,6 +155,8 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
         max_x = bbox[2] > max_x ? bbox[2] : max_x;
         max_y = bbox[3] > max_y ? bbox[3] : max_y;
     }
+
+}
 
     auto fc = std::make_shared<geojson::FeatureCollection>(
         std::move(features),
