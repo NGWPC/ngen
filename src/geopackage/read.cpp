@@ -77,7 +77,7 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
     boost::span<const std::string> id_span(ids);
     for (int i = 0; i < ids.size(); i += limit) {
     int span_size = (i + limit >= ids.size()) ? (ids.size() - limit) : limit;
-    boost::span<const std::string> sub_ids = id_span.subspan(i, limit);
+    boost::span<const std::string> sub_ids = id_span.subspan(i, span_size);
 
     // Layer exists, getting statement for it
     //
