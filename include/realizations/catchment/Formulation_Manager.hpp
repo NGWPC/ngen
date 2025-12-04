@@ -32,18 +32,30 @@ namespace realization {
 
     class Formulation_Manager {
         public:
-            std::shared_ptr<Simulation_Time> Simulation_Time_Object;
-
             Formulation_Manager(std::stringstream &data) {
                 boost::property_tree::ptree loaded_tree;
-                boost::property_tree::json_parser::read_json(data, loaded_tree);
-                this->tree = loaded_tree;
+                try {
+                    boost::property_tree::json_parser::read_json(data, loaded_tree);
+                    this->tree = loaded_tree;
+                }
+                catch (const std::exception& e) {
+                    std::string msg = std::string("Reading json data") + e.what();
+                    LOG(msg, LogLevel::FATAL);
+                    throw;
+                }
             }
 
             Formulation_Manager(const std::string &file_path) {
                 boost::property_tree::ptree loaded_tree;
-                boost::property_tree::json_parser::read_json(file_path, loaded_tree);
-                this->tree = loaded_tree;
+                try {
+                    boost::property_tree::json_parser::read_json(file_path, loaded_tree);
+                    this->tree = loaded_tree;
+                }
+                catch (const std::exception& e) {
+                    std::string msg = std::string("Reading json file ") + file_path + e.what();
+                    LOG(msg, LogLevel::FATAL);
+                    throw;
+                }
             }
 
             Formulation_Manager(boost::property_tree::ptree &loaded_tree) {
@@ -52,7 +64,8 @@ namespace realization {
 
             ~Formulation_Manager() = default;
 
-            void read(geojson::GeoJSON fabric, utils::StreamHandler output_stream) {
+            void read(simulation_time_params &simulation_time_config,
+                      geojson::GeoJSON fabric, utils::StreamHandler output_stream) {
                 std::stringstream ss;
                 ss.str(""); ss << "Entering Formulation_Manager::read()" << std::endl;
                 LOG(ss.str(), LogLevel::DEBUG);
@@ -65,21 +78,6 @@ namespace realization {
                 if (possible_global_config) {
                     global_config = realization::config::Config(*possible_global_config);
                 }
-
-                // Log simulation time configuration
-                auto possible_simulation_time = tree.get_child_optional("time");
-
-                if (!possible_simulation_time) {
-                    std::string throw_msg; throw_msg.assign("ERROR: No simulation time period defined.");
-                    LOG(throw_msg, LogLevel::WARNING);
-                    throw std::runtime_error(throw_msg);
-                }
-
-                config::Time time = config::Time(*possible_simulation_time);
-                auto simulation_time_config = time.make_params();
-
-                // Initialize the Simulation_Time object
-                this->Simulation_Time_Object = std::make_shared<Simulation_Time>(simulation_time_config);
 
                 // Log layer descriptions
                 // try to get the json node
@@ -105,9 +103,6 @@ namespace realization {
                         LOG(ss.str(), LogLevel::DEBUG);
 
                         if (layer.has_formulation() && layer.get_domain() == "catchments") {
-                            double c_value = UnitsHelper::get_converted_value(layer_desc.time_step_units, layer_desc.time_step, "s");
-                            // make a new simulation time object with a different output interval
-                            Simulation_Time sim_time(*Simulation_Time_Object, c_value);
                             domain_formulations.emplace(
                                 layer_desc.id,
                                 construct_formulation_from_config(
@@ -117,7 +112,10 @@ namespace realization {
                                     output_stream
                                 )
                             );
-                            domain_formulations.at(layer_desc.id)->set_output_stream(get_output_root() + layer_desc.name + "_layer_"+std::to_string(layer_desc.id) + ".csv");
+                            auto formulation = domain_formulations.at(layer_desc.id);
+                            if (formulation->get_output_header_count() > 0) {
+                                formulation->set_output_stream(get_output_root() + layer_desc.name + "_layer_"+std::to_string(layer_desc.id) + ".csv");
+                            }
                         }
                         //TODO for each layer, create deferred providers for use by other layers
                         //VERY SIMILAR TO NESTED MODULE INIT
@@ -320,7 +318,7 @@ namespace realization {
                 data_access::NetCDFPerFeatureDataProvider::cleanup_shared_providers();
 #endif
 #if NGEN_WITH_PYTHON
-                data_access::detail::ForcingsEngineStorage::instances.clear();
+                data_access::detail::ForcingsEngineStorage::instances.finalize();
 #endif
                 ss.str(""); ss << "Formulation_Manager finalized" << std::endl;
                 LOG(ss.str(), LogLevel::DEBUG);
@@ -726,12 +724,14 @@ namespace realization {
 
                 // Iterate over directory entries
                 if (directory != nullptr) {
+                    // handle closing the directory regardless of how the function returns
+                    auto closer = [](DIR *dir){ closedir(dir); };
+                    std::unique_ptr<DIR, decltype(closer)> _(directory, closer);
                     while ((entry = readdir(directory))) {
                         if (std::regex_match(entry->d_name, pattern)) {
                             // Check for regular files and symlinks
             #ifdef _DIRENT_HAVE_D_TYPE
                             if (entry->d_type == DT_REG || entry->d_type == DT_LNK) {
-                                closedir(directory);
                                 return forcing_params(
                                     path + entry->d_name,
                                     provider,
@@ -751,7 +751,6 @@ namespace realization {
                                 }
 
                                 if (S_ISREG(st.st_mode)) {
-                                    closedir(directory);
                                     return forcing_params(
                                         path + entry->d_name,
                                         provider,
@@ -770,7 +769,6 @@ namespace realization {
             #endif
                         }
                     }
-                    closedir(directory);
                 } else {
                     // The directory wasn't found or otherwise couldn't be opened; forcing data cannot be retrieved
                     std::string throw_msg = "Error opening forcing data dir '" + path + "' after " + std::to_string(attemptCount) + " attempts: " + errMsg;
@@ -782,137 +780,6 @@ namespace realization {
                 std::string throw_msg = "Forcing data could not be found for '" + identifier + "'";
                 LOG(throw_msg, LogLevel::WARNING);
                 throw std::runtime_error(throw_msg);
-            }
-
-            /**
-             * @brief Parse a `model_params` property tree and replace external parameters
-             *        with values from a catchment's properties
-             * 
-             * @param model_params Property tree with root key "model_params"
-             * @param catchment_feature Associated catchment feature
-             */
-            void parse_external_model_params(boost::property_tree::ptree& model_params, const geojson::Feature catchment_feature) {
-                std::stringstream ss;
-                 boost::property_tree::ptree attr {};
-                 for (decltype(auto) param : model_params) {
-                    if (param.second.count("source") == 0) {
-                        attr.put_child(param.first, param.second);
-                        continue;
-                    }
-                
-                    decltype(auto) param_source = param.second.get_child("source");
-                    decltype(auto) param_source_name = param_source.get_value<std::string>();
-                    if (param_source_name != "hydrofabric") {
-                        // temporary until the logic for alternative sources is designed
-                        throw std::logic_error("ERROR: 'model_params' source `" + param_source_name + "` not currently supported. Only `hydrofabric` is supported.");
-                    }
-
-                    decltype(auto) param_name = param.second.find("from") == param.second.not_found()
-                        ? param.first
-                        : param.second.get_child("from").get_value<std::string>();
-
-                    if (catchment_feature->has_property(param_name)) {
-                        auto catchment_attribute = catchment_feature->get_property(param_name);
-                        switch (catchment_attribute.get_type()) {
-                            case geojson::PropertyType::Natural:
-                                attr.put(param.first, catchment_attribute.as_natural_number());
-                                break;
-                            case geojson::PropertyType::Boolean:
-                                attr.put(param.first, catchment_attribute.as_boolean());
-                                break;
-                            case geojson::PropertyType::Real:
-                                attr.put(param.first, catchment_attribute.as_real_number());
-                                break;
-                            case geojson::PropertyType::String:
-                                attr.put(param.first, catchment_attribute.as_string());
-                                break;
-
-                            case geojson::PropertyType::List:
-                            case geojson::PropertyType::Object:
-                            default:
-                                ss.str("");
-                                ss  << "property type " << static_cast<int>(catchment_attribute.get_type()) << " not allowed as model parameter. "
-                                          << "Must be one of: Natural (int), Real (double), Boolean, or String" << '\n';
-                                LOG(ss.str(), LogLevel::WARNING); ss.str("");
-                                break;
-                        }
-                    } else {
-                        ss.str("");
-                        ss << " Failed to parse external parameter: catchment `"
-                           << catchment_feature->get_id()
-                           << "` does not contain the property `"
-                           << param_name << "`\n";
-                        LOG(ss.str(), LogLevel::WARNING); 
-                    }
-                }
-
-                model_params.swap(attr);
-            }
-
-            /**
-             * @brief Parse a `model_params` property map and replace external parameters
-             *        with values from a catchment's properties
-             * 
-             * @param model_params Property map with root key "model_params"
-             * @param catchment_feature Associated catchment feature
-             */
-            void parse_external_model_params(geojson::PropertyMap& model_params, const geojson::Feature catchment_feature) {
-                std::stringstream ss;
-                geojson::PropertyMap attr {};
-                for (decltype(auto) param : model_params) {
-                    // Check for type to short-circuit. If param.second is not an object, `.has_key()` will throw
-                    if (param.second.get_type() != geojson::PropertyType::Object || !param.second.has_key("source")) {
-                        attr.emplace(param.first, param.second);
-                        continue;
-                    }
-                
-                    decltype(auto) param_source = param.second.at("source");
-                    decltype(auto) param_source_name = param_source.as_string();
-                    if (param_source_name != "hydrofabric") {
-                        // TODO: temporary until the logic for alternative sources is designed
-                        throw std::logic_error("ERROR: 'model_params' source `" + param_source_name + "` not currently supported. Only `hydrofabric` is supported.");
-                    }
-
-                    // Property name in the feature properties is either
-                    // the value of key "from", or has the same name as
-                    // the expected model parameter key
-                    decltype(auto) param_name = param.second.has_key("from")
-                        ? param.second.at("from").as_string()
-                        : param.first;
-
-                    if (catchment_feature->has_property(param_name)) {
-                        auto catchment_attribute = catchment_feature->get_property(param_name);
-
-                        // Use param.first in the `.emplace` calls instead of param_name since
-                        // the expected name is given by the key of the model_params values.
-                        switch (catchment_attribute.get_type()) {
-                            case geojson::PropertyType::Natural:
-                                attr.emplace(param.first, geojson::JSONProperty(param.first, catchment_attribute.as_natural_number()));
-                                break;
-                            case geojson::PropertyType::Boolean:
-                                attr.emplace(param.first, geojson::JSONProperty(param.first, catchment_attribute.as_boolean()));
-                                break;
-                            case geojson::PropertyType::Real:
-                                attr.emplace(param.first, geojson::JSONProperty(param.first, catchment_attribute.as_real_number()));
-                                break;
-                            case geojson::PropertyType::String:
-                                attr.emplace(param.first, geojson::JSONProperty(param.first, catchment_attribute.as_string()));
-                                break;
-
-                            case geojson::PropertyType::List:
-                            case geojson::PropertyType::Object:
-                            default:
-                                // TODO: Should list/object values be passed to model parameters?
-                                //       Typically, feature properties *should* be scalars.
-                                ss.str(""); ss << "property type " << static_cast<int>(catchment_attribute.get_type()) << " not allowed as model parameter. "
-                                               << "Must be one of: Natural (int), Real (double), Boolean, or String" << '\n';
-                                LOG(ss.str(), LogLevel::WARNING);
-                                break;
-                        }
-                    }
-                }
-
-                model_params.swap(attr);
             }
 
             boost::property_tree::ptree tree;
