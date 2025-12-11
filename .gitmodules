@@ -58,7 +58,7 @@
 [submodule "extern/ueb-bmi"]
 	path = extern/ueb-bmi
 	url = https://github.com/NGWPC/ueb_bmi.git
-	branch = idt-ueb-inclusive-end-step
+	branch = development
 [submodule "extern/lstm"]
 	path = extern/lstm
 	url = https://github.com/NGWPC/lstm.git
