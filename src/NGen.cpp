@@ -4,12 +4,14 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <netcdf>
 
 #include <boost/core/span.hpp>
 
 #include "realizations/catchment/Formulation_Manager.hpp"
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
+#include <NetCDFCreator.hpp>
 
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
@@ -657,7 +659,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::shared_ptr<ngen::Layer>> layers;
     layers.resize(keys.size());
-
+    
     for (long i = 0; i < keys.size(); ++i) {
         auto& desc = layer_meta_data.get_layer(keys[i]);
         std::vector<std::string> cat_ids;
@@ -705,6 +707,8 @@ int main(int argc, char* argv[]) {
         catchment_indexes[feature_id] = i;
     }
 #endif // NGEN_WITH_ROUTING
+
+    auto ncCreator = std::make_unique<NetCDFCreator>(manager,"catchment_output",*sim_time);
 
     auto simulation = std::make_unique<NgenSimulation>(*sim_time,
                                                        layers,
