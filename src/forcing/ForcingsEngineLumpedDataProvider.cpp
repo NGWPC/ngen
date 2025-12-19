@@ -79,28 +79,58 @@ Provider::ForcingsEngineLumpedDataProvider(
 
     var_output_names_.erase(cat_id_pos);
 
+    const std::size_t cat_id_item_size = static_cast<std::size_t>(bmi_->GetVarItemsize("CAT-ID"));
     const auto size_id_dimension = static_cast<std::size_t>(
-        bmi_->GetVarNbytes("CAT-ID") / bmi_->GetVarItemsize("CAT-ID")
+        bmi_->GetVarNbytes("CAT-ID") / cat_id_item_size
     );
     ss.str(""); 
     ss << " CAT-ID size: " << size_id_dimension << std::endl;
     LOG(ss.str(), LogLevel::DEBUG);
 
-    // Copy CAT-ID values into instance vector
-    const auto cat_id_span = boost::span<const int>(
-        static_cast<const int*>(bmi_->GetValuePtr("CAT-ID")),
-        size_id_dimension
-    );
+    const std::string cat_id_type = bmi_->GetVarType("CAT-ID");
+    const std::string cat_id_cpp_type = bmi_->get_analogous_cxx_type(cat_id_type, cat_id_item_size);
+    void *cat_id_ptr = bmi_->GetValuePtr("CAT-ID");
 
-    auto divide_id_pos = std::find(cat_id_span.begin(), cat_id_span.end(), divide_id_);
-    if (divide_id_pos == cat_id_span.end()) {
+    // copy CAT-ID values of whatever type into local std::size_t container
+    std::vector<std::size_t> cat_id_values(size_id_dimension);
+    if (cat_id_cpp_type == "int") {
+        auto cat_id_span = boost::span<const int>(
+            static_cast<const int*>(cat_id_ptr),
+            size_id_dimension
+        );
+        for (std::size_t i = 0; i < size_id_dimension; ++i)
+            cat_id_values[i] = static_cast<std::size_t>(cat_id_span[i]);
+    } else if (cat_id_cpp_type == "long") {
+        auto cat_id_span = boost::span<const long>(
+            static_cast<const long*>(cat_id_ptr),
+            size_id_dimension
+        );
+        for (std::size_t i = 0; i < size_id_dimension; ++i)
+            cat_id_values[i] = static_cast<std::size_t>(cat_id_span[i]);
+    } else if (cat_id_cpp_type == "double") {
+        auto cat_id_span = boost::span<const double>(
+            static_cast<const double*>(cat_id_ptr),
+            size_id_dimension
+        );
+        for (std::size_t i = 0; i < size_id_dimension; ++i)
+            cat_id_values[i] = static_cast<std::size_t>(cat_id_span[i]);
+    } else {
+        ss.str("");
+        ss << "(ForcingEngineLumpedDataProvider) Unable to interpret CAT-ID type of C++ type '"
+            << cat_id_cpp_type << "' (python type '"
+            << cat_id_type << "')";
+        LOG(ss.str(), LogLevel::SEVERE);
+    }
+
+    auto divide_id_pos = std::find(cat_id_values.begin(), cat_id_values.end(), divide_id_);
+    if (divide_id_pos == cat_id_values.end()) {
         ss.str(""); 
         ss << "Unable to find divide ID `" << divide_id
             << "` in the given Forcings Engine domain" << std::endl;
         LOG(ss.str(), LogLevel::SEVERE);
         divide_idx_ = static_cast<std::size_t>(-1);
     } else {
-        divide_idx_ = std::distance(cat_id_span.begin(), divide_id_pos);
+        divide_idx_ = std::distance(cat_id_values.begin(), divide_id_pos);
         ss.str(""); 
         ss << " Divide ID found at index: " << divide_idx_ << std::endl;
         LOG(ss.str(), LogLevel::INFO);
