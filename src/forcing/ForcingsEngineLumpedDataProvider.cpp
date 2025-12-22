@@ -92,28 +92,40 @@ Provider::ForcingsEngineLumpedDataProvider(
     void *cat_id_ptr = bmi_->GetValuePtr("CAT-ID");
 
     // copy CAT-ID values of whatever type into local std::size_t container
-    std::vector<std::size_t> cat_id_values(size_id_dimension);
+    divide_idx_ = std::numeric_limits<std::size_t>::max();
     if (cat_id_cpp_type == "int") {
         auto cat_id_span = boost::span<const int>(
             static_cast<const int*>(cat_id_ptr),
             size_id_dimension
         );
-        for (std::size_t i = 0; i < size_id_dimension; ++i)
-            cat_id_values[i] = static_cast<std::size_t>(cat_id_span[i]);
+        for (std::size_t i = 0; i < size_id_dimension; ++i) {
+            if (static_cast<std::size_t>(cat_id_span[i]) == divide_id_) {
+                divide_idx_ = i;
+                break;
+            }
+        }
     } else if (cat_id_cpp_type == "long") {
         auto cat_id_span = boost::span<const long>(
             static_cast<const long*>(cat_id_ptr),
             size_id_dimension
         );
-        for (std::size_t i = 0; i < size_id_dimension; ++i)
-            cat_id_values[i] = static_cast<std::size_t>(cat_id_span[i]);
+        for (std::size_t i = 0; i < size_id_dimension; ++i) {
+            if (static_cast<std::size_t>(cat_id_span[i]) == divide_id_) {
+                divide_idx_ = i;
+                break;
+            }
+        }
     } else if (cat_id_cpp_type == "double") {
         auto cat_id_span = boost::span<const double>(
             static_cast<const double*>(cat_id_ptr),
             size_id_dimension
         );
-        for (std::size_t i = 0; i < size_id_dimension; ++i)
-            cat_id_values[i] = static_cast<std::size_t>(cat_id_span[i]);
+        for (std::size_t i = 0; i < size_id_dimension; ++i) {
+            if (static_cast<std::size_t>(cat_id_span[i]) == divide_id_) {
+                divide_idx_ = i;
+                break;
+            }
+        }
     } else {
         ss.str("");
         ss << "(ForcingEngineLumpedDataProvider) Unable to interpret CAT-ID type of C++ type '"
@@ -122,15 +134,12 @@ Provider::ForcingsEngineLumpedDataProvider(
         LOG(ss.str(), LogLevel::SEVERE);
     }
 
-    auto divide_id_pos = std::find(cat_id_values.begin(), cat_id_values.end(), divide_id_);
-    if (divide_id_pos == cat_id_values.end()) {
+    if (divide_idx_ == std::numeric_limits<std::size_t>::max()) {
         ss.str(""); 
         ss << "Unable to find divide ID `" << divide_id
             << "` in the given Forcings Engine domain" << std::endl;
         LOG(ss.str(), LogLevel::SEVERE);
-        divide_idx_ = static_cast<std::size_t>(-1);
     } else {
-        divide_idx_ = std::distance(cat_id_values.begin(), divide_id_pos);
         ss.str(""); 
         ss << " Divide ID found at index: " << divide_idx_ << std::endl;
         LOG(ss.str(), LogLevel::INFO);
