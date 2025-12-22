@@ -121,7 +121,7 @@ Provider::ForcingsEngineLumpedDataProvider(
             size_id_dimension
         );
         for (std::size_t i = 0; i < size_id_dimension; ++i) {
-            if (static_cast<std::size_t>(cat_id_span[i]) == divide_id_) {
+            if (static_cast<std::size_t>(std::lround(cat_id_span[i])) == divide_id_) {
                 divide_idx_ = i;
                 break;
             }
