@@ -27,6 +27,7 @@ NgenSimulation::NgenSimulation(
     , layers_(std::move(layers))
     , catchment_indexes_(std::move(catchment_indexes))
     , nexus_indexes_(std::move(nexus_indexes))
+    , routing_nexus_indexes_(&nexus_indexes)
     , mpi_rank_(mpi_rank)
     , mpi_num_procs_(mpi_num_procs)
 {
@@ -119,23 +120,13 @@ double NgenSimulation::get_nexus_outflow(int nexus_index, int timestep_index) co
     return nexus_downstream_flows_[timestep_index * nexus_indexes_.size() + nexus_index];
 }
 
-void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::string const& t_route_config_file_with_path)
+void NgenSimulation::initialize_routing(std::string const& t_route_config_file_with_path)
 {
 #if NGEN_WITH_ROUTING
-    std::vector<double> *routing_nexus_downflows = &nexus_downstream_flows_;
     std::unordered_map<std::string, int> *routing_nexus_indexes = &nexus_indexes_;
-
-    size_t number_of_timesteps = sim_time_->get_total_output_times();
-    if (nexus_downstream_flows_.size() != number_of_timesteps * nexus_indexes_.size()) {
-        std::string msg = "Routing input data in NgenSimulation::nexus_downstream_flows_ does not reflect a full-duration run";
-        LOG(msg, LogLevel::FATAL);
-        throw std::runtime_error(msg);
-    }
+    global_nexus_count_ = nexus_indexes_.size();
 
 #if NGEN_WITH_MPI
-    std::vector<double> all_nexus_downflows;
-    std::unordered_map<std::string, int> all_nexus_indexes;
-
     if (mpi_num_procs_ > 1) {
         std::vector<std::string> local_nexus_ids;
         for (const auto& nexus : nexus_indexes_) {
@@ -154,64 +145,45 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         // MPI_Broadcast so all processes share the nexus IDs
         all_nexus_ids = std::move(parallel::broadcast_strings(all_nexus_ids, mpi_rank_, mpi_num_procs_));
 
-        // MPI_Reduce to collect the results from processes
-        if (mpi_rank_ == 0) {
-            all_nexus_downflows.resize(number_of_timesteps * all_nexus_ids.size(), 0.0);
-        }
-        std::vector<double> local_buffer(number_of_timesteps);
-        std::vector<double> receive_buffer(number_of_timesteps, 0.0);
         for (int i = 0; i < all_nexus_ids.size(); ++i) {
-            std::string nexus_id = all_nexus_ids[i];
-            if (nexus_indexes_.find(nexus_id) != nexus_indexes_.end() && !features.is_remote_sender_nexus(nexus_id)) {
-                // if this process has the id and receives/records data, copy the values to the buffer
-                int nexus_index = nexus_indexes_[nexus_id];
-                for (int step = 0; step < number_of_timesteps; ++step) {
-                    int offset = step * nexus_indexes_.size() + nexus_index;
-                    local_buffer[step] = nexus_downstream_flows_[offset];
-                }
-            } else {
-                // if this process does not have the id, fill with 0 to make sure it doesn't affect reduce sum
-                std::fill(local_buffer.begin(), local_buffer.end(), 0.0);
-            }
-            MPI_Reduce(local_buffer.data(), receive_buffer.data(), number_of_timesteps, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-            if (mpi_rank_ == 0) {
-                // copy reduce values to a combined downflows vector
-                all_nexus_indexes[nexus_id] = i;
-                for (int step = 0; step < number_of_timesteps; ++step) {
-                    int offset = step * all_nexus_ids.size() + i;
-                    all_nexus_downflows[offset] = receive_buffer[step];
-                    receive_buffer[step] = 0.0;
-                }
-            }
+            std::string const& nexus_id = all_nexus_ids[i];
+            global_nexus_indexes_[nexus_id] = i;
         }
 
-        if (mpi_rank_ == 0) {
-            // update root's local data for running t-route below
-            routing_nexus_indexes = &all_nexus_indexes;
-            routing_nexus_downflows = &all_nexus_downflows;
-        }
+        routing_nexus_indexes_ = &global_nexus_indexes_;
+        global_nexus_count_ = all_nexus_ids.size();
     }
 #endif // NGEN_WITH_MPI
 
-    if (mpi_rank_ == 0) { // Run t-route from single process
-        LOG(LogLevel::INFO, "Running T-Route on nexus outflows.");
+    if (mpi_rank_ == 0) {
+        py_troute_ = std::make_unique<models::bmi::Bmi_Py_Adapter>("T-Route", t_route_config_file_with_path, "troute_nwm_bmi.troute_bmi.BmiTroute", true);
 
-        // Note: Currently, delta_time is set in the t-route yaml configuration file, and the
-        // number_of_timesteps is determined from the total number of nexus outputs in t-route.
-        // It is recommended to still pass these values to the routing_py_adapter object in
-        // case a future implementation needs these two values from the ngen framework.
-        int delta_time = sim_time_->get_output_interval_seconds();
+        // Error/inconsistency checking
+        {
+            std::string time_units = py_troute_->GetTimeUnits();
+            if (time_units != "s") {
+                Logger::logMsgAndThrowError("T-route units were expected to be 's', got " + time_units);
+            }
 
-        // model for routing
-        models::bmi::Bmi_Py_Adapter py_troute("T-Route", t_route_config_file_with_path, "troute_nwm_bmi.troute_bmi.BmiTroute", true);
+            // Note: Currently, delta_time is set in the t-route yaml configuration file, and the
+            // number_of_timesteps is determined from the total number of nexus outputs in t-route.
+            // It is recommended to still pass these values to the routing_py_adapter object in
+            // case a future implementation needs these two values from the ngen framework.
+            int delta_time = sim_time_->get_output_interval_seconds();
+            double bmi_timestep = py_troute_->GetTimeStep();
+            if (bmi_timestep != delta_time) {
+                Logger::logMsgAndThrowError("T-route timestep " + std::to_string(bmi_timestep) + " s"
+                                            + "doesn't match simulation timestep " + std::to_string(delta_time) + " s ");
+            }
+        }
 
         // tell BMI to resize nexus containers
-        int64_t nexus_count = routing_nexus_indexes->size();
-        py_troute.SetValue("land_surface_water_source__volume_flow_rate__count", &nexus_count);
-        py_troute.SetValue("land_surface_water_source__id__count", &nexus_count);
+        py_troute_->SetValue("land_surface_water_source__volume_flow_rate__count", &global_nexus_count_);
+        py_troute_->SetValue("land_surface_water_source__id__count", &global_nexus_count_);
+
         // set up nexus id indexes
-        std::vector<int> nexus_df_index(nexus_count);
-        for (const auto& key_value : *routing_nexus_indexes) {
+        std::vector<int> nexus_df_index(global_nexus_count_);
+        for (const auto& key_value : *routing_nexus_indexes_) {
             int id_index = key_value.second;
 
             // Convert string ID into numbers for T-route index
@@ -228,14 +200,79 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
             }
             nexus_df_index[id_index] = id_as_int;
         }
-        py_troute.SetValue("land_surface_water_source__id", nexus_df_index.data());
+        py_troute_->SetValue("land_surface_water_source__id", nexus_df_index.data());
+    }
+#endif // NGEN_WITH_ROUTING
+}
+
+void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::string const& t_route_config_file_with_path)
+{
+#if NGEN_WITH_ROUTING
+    initialize_routing(t_route_config_file_with_path);
+
+    std::vector<double> *routing_nexus_downflows = &nexus_downstream_flows_;
+
+    size_t number_of_timesteps = sim_time_->get_total_output_times();
+    if (nexus_downstream_flows_.size() != number_of_timesteps * nexus_indexes_.size()) {
+        std::string msg = "Routing input data in NgenSimulation::nexus_downstream_flows_ does not reflect a full-duration run";
+        LOG(msg, LogLevel::FATAL);
+        throw std::runtime_error(msg);
+    }
+
+#if NGEN_WITH_MPI
+    std::vector<double> all_nexus_downflows;
+
+    if (mpi_num_procs_ > 1) {
+        // MPI_Reduce to collect the results from processes
+        if (mpi_rank_ == 0) {
+            all_nexus_downflows.resize(number_of_timesteps * global_nexus_count_, 0.0);
+        }
+        std::vector<double> local_buffer(number_of_timesteps);
+        std::vector<double> receive_buffer(number_of_timesteps, 0.0);
+        for (auto const& global_nexus_iter : global_nexus_indexes_) {
+            std::string const& nexus_id = global_nexus_iter.first;
+            int global_nexus_index = global_nexus_iter.second;
+
+            auto local_iter = nexus_indexes_.find(nexus_id);
+            if (local_iter != nexus_indexes_.end() && !features.is_remote_sender_nexus(nexus_id)) {
+                // if this process has the id and receives/records data, copy the values to the buffer
+                int nexus_index = local_iter->second;
+                for (int step = 0; step < number_of_timesteps; ++step) {
+                    int offset = step * nexus_indexes_.size() + nexus_index;
+                    local_buffer[step] = nexus_downstream_flows_[offset];
+                }
+            } else {
+                // if this process does not have the id, fill with 0 to make sure it doesn't affect reduce sum
+                std::fill(local_buffer.begin(), local_buffer.end(), 0.0);
+            }
+            MPI_Reduce(local_buffer.data(), receive_buffer.data(), number_of_timesteps, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            if (mpi_rank_ == 0) {
+                // copy reduce values to a combined downflows vector
+                for (int step = 0; step < number_of_timesteps; ++step) {
+                    int offset = step * global_nexus_count_ + global_nexus_index;
+                    all_nexus_downflows[offset] = receive_buffer[step];
+                    receive_buffer[step] = 0.0;
+                }
+            }
+        }
+
+        if (mpi_rank_ == 0) {
+            // update root's local data for running t-route below
+            routing_nexus_downflows = &all_nexus_downflows;
+        }
+    }
+#endif // NGEN_WITH_MPI
+
+    if (mpi_rank_ == 0) { // Run t-route from single process
+        LOG(LogLevel::INFO, "Running T-Route on nexus outflows.");
+
         for (int i = 0; i < number_of_timesteps; ++i) {
-            py_troute.SetValue("land_surface_water_source__volume_flow_rate",
-                               routing_nexus_downflows->data() + (i * nexus_count));
-            py_troute.Update();
+            py_troute_->SetValue("land_surface_water_source__volume_flow_rate",
+                               routing_nexus_downflows->data() + (i * global_nexus_count_));
+            py_troute_->Update();
         }
         // Finalize will write the output file
-        py_troute.Finalize();
+        py_troute_->Finalize();
     }
 #endif // NGEN_WITH_ROUTING
 }

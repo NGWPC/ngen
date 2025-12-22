@@ -12,6 +12,11 @@ namespace hy_features
     class HY_Features_MPI;
 }
 
+namespace models::bmi
+{
+    class Bmi_Py_Adapter;
+}
+
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -48,6 +53,7 @@ public:
      */
     void run_catchments();
 
+    void initialize_routing(std::string const& t_route_config_file_with_path);
     /**
      * Run t-route on the stored nexus outflow values for the full configured duration of the simulation
      */
@@ -74,6 +80,11 @@ private:
     std::vector<double> catchment_outflows_;
     std::unordered_map<std::string, int> nexus_indexes_;
     std::vector<double> nexus_downstream_flows_;
+
+    std::unique_ptr<models::bmi::Bmi_Py_Adapter> py_troute_ = nullptr;
+    size_t global_nexus_count_;
+    std::unordered_map<std::string, int> global_nexus_indexes_;
+    std::unordered_map<std::string, int> *routing_nexus_indexes_;
 
     int mpi_rank_;
     int mpi_num_procs_;
