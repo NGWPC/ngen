@@ -142,12 +142,7 @@ inline void Provider::find_divide_id(const void *cat_id_ptr, const std::size_t s
         size_id_dimension
     );
     // round values if type if float or double 
-    // if constexpr syntax only available in C++ 17 or greater
-#if __cplusplus >= 201703L
-    if constexpr (std::is_floating_point_v<T>) {
-#else
-    if (std::is_same<T, double>::value || std::is_same<T, float>::value) {
-#endif
+    if (std::is_floating_point<T>::value) {
         for (std::size_t i = 0; i < size_id_dimension; ++i) {
             if (static_cast<std::size_t>(std::lround(cat_id_span[i])) == divide_id_) {
                 divide_idx_ = i;
