@@ -141,29 +141,23 @@ inline void Provider::find_divide_id(const void *cat_id_ptr, const std::size_t s
         static_cast<const T*>(cat_id_ptr),
         size_id_dimension
     );
-#if __cplusplus < 201703L
-    // if C++ < 17, create local value for whether to round floating points to whole numbers
-    bool round = std::is_same<T, double>::value || std::is_same<T, float>::value;
-#endif
-    std::size_t candidate;
-    for (std::size_t i = 0; i < size_id_dimension; ++i) {
+    // round values if type if float or double 
+    // if constexpr syntax only available in C++ 17 or greater
 #if __cplusplus >= 201703L
-        // round if floating point type
-        if constexpr (std::is_floating_point_v<T>) {
-            candidate = static_cast<std::size_t>(std::lround(cat_id_span[i]));
-        } else {
-            candidate = static_cast<std::size_t>(cat_id_span[i]);
-        }
+    if constexpr (std::is_floating_point_v<T>) {
 #else
-        if (round) {
-            candidate = static_cast<std::size_t>(std::lround(cat_id_span[i]));
-        } else {
-            candidate = static_cast<std::size_t>(cat_id_span[i]);
-        }
+    if (std::is_same<T, double>::value || std::is_same<T, float>::value) {
 #endif
-        if (candidate == divide_id_) {
-            divide_idx_ = i;
-            break;
+        for (std::size_t i = 0; i < size_id_dimension; ++i) {
+            if (static_cast<std::size_t>(std::lround(cat_id_span[i])) == divide_id_) {
+                divide_idx_ = i;
+                break;
+            }
+        }
+    } else {
+        auto loc = std::find(cat_id_span.begin(), cat_id_span.end(), divide_id_);
+        if (loc != cat_id_span.end()) {
+            divide_idx_ = std::distance(cat_id_span.begin(), loc);
         }
     }
 }
