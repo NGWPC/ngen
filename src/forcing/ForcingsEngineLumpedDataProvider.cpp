@@ -141,7 +141,7 @@ Provider::ForcingsEngineLumpedDataProvider(
         LOG(ss.str(), LogLevel::SEVERE);
     } else {
         ss.str(""); 
-        ss << " Divide ID found at index: " << divide_idx_ << std::endl;
+        ss << " Divide ID " << divide_id << " found at index: " << divide_idx_;
         LOG(ss.str(), LogLevel::INFO);
     }
 
