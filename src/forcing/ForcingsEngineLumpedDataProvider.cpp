@@ -91,7 +91,8 @@ Provider::ForcingsEngineLumpedDataProvider(
     const std::string cat_id_cpp_type = bmi_->get_analogous_cxx_type(cat_id_type, cat_id_item_size);
     void *cat_id_ptr = bmi_->GetValuePtr("CAT-ID");
 
-    // copy CAT-ID values of whatever type into local std::size_t container
+    // locate the index of the CAT-ID in the provider
+    // max value of divide_idx_ assumed as an error state
     divide_idx_ = std::numeric_limits<std::size_t>::max();
     if (cat_id_cpp_type == "short") {
         this->find_divide_id<short>(cat_id_ptr, size_id_dimension);
