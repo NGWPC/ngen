@@ -19,7 +19,6 @@ void Bmi_Multi_Formulation::create_multi_formulation(geojson::PropertyMap proper
     if (needs_param_validation) {
         validate_parameters(properties);
     }
-    LOG("Inside create multi_formulation", LogLevel::INFO);
     // Required parameters first, except for "modules"
     set_bmi_main_output_var(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MAIN_OUT_VAR).as_string());
     set_model_type_name(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string());

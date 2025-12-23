@@ -355,6 +355,13 @@ if(NGEN_WITH_SQLITE)
     target_include_directories(partitionGenerator PUBLIC AFTER "${NGEN_INC_DIR}/geopackage")
 endif()
 
+if(NGEN_WITH_NETCDF)
+    add_library(NetCDFCreator STATIC "${NGEN_SRC_DIR}/NetCDFCreator.cpp")
+    target_include_directories(NetCDFCreator PUBLIC "${NGEN_INC_DIR}/core")
+    target_link_libraries(NetCDFCreator PRIVATE NetCDF)
+    target_link_libraries(ngen PUBLIC NetCDFCreator)
+endif()
+
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)
 if(NGEN_WITH_SQLITE)
     target_link_libraries(partitionGenerator PUBLIC NGen::geopackage)
