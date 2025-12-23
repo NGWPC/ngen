@@ -93,39 +93,22 @@ Provider::ForcingsEngineLumpedDataProvider(
 
     // copy CAT-ID values of whatever type into local std::size_t container
     divide_idx_ = std::numeric_limits<std::size_t>::max();
-    if (cat_id_cpp_type == "int") {
-        auto cat_id_span = boost::span<const int>(
-            static_cast<const int*>(cat_id_ptr),
-            size_id_dimension
-        );
-        for (std::size_t i = 0; i < size_id_dimension; ++i) {
-            if (static_cast<std::size_t>(cat_id_span[i]) == divide_id_) {
-                divide_idx_ = i;
-                break;
-            }
-        }
+    if (cat_id_cpp_type == "short") {
+        this->find_divide_id<short>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "unsigned short") {
+        this->find_divide_id<unsigned short>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "int") {
+        this->find_divide_id<int>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "unsigned int") {
+        this->find_divide_id<unsigned int>(cat_id_ptr, size_id_dimension);
     } else if (cat_id_cpp_type == "long") {
-        auto cat_id_span = boost::span<const long>(
-            static_cast<const long*>(cat_id_ptr),
-            size_id_dimension
-        );
-        for (std::size_t i = 0; i < size_id_dimension; ++i) {
-            if (static_cast<std::size_t>(cat_id_span[i]) == divide_id_) {
-                divide_idx_ = i;
-                break;
-            }
-        }
+        this->find_divide_id<long>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "unsigned long") {
+        this->find_divide_id<unsigned long>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "float") {
+        this->find_divide_id<float>(cat_id_ptr, size_id_dimension);
     } else if (cat_id_cpp_type == "double") {
-        auto cat_id_span = boost::span<const double>(
-            static_cast<const double*>(cat_id_ptr),
-            size_id_dimension
-        );
-        for (std::size_t i = 0; i < size_id_dimension; ++i) {
-            if (static_cast<std::size_t>(std::lround(cat_id_span[i])) == divide_id_) {
-                divide_idx_ = i;
-                break;
-            }
-        }
+        this->find_divide_id<double>(cat_id_ptr, size_id_dimension);
     } else {
         ss.str("");
         ss << "(ForcingEngineLumpedDataProvider) Unable to interpret CAT-ID type of C++ type '"
@@ -148,6 +131,40 @@ Provider::ForcingsEngineLumpedDataProvider(
     ss.str(""); 
     ss << " ForcingsEngineLumpedDataProvider initialization complete" << std::endl;
     LOG(LogLevel::DEBUG, ss.str());
+}
+
+template <typename T>
+inline void Provider::find_divide_id(const void *cat_id_ptr, const std::size_t size_id_dimension) {
+    // create span for viewing that data of type T
+    auto cat_id_span = boost::span<const T>(
+        static_cast<const T*>(cat_id_ptr),
+        size_id_dimension
+    );
+#if __cplusplus < 201703L
+    // if C++ < 17, create local value for whether to round floating points to whole numbers
+    bool round = std::is_same<T, double>::value || std::is_same<T, float>::value;
+#endif
+    std::size_t candidate;
+    for (std::size_t i = 0; i < size_id_dimension; ++i) {
+#if __cplusplus >= 201703L
+        // round if floating point type
+        if constexpr (std::is_floating_point_v<T>) {
+            candidate = static_cast<std::size_t>(std::lround(cat_id_span[i]));
+        } else {
+            candidate = static_cast<std::size_t>(cat_id_span[i]);
+        }
+#else
+        if (round) {
+            candidate = static_cast<std::size_t>(std::lround(cat_id_span[i]));
+        } else {
+            candidate = static_cast<std::size_t>(cat_id_span[i]);
+        }
+#endif
+        if (candidate == divide_id_) {
+            divide_idx_ = i;
+            break;
+        }
+    }
 }
 
 std::size_t Provider::divide() const noexcept
