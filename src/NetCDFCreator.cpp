@@ -1,6 +1,7 @@
+#include <NGenConfig.h>
+
 #if NGEN_WITH_NETCDF
 #include <NetCDFCreator.hpp>
-
 #include <Catchment_Formulation.hpp>
 #include <Logger.hpp>
 

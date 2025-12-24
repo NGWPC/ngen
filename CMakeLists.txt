@@ -357,7 +357,19 @@ endif()
 
 if(NGEN_WITH_NETCDF)
     add_library(NetCDFCreator STATIC "${NGEN_SRC_DIR}/NetCDFCreator.cpp")
-    target_include_directories(NetCDFCreator PUBLIC "${NGEN_INC_DIR}/core")
+    target_include_directories(NetCDFCreator PUBLIC
+        ${NGEN_INC_DIR}
+        ${NGEN_INC_DIR}/core
+        ${NGEN_INC_DIR}/core/catchment
+        ${NGEN_INC_DIR}/realizations/catchment
+        ${NGEN_INC_DIR}/simulation_time
+        ${NGEN_INC_DIR}/utilities
+        ${NGEN_INC_DIR}/geojson
+        ${NGEN_INC_DIR}/forcing
+        ${NGEN_INC_DIR}/core/mediator
+        ${Python_INCLUDE_DIRS}
+    )
+    target_link_libraries(NetCDFCreator PUBLIC NGen::config_header)
     target_link_libraries(NetCDFCreator PRIVATE NetCDF)
     target_link_libraries(ngen PUBLIC NetCDFCreator)
 endif()

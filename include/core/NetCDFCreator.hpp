@@ -1,5 +1,6 @@
-#if NGEN_WITH_NETCDF
+#include <NGenConfig.h>
 
+#if NGEN_WITH_NETCDF
 #include <netcdf>
 #include <Formulation_Manager.hpp>
 #include <Simulation_Time.hpp>
