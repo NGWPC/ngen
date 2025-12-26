@@ -5,6 +5,7 @@
 
 #include <Simulation_Time.hpp>
 #include <Layer.hpp>
+#include <Bmi_Adapter.hpp>
 
 namespace hy_features
 {
@@ -81,7 +82,7 @@ private:
     std::unordered_map<std::string, int> nexus_indexes_;
     std::vector<double> nexus_downstream_flows_;
 
-    std::unique_ptr<models::bmi::Bmi_Py_Adapter> py_troute_ = nullptr;
+    std::unique_ptr<models::bmi::Bmi_Adapter> py_troute_ = nullptr;
     size_t global_nexus_count_;
     std::unordered_map<std::string, int> global_nexus_indexes_;
     std::unordered_map<std::string, int> *routing_nexus_indexes_;
