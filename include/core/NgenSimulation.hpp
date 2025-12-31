@@ -27,9 +27,16 @@ namespace models::bmi
 class NgenSimulation
 {
 public:
+#if NGEN_WITH_MPI
+    using hy_features_t = hy_features::HY_Features_MPI;
+#else
+    using hy_features_t = hy_features::HY_Features;
+#endif
+
     NgenSimulation(
                    Simulation_Time const& sim_time,
                    std::vector<std::shared_ptr<ngen::Layer>> layers,
+                   hy_features_t *features,
                    std::unordered_map<std::string, int> catchment_indexes,
                    std::unordered_map<std::string, int> nexus_indexes,
                    int mpi_rank,
@@ -38,12 +45,6 @@ public:
     NgenSimulation() = delete;
 
     ~NgenSimulation();
-
-#if NGEN_WITH_MPI
-    using hy_features_t = hy_features::HY_Features_MPI;
-#else
-    using hy_features_t = hy_features::HY_Features;
-#endif
 
     /**
      * Run the catchment formulations for the full configured duration of the simulation
@@ -75,6 +76,7 @@ private:
 
     // Catchment data
     std::vector<std::shared_ptr<ngen::Layer>> layers_;
+    hy_features_t *features_;
 
     // Routing data structured for t-route
     std::unordered_map<std::string, int> catchment_indexes_;

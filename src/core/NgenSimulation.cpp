@@ -17,6 +17,7 @@
 NgenSimulation::NgenSimulation(
     Simulation_Time const& sim_time,
     std::vector<std::shared_ptr<ngen::Layer>> layers,
+    hy_features_t *features,
     std::unordered_map<std::string, int> catchment_indexes,
     std::unordered_map<std::string, int> nexus_indexes,
     int mpi_rank,
@@ -25,6 +26,7 @@ NgenSimulation::NgenSimulation(
     : simulation_step_(0)
     , sim_time_(std::make_shared<Simulation_Time>(sim_time))
     , layers_(std::move(layers))
+    , features_(features)
     , catchment_indexes_(std::move(catchment_indexes))
     , nexus_indexes_(std::move(nexus_indexes))
     , routing_nexus_indexes_(&nexus_indexes)

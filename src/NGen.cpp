@@ -708,6 +708,7 @@ int main(int argc, char* argv[]) {
 
     auto simulation = std::make_unique<NgenSimulation>(*sim_time,
                                                        layers,
+                                                       &features,
                                                        std::move(catchment_indexes),
                                                        std::move(nexus_indexes),
                                                        mpi_rank,
