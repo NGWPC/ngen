@@ -714,6 +714,10 @@ int main(int argc, char* argv[]) {
                                                        mpi_rank,
                                                        mpi_num_procs);
 
+    if (manager->get_using_routing()) {
+        simulation->initialize_routing(manager->get_t_route_config_file_with_path());
+    }
+
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
     LOG("[TIMING]: Init: " + std::to_string(time_elapsed_init.count()), LogLevel::INFO);
@@ -762,7 +766,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     if (manager->get_using_routing()) {
-        simulation->run_routing(features, manager->get_t_route_config_file_with_path());
+        simulation->run_routing();
     }
 
     auto time_done_routing                             = std::chrono::steady_clock::now();

@@ -59,7 +59,7 @@ public:
     /**
      * Run t-route on the stored nexus outflow values for the full configured duration of the simulation
      */
-    void run_routing(hy_features_t &features, std::string const& t_route_config_file_with_path);
+    void run_routing();
 
     int get_nexus_index(std::string const& nexus_id) const;
     double get_nexus_outflow(int nexus_index, int timestep_index) const;
@@ -69,6 +69,9 @@ public:
 
 private:
     void advance_models_one_output_step();
+
+    void gather_flows_for_routing(size_t num_steps, boost::span<double> local_downflows, boost::span<double> gathered_downflows);
+    void advance_routing_one_step(boost::span<double> downflows);
 
     int simulation_step_;
 
