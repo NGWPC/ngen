@@ -128,7 +128,7 @@ Provider::ForcingsEngineLumpedDataProvider(
     } else {
         ss.str(""); 
         ss << " Divide ID " << divide_id << " found at index: " << divide_idx_;
-        LOG(ss.str(), LogLevel::INFO);
+        LOG(ss.str(), LogLevel::DEBUG);
     }
 
     ss.str(""); 
@@ -143,19 +143,9 @@ inline void Provider::find_divide_id(const void *cat_id_ptr, const std::size_t s
         static_cast<const T*>(cat_id_ptr),
         size_id_dimension
     );
-    // round values if type if float or double 
-    if (std::is_floating_point<T>::value) {
-        for (std::size_t i = 0; i < size_id_dimension; ++i) {
-            if (static_cast<std::size_t>(std::lround(cat_id_span[i])) == divide_id_) {
-                divide_idx_ = i;
-                break;
-            }
-        }
-    } else {
-        auto loc = std::find(cat_id_span.begin(), cat_id_span.end(), divide_id_);
-        if (loc != cat_id_span.end()) {
-            divide_idx_ = std::distance(cat_id_span.begin(), loc);
-        }
+    auto loc = std::find(cat_id_span.begin(), cat_id_span.end(), divide_id_);
+    if (loc != cat_id_span.end()) {
+        divide_idx_ = std::distance(cat_id_span.begin(), loc);
     }
 }
 
