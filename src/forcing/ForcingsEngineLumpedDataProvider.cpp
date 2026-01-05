@@ -115,7 +115,9 @@ Provider::ForcingsEngineLumpedDataProvider(
         ss << "(ForcingEngineLumpedDataProvider) Unable to interpret CAT-ID type of C++ type '"
             << cat_id_cpp_type << "' (python type '"
             << cat_id_type << "')";
-        LOG(ss.str(), LogLevel::SEVERE);
+        std::string error = ss.str();
+        LOG(error, LogLevel::FATAL);
+        throw std::runtime_error(error);
     }
 
     if (divide_idx_ == std::numeric_limits<std::size_t>::max()) {
