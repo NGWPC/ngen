@@ -3,11 +3,11 @@
 ##############################
 # Stage: Base – Common Setup
 ##############################
-ARG NGEN_FORCING_IMAGE_TAG=latest
-FROM ghcr.io/ngwpc/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG} AS base
+# ARG NGEN_FORCING_IMAGE_TAG=latest
+# FROM ghcr.io/ngwpc/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG} AS base
 
 # Uncomment when building locally
-#FROM ngen-bmi-forcing AS base
+FROM ngen-bmi-forcing AS base
 
 # cannot remove LANG even though https://bugs.python.org/issue19846 is fixed
 # last attempted removal of LANG broke many users:
@@ -298,6 +298,11 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
     cmake --build extern/ueb-bmi/cmake_build/ && \
     find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
 
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+    set -eux; \
+    cd extern/topoflow-glacier; \
+    pip install .
+
 RUN set -eux && \
     mkdir --parents /ngencerf/data/ngen-run-logs/ && \
     mkdir --parents /ngen-app/bin/ && \
@@ -389,7 +394,8 @@ RUN set -eux && \
  # Extend PYTHONPATH for LSTM models (preserve venv path from ngen-bmi-forcing)
 ENV PYTHONPATH="${PYTHONPATH}:/ngen-app/ngen/extern/lstm:/ngen-app/ngen/extern/lstm/lstm"
 
-
+ # Extend PYTHONPATH for Topoflow-Glacier
+ENV PYTHONPATH="${PYTHONPATH}:/ngen-app/ngen/extern/topoflow-glacier:/ngen-app/ngen/extern/topoflow-glacier/src/topoflow-glacier"
 
 WORKDIR /
 SHELL ["/bin/bash", "-c"]
