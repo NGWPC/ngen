@@ -710,20 +710,21 @@ int main(int argc, char* argv[]) {
     }
 #endif // NGEN_WITH_ROUTING
 
-    auto ncCreator = std::make_unique<NetCDFCreator>(manager,"catchment_output",*sim_time);
-
     auto simulation = std::make_unique<NgenSimulation>(*sim_time,
                                                        layers,
                                                        std::move(catchment_indexes),
                                                        std::move(nexus_indexes),
                                                        mpi_rank,
                                                        mpi_num_procs);
-
+    #if NGEN_WITH_NETCDF
+       simulation->create_netcdf_writer(manager, "catchment_output");
+    #endif
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
     LOG("[TIMING]: Init: " + std::to_string(time_elapsed_init.count()), LogLevel::INFO);
 
     simulation->run_catchments();
+    
 
 #if NGEN_WITH_MPI
     MPI_Barrier(MPI_COMM_WORLD);

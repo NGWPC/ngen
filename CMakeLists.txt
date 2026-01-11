@@ -371,7 +371,7 @@ if(NGEN_WITH_NETCDF)
     )
     target_link_libraries(NetCDFCreator PUBLIC NGen::config_header)
     target_link_libraries(NetCDFCreator PRIVATE NetCDF)
-    target_link_libraries(ngen PUBLIC NetCDFCreator)
+    target_link_libraries(ngen PRIVATE NetCDFCreator)
 endif()
 
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)

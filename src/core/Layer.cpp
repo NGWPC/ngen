@@ -45,6 +45,11 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
                 r_c->get_output_line_for_timestep(output_time_index)+"\n";
             r_c->write_output(output);
+
+            //capture all the output values for this timestep to write to netcdf
+            #if NGEN_WITH_NETCDF
+                catchment_output_values[id] = r_c->get_output_line_for_timestep(output_time_index);
+            #endif
         }
         //TODO put this somewhere else.  For now, just trying to ensure we get m^3/s into nexus output
         double area;
@@ -82,4 +87,8 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
     if ( output_time_index < simulation_time.get_total_output_times() ) {
         simulation_time.advance_timestep();
     }       
+}
+
+std::map<std::string, std::string> ngen::Layer::get_catchment_output_data_for_timestep(){
+    return catchment_output_values;
 }

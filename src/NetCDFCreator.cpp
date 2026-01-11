@@ -2,17 +2,151 @@
 
 #if NGEN_WITH_NETCDF
 #include <NetCDFCreator.hpp>
-#include <Catchment_Formulation.hpp>
+#include <netcdf>
 #include <Logger.hpp>
-
-using namespace netCDF;
 
 NetCDFCreator::NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> manager, 
     const std::string& output_name,Simulation_Time const& sim_time)
 {
+    manager_ = manager;
+    sim_time_ = std::make_shared<Simulation_Time>(sim_time);
+    try{
+        std::string ncOutputFileName = manager->get_output_root() + output_name + ".nc";
+        catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::replace);
+        if(!catchmentNcFile){
+            LOG("Catchment output netcdf file creation failed: " + ncOutputFileName, LogLevel::FATAL);
+            throw std::runtime_error("Catchment output netcdf file creation failed: " + ncOutputFileName);
+        }
+        //Add dimension and coordinate variable for time
+        //TO DO: create a separate function if this action is initiated from outside the class.
+        //TO DO: convert seconds epoch to minutes or days?
+        int num_timesteps = sim_time_->get_total_output_times();
+        auto time_dim = catchmentNcFile->addDim("time", num_timesteps);
+        auto time_var = catchmentNcFile->addVar("time", NC_INT, time_dim);
+        time_var.putAtt("units", "Seconds since 1970-01-01 00:00:00");
+        time_var.putAtt("calendar", "gregorian");
+        std::vector<int> time_epoch_seconds(num_timesteps);
+        time_epoch_seconds[0] = sim_time_->get_current_epoch_time();
+        for(int time_index = 1; time_index < num_timesteps; time_index++)
+        {
+            sim_time_->advance_timestep();
+            time_epoch_seconds[time_index] = sim_time_->get_current_epoch_time();
+        }
+        time_var.putVar(time_epoch_seconds.data());
 
+        //Add dimension and coordinate variable for catchments
+        //TO DO: create a separate function if this action is initiated from outside the class.
+        auto catchments_dim = catchmentNcFile->addDim("catchments", manager->get_size());
+        auto catchments_var = catchmentNcFile->addVar("catchments", NC_STRING, catchments_dim);
+        catchments_var.putAtt("Catchment ID", "Catchment identifier in input");
+        std::vector<const char*> catchment_ids;
+        catchment_ids.reserve(manager->get_size());
+        catchments.reserve(manager->get_size()); //populate the catchment IDs in a vector to be used for getvar() later
+        int item_index = 0;
+        std::vector<size_t> index;
+        index.resize(1);
+        for (auto const& formulation_info : manager->get_all_formulations())
+        {
+            std::string catchm = formulation_info.first;
+            catchments.push_back(catchm);
+            index[0] = item_index;
+            catchments_var.putVar(index,catchm);
+            item_index++;
+        }
+        
+        //Add output data variables information such as headers, variable names, units to netcdf
+        //TO DO: change scope of this function if this is initiated from outside the class.
+        add_output_variable_info_from_formulation();
+
+        //Add global attributes
+        catchmentNcFile->putAtt("title", "NextGen Catchment Output Data");
+        catchmentNcFile->putAtt("description", "NetCDF file containing catchment-level output data from NextGen simulation");
+        catchmentNcFile->putAtt("institution", "NOAA");
+    
+    }catch (const netCDF::exceptions::NcException& e){
+        LOG(std::string("Error in catchments NetCDF initiation: ") + e.what(), LogLevel::FATAL);
+        throw std::runtime_error(std::string("Error in catchments NetCDF initiation: ") + e.what());
+    }
 }
 
-NetCDFCreator::~NetCDFCreator() = default;
+void NetCDFCreator::add_output_variable_info_from_formulation() 
+{
+    typename std::map<std::string, std::shared_ptr<realization::Catchment_Formulation>>::const_iterator it = manager_->begin();
+    const auto& catchment_info = *it;
+    auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(catchment_info.second);
+    if(r_c->get_output_header_count() > 0){
+        std::vector<std::string>output_variables = r_c->get_output_variable_names();
+        std::vector<std::string>output_headers = r_c->get_output_header_fields();
+        std::vector<std::string>output_units = r_c->get_output_variable_units();
+        nc_output_variables.resize(output_variables.size());
 
+        std::vector<netCDF::NcDim> dims = {catchmentNcFile->getDim("time"), catchmentNcFile->getDim("catchments")};
+        for(int index = 0; index < output_variables.size(); index ++){
+            nc_output_variables[index] = catchmentNcFile->addVar(output_headers[index], NC_DOUBLE, dims);
+            nc_output_variables[index].putAtt("variable name", output_variables[index]);
+            nc_output_variables[index].putAtt("variable units", output_units[index]);
+            nc_output_variables[index].putAtt("_FillValue", NC_DOUBLE, -1.0); //TO DO: Change to another value, if recommended.
+            nc_output_variables[index].putAtt("missing_value", NC_DOUBLE, -2.0); //TO DO: Change to another value, if recommended.
+        }
+    }else{
+        LOG("No output variables/headers information provided in the realization config. No output variables writtedn to NetCDF.", LogLevel::WARNING);
+    }
+}
+
+void NetCDFCreator::write_simulations_response_from_formulation(size_t time_index, std::map<std::string, std::string> catchment_output_values)
+{
+    for (auto const& catchment_val : catchment_output_values)
+    {
+        std::string catchment_id = catchment_val.first;
+        
+        //iterate through catchment dimension to find the index of the catchment for writing.
+        //also split the comma separated outputs string to a vector of double values
+        size_t catchm_index_in_netcdf = -1;
+        std::vector<double> catchment_output;
+        for (int c_index = 0; c_index < catchments.size(); ++c_index)
+        {
+            if(catchments[c_index] == catchment_id){
+                catchment_output = string_split(catchment_val.second, ',');
+                catchm_index_in_netcdf = c_index;
+                break;
+            }
+        }
+        if (catchm_index_in_netcdf > -1) //is this check necessary?
+        {
+            //populate the outputs to the data variables at a given time and catchment index
+            std::vector<size_t> start = {time_index, catchm_index_in_netcdf};
+            std::vector<size_t> count = {1, 1};
+            for(int var_index = 0; var_index < nc_output_variables.size(); ++var_index)
+            {
+                nc_output_variables[var_index].putVar(start, count, &catchment_output[var_index]);
+            }
+        }
+        else{
+            LOG("Catchment ID '" + catchment_id + "' not found in the output. Skip wirting it to NetCDF", LogLevel::WARNING);
+        }
+    }
+}
+
+std::vector<double> NetCDFCreator::string_split(std::string str, char delimiter)
+{
+    std::stringstream ss(str);
+    std::vector<double> res;
+    std::string token;
+    while (getline(ss, token, delimiter)) { //will return full string if no comma (or single output variable).
+        res.push_back(std::stod(token)); 
+    }
+    return res;
+}
+
+void  NetCDFCreator::close_ncfile(){
+    if (catchmentNcFile != nullptr) {
+        catchmentNcFile->close();
+    }
+    catchmentNcFile = nullptr;
+}
+
+NetCDFCreator::~NetCDFCreator()
+{
+    close_ncfile();
+}
 #endif // NGEN_WITH_NETCDF

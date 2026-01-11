@@ -9,6 +9,7 @@
 #include "State_Exception.hpp"
 #include "geojson/FeatureBuilder.hpp"
 #include <boost/core/span.hpp>
+#include <map>
 
 namespace hy_features
 {
@@ -110,6 +111,8 @@ namespace ngen
                                    std::unordered_map<std::string, int> &nexus_indexes,
                                    int current_step);
 
+        std::map<std::string, std::string> get_catchment_output_data_for_timestep();
+
         protected:
 
         const LayerDescription description;
@@ -121,6 +124,7 @@ namespace ngen
         //TODO is this really required at the top level? or can this be moved to SurfaceLayer?
         const geojson::GeoJSON catchment_data;
         long output_time_index;       
+        std::map<std::string, std::string> catchment_output_values;
 
     };
 }

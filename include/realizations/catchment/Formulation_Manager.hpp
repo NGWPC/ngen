@@ -232,6 +232,10 @@ namespace realization {
                 return this->formulations.at(id);
             }
 
+            std::map<std::string, std::shared_ptr<Catchment_Formulation>> get_all_formulations() const {
+                return this->formulations;
+            }
+
             std::shared_ptr<Catchment_Formulation> get_domain_formulation(long id) const {
                 return this->domain_formulations.at(id);
             }
