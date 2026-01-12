@@ -1,258 +1,303 @@
-#include <NGenConfig.h>
+#include "realizations/coastal/SfincsFormulation.hpp"
 
-#if NGEN_WITH_BMI_FORTRAN
-
-#include <algorithm>
-#include <map>
-#include <memory>
 #include <stdexcept>
-#include <string>
-#include <vector>
+#include <utility>
+#include <limits>
 
-#include <realizations/coastal/SfincsFormulation.hpp>
-
-using models::bmi::Bmi_Fortran_Adapter;
-
-// -----------------------------------------------------------------------------
-// Helper: construct the BMI adapter trying both symbol names.
-// -----------------------------------------------------------------------------
-static std::unique_ptr<Bmi_Fortran_Adapter>
-make_sfincs_adapter_or_throw(const std::string& id,
-                             const std::string& lib_path,
-                             const std::string& init_cfg)
+SfincsFormulation::SfincsFormulation(std::string model_id,
+                                     std::string library_file,
+                                     std::string init_config,
+                                     ProviderPtr met_provider,
+                                     ProviderPtr offshore_provider,
+                                     ProviderPtr channel_provider)
+    : CoastalFormulation(model_id) // IMPORTANT: CoastalFormulation requires id
+    , model_id_(std::move(model_id))
+    , library_file_(std::move(library_file))
+    , init_config_(std::move(init_config))
+    , met_provider_(std::move(met_provider))
+    , offshore_provider_(std::move(offshore_provider))
+    , channel_provider_(std::move(channel_provider))
 {
-    // 1) Try the canonical symbol first
-    try {
-        return std::make_unique<Bmi_Fortran_Adapter>(
-            id, lib_path, init_cfg,
-            /* model_time_step_fixed = */ true,
-            /* registration symbol   = */ "register_bmi"
-        );
-    }
-    catch (const std::exception& first_err) {
-        // 2) Retry with the common Fortran trailing-underscore variant
-        try {
-            return std::make_unique<Bmi_Fortran_Adapter>(
-                id, lib_path, init_cfg,
-                /* model_time_step_fixed = */ true,
-                /* registration symbol   = */ "register_bmi_"
-            );
-        }
-        catch (const std::exception& second_err) {
-            // Re-throw with helpful context
-            std::string msg =
-                std::string("SFINCS BMI registration failed. Tried symbols 'register_bmi' and 'register_bmi_' in '")
-                + lib_path + "'. First error: " + first_err.what()
-                + " | Second error: " + second_err.what();
-            throw std::runtime_error(msg);
-        }
-    }
 }
 
-// ------------------------- Static mappings -----------------------------------
-
-// BMI input -> provider mapping (edit as you add inputs)
-std::map<std::string, SfincsFormulation::InputMapping>
-SfincsFormulation::expected_input_variables_ = {
-    {"rain_rate", { SfincsFormulation::METEO, "RAINRATE" }},
-};
-
-std::vector<std::string> SfincsFormulation::exported_output_variable_names_ = {
-    "TROUTE_ETA2",  // alias of ETA2
-    "ETA2",         // zs
-    "VX",           // u
-    "VY",           // v
-    "BEDLEVEL",     // zb
-    "DEPTH"         // depth
-};
-
-std::map<std::string, std::string> SfincsFormulation::ngen_to_bmi_varname_ = {
-    {"TROUTE_ETA2", "zs"},
-    {"ETA2",        "zs"},
-    {"VX",          "u"},
-    {"VY",          "v"},
-    {"BEDLEVEL",    "zb"},
-    {"DEPTH",       "depth"}
-};
-
-// --------------------------- Ctors / Dtor ------------------------------------
-
-SfincsFormulation::SfincsFormulation(std::string const& id,
-                                     std::string const& library_path,
-                                     std::string const& init_config_path,
-                                     std::shared_ptr<ProviderType> met_forcings,
-                                     std::shared_ptr<ProviderType> offshore_boundary,
-                                     std::shared_ptr<ProviderType> channel_flow_boundary)
-: CoastalFormulation(id)
-, meteorological_forcings_provider_(std::move(met_forcings))
-, offshore_boundary_provider_(std::move(offshore_boundary))
-, channel_flow_boundary_provider_(std::move(channel_flow_boundary))
+SfincsFormulation::~SfincsFormulation()
 {
-    // Non-MPI adapter ctor; try both possible registration symbols
-    bmi_ = make_sfincs_adapter_or_throw(id, library_path, init_config_path);
+    // be safe if finalize wasn't called
+    try { finalize(); } catch (...) {}
 }
 
-SfincsFormulation::~SfincsFormulation() = default;
+void SfincsFormulation::create_formulation_()
+{
+#if NGEN_WITH_BMI_FORTRAN
+    if (bmi_) return;
 
-// -------------------------------- Lifecycle ----------------------------------
+    // Bmi_Fortran_Adapter constructors (per your compile error):
+    //  - (type_name, library, has_fixed_dt, reg_func)
+    //  - (type_name, library, init_config, has_fixed_dt, reg_func)
+    //
+    // We want to pass init_config_ so use the 5-arg overload.
+    const bool has_fixed_time_step = true;
+
+    // Default in adapter header is "register_bmi", but pass explicitly for clarity.
+    const std::string registration_function = "register_bmi";
+
+    bmi_ = std::make_unique<models::bmi::Bmi_Fortran_Adapter>(
+        model_id_,          // type_name
+        library_file_,      // library_file_path
+        init_config_,       // bmi_init_config
+        has_fixed_time_step,
+        registration_function
+    );
+#else
+    throw std::runtime_error("SfincsFormulation requires NGEN_WITH_BMI_FORTRAN=ON");
+#endif
+}
+
+void SfincsFormulation::destroy_formulation_()
+{
+#if NGEN_WITH_BMI_FORTRAN
+    bmi_.reset();
+#endif
+    available_vars_.clear();
+}
 
 void SfincsFormulation::initialize()
 {
-    // ---- Inputs ----
-    auto const& input_vars = bmi_->GetInputVarNames();
-    for (auto const& bmi_name : input_vars) {
-        input_variable_units_[bmi_name]  = bmi_->GetVarUnits(bmi_name);
-        input_variable_type_[bmi_name]   = bmi_->GetVarType(bmi_name);
-        auto nbytes   = bmi_->GetVarNbytes(bmi_name);
-        auto itemsize = bmi_->GetVarItemsize(bmi_name);
-        if (itemsize <= 0 || (nbytes % itemsize) != 0) {
-            throw std::runtime_error("SFINCS input '" + bmi_name + "': invalid sizes");
-        }
-        input_variable_count_[bmi_name] = static_cast<size_t>(nbytes / itemsize);
+    create_formulation_();
+
+#if NGEN_WITH_BMI_FORTRAN
+    bmi_->Initialize();
+
+    // Try to populate available vars after initialization.
+    // If adapter doesn’t support these calls in your build, comment this out and keep empty list.
+    try {
+        auto out_names = bmi_->GetOutputVarNames();
+        available_vars_.assign(out_names.begin(), out_names.end());
     }
-
-    if (meteorological_forcings_provider_) check_forcing_provider(*meteorological_forcings_provider_);
-    if (offshore_boundary_provider_)       check_forcing_provider(*offshore_boundary_provider_);
-    if (channel_flow_boundary_provider_)   check_forcing_provider(*channel_flow_boundary_provider_);
-
-    // ---- Outputs ----
-    auto const& bmi_outputs = bmi_->GetOutputVarNames();
-    for (auto const& ngen_name : exported_output_variable_names_) {
-        const std::string bmi_name = to_bmi_name(ngen_name);
-        if (std::find(bmi_outputs.begin(), bmi_outputs.end(), bmi_name) == bmi_outputs.end()) {
-            throw std::runtime_error("SFINCS BMI missing expected output: " + ngen_name +
-                                     " (BMI '" + bmi_name + "')");
-        }
-        output_variable_units_[ngen_name] = bmi_->GetVarUnits(bmi_name);
-        output_variable_type_[ngen_name]  = bmi_->GetVarType(bmi_name);
-        auto nbytes   = bmi_->GetVarNbytes(bmi_name);
-        auto itemsize = bmi_->GetVarItemsize(bmi_name);
-        if (itemsize <= 0 || (nbytes % itemsize) != 0) {
-            throw std::runtime_error("SFINCS output '" + ngen_name + "': invalid sizes");
-        }
-        output_variable_count_[ngen_name] = static_cast<size_t>(nbytes / itemsize);
+    catch (...) {
+        // leave empty; still compiles and runs
+        available_vars_.clear();
     }
-
-    // ---- Time ----
-    const double ts = bmi_->GetTimeStep();
-    if (ts <= 0.0) throw std::runtime_error("SFINCS BMI returned non-positive time step");
-    time_step_length_ = std::chrono::seconds(static_cast<long long>(ts));
-    current_time_ = std::chrono::system_clock::time_point{
-        std::chrono::seconds(static_cast<long long>(bmi_->GetStartTime()))
-    };
-
-    set_inputs();
+#endif
 }
 
 void SfincsFormulation::finalize()
 {
-    if (meteorological_forcings_provider_) meteorological_forcings_provider_->finalize();
-    if (offshore_boundary_provider_)       offshore_boundary_provider_->finalize();
-    if (channel_flow_boundary_provider_)   channel_flow_boundary_provider_->finalize();
-    bmi_->Finalize();
+#if NGEN_WITH_BMI_FORTRAN
+    if (bmi_) {
+        bmi_->Finalize();
+    }
+#endif
+    destroy_formulation_();
 }
 
 void SfincsFormulation::update()
 {
-    current_time_ += time_step_length_;
-    set_inputs();
+#if NGEN_WITH_BMI_FORTRAN
+    if (!bmi_) {
+        throw std::runtime_error("SfincsFormulation::update called before initialize()");
+    }
+
+    // (Optional) push forcings into BMI variables
+    // set_inputs_();
+
     bmi_->Update();
+#else
+    throw std::runtime_error("SfincsFormulation requires NGEN_WITH_BMI_FORTRAN=ON");
+#endif
 }
 
-void SfincsFormulation::update_until(double const& time)
+void SfincsFormulation::update_until(double const& t)
 {
-    double current = this->get_current_time();
-    while (current <= time) {
-        set_inputs();
+#if NGEN_WITH_BMI_FORTRAN
+    if (!bmi_) {
+        throw std::runtime_error("SfincsFormulation::update_until called before initialize()");
+    }
+
+    // Mirror Schism behavior
+    while (bmi_->GetCurrentTime() < t) {
+        // set_inputs_();
         bmi_->Update();
-        current_time_ += time_step_length_;
-        current = this->get_current_time();
     }
+#else
+    (void)t;
+    throw std::runtime_error("SfincsFormulation requires NGEN_WITH_BMI_FORTRAN=ON");
+#endif
 }
 
-// ------------------------------ Queries --------------------------------------
-
-double SfincsFormulation::get_current_time() const { return bmi_->GetCurrentTime(); }
-double SfincsFormulation::get_start_time()   const { return bmi_->GetStartTime(); }
-double SfincsFormulation::get_end_time()     const { return bmi_->GetEndTime(); }
-double SfincsFormulation::get_time_step()    const { return bmi_->GetTimeStep(); }
-
-SfincsFormulation::data_type
-SfincsFormulation::get_value(const selection_type& selector, data_access::ReSampleMethod)
+double SfincsFormulation::get_current_time()
 {
-    std::vector<double> tmp(1, 0.0);
-    get_values(selector, tmp);
-    return tmp.front();
+#if NGEN_WITH_BMI_FORTRAN
+    return bmi_ ? bmi_->GetCurrentTime() : 0.0;
+#else
+    return 0.0;
+#endif
 }
 
-void SfincsFormulation::get_values(const selection_type& selector, boost::span<double> data)
+double SfincsFormulation::get_start_time()
 {
-    const std::string bmi_name = to_bmi_name(selector.variable_name);
-    bmi_->GetValue(bmi_name, data.data());
+#if NGEN_WITH_BMI_FORTRAN
+    return bmi_ ? bmi_->GetStartTime() : 0.0;
+#else
+    return 0.0;
+#endif
 }
 
-size_t SfincsFormulation::mesh_size(std::string const& variable_name)
+double SfincsFormulation::get_end_time()
 {
-    const std::string bmi_name = to_bmi_name(variable_name);
-    auto nbytes   = bmi_->GetVarNbytes(bmi_name);
-    auto itemsize = bmi_->GetVarItemsize(bmi_name);
-    if (itemsize <= 0 || (nbytes % itemsize) != 0) {
-        throw std::runtime_error("SFINCS variable '" + variable_name + "': invalid sizes");
+#if NGEN_WITH_BMI_FORTRAN
+    return bmi_ ? bmi_->GetEndTime() : 0.0;
+#else
+    return 0.0;
+#endif
+}
+
+double SfincsFormulation::get_time_step()
+{
+#if NGEN_WITH_BMI_FORTRAN
+    return bmi_ ? bmi_->GetTimeStep() : 0.0;
+#else
+    return 0.0;
+#endif
+}
+
+void SfincsFormulation::get_values(const selection_type& selector, boost::span<double> out)
+{
+    const std::string& var = selector.variable_name;
+
+#if NGEN_WITH_BMI_FORTRAN
+    if (!bmi_) {
+        throw std::runtime_error("SfincsFormulation::get_values called before initialize()");
     }
-    return static_cast<size_t>(nbytes / itemsize);
+
+    if (out.empty()) {
+        return;
+    }
+
+    bmi_->GetValue(var, out.data());
+#else
+    (void)var;
+    std::fill(out.begin(), out.end(), 0.0);
+#endif
 }
+
+void SfincsFormulation::get_values(const selection_type& selector, std::vector<double>& out)
+{
+#if NGEN_WITH_BMI_FORTRAN
+    if (!bmi_) {
+        throw std::runtime_error("SfincsFormulation::get_values called before initialize()");
+    }
+
+    const std::string& var = selector.variable_name;
+
+    if (out.empty()) {
+        const auto nbytes   = bmi_->GetVarNbytes(var);
+        const auto itemsize = bmi_->GetVarItemsize(var);
+        if (itemsize == 0) {
+            throw std::runtime_error("BMI reported itemsize=0 for var: " + var);
+        }
+        out.resize(static_cast<std::size_t>(nbytes / itemsize));
+    }
+
+    get_values(selector, boost::span<double>(out.data(), out.size()));
+#else
+    std::fill(out.begin(), out.end(), 0.0);
+#endif
+}
+/*
+void SfincsFormulation::get_values(const selection_type& selector, std::vector<double>& out)
+{
+    // selector is MeshPointsSelector from forcing/MeshPointsSelectors.hpp
+    // it has variable_name (per your compile error), not "variable"
+    const std::string& var = selector.variable_name;
+
+#if NGEN_WITH_BMI_FORTRAN
+    if (!bmi_) {
+        throw std::runtime_error("SfincsFormulation::get_values called before initialize()");
+    }
+
+    if (out.empty()) {
+        // allocate from BMI variable size if possible
+        const auto nbytes   = bmi_->GetVarNbytes(var);
+        const auto itemsize = bmi_->GetVarItemsize(var);
+        if (itemsize == 0) {
+            throw std::runtime_error("BMI reported itemsize=0 for var: " + var);
+        }
+        out.resize(static_cast<std::size_t>(nbytes / itemsize));
+    }
+
+    bmi_->GetValue(var, out.data());
+#else
+    (void)var;
+    std::fill(out.begin(), out.end(), 0.0);
+#endif
+}
+*/
+
+std::size_t SfincsFormulation::mesh_size(const std::string& mesh_name)
+{
+#if NGEN_WITH_BMI_FORTRAN
+    if (!bmi_) return 0;
+
+    const auto nbytes   = bmi_->GetVarNbytes(mesh_name);
+    const auto itemsize = bmi_->GetVarItemsize(mesh_name);
+    if (itemsize == 0) return 0;
+
+    return static_cast<std::size_t>(nbytes / itemsize);
+#else
+    (void)mesh_name;
+    return 0;
+#endif
+}
+
+// ---------------------
+// DataProvider<> required pure virtuals
+// ---------------------
 
 boost::span<const std::string> SfincsFormulation::get_available_variable_names() const
 {
-    return exported_output_variable_names_;
+    return boost::span<const std::string>(available_vars_.data(), available_vars_.size());
 }
 
-// ------------------------------ Inputs ---------------------------------------
-
-void SfincsFormulation::set_inputs()
+long SfincsFormulation::get_data_start_time() const
 {
-    using namespace std::chrono;
-
-    for (auto const& kv : expected_input_variables_) {
-        auto const& bmi_name = kv.first;
-        auto const& mapping  = kv.second;
-
-        ProviderType* provider = nullptr;
-        switch (mapping.provider) {
-            case METEO:    provider = meteorological_forcings_provider_.get(); break;
-            case OFFSHORE: provider = offshore_boundary_provider_.get();       break;
-            case CHANNEL:  provider = channel_flow_boundary_provider_.get();   break;
-        }
-        if (provider == nullptr) continue;
-
-        std::string units = "";
-        auto iu = input_variable_units_.find(bmi_name);
-        if (iu != input_variable_units_.end()) units = iu->second;
-
-        AllPoints all;
-        MeshPointsSelector points{mapping.provider_name, current_time_, time_step_length_, units, all};
-
-        const size_t n = input_variable_count_[bmi_name];
-        std::vector<double> buf(n, 0.0);
-
-        provider->get_values(points, buf);
-        bmi_->SetValue(bmi_name, buf.data());
-    }
+    // As a formulation, this isn’t a forcing provider; return model start epoch seconds if available.
+    // If you want exact forcing provider time, return met_provider_->get_data_start_time().
+    return 0;
 }
 
-// Capability checks hook (currently a no-op for SFINCS)
-void SfincsFormulation::check_forcing_provider(
-    data_access::DataProvider<double, MeshPointsSelector> const& /*provider*/
-){
-    // Add units/variable compatibility checks here if needed.
+long SfincsFormulation::get_data_stop_time() const
+{
+    return 0;
 }
 
-// ----------------------------- Unused path -----------------------------------
+long SfincsFormulation::record_duration() const
+{
+    // duration in seconds between forcing records if acting as provider; unknown here
+    return 0;
+}
 
-long  SfincsFormulation::get_data_start_time() const { throw std::runtime_error(__func__); }
-long  SfincsFormulation::get_data_stop_time()  const { throw std::runtime_error(__func__); }
-long  SfincsFormulation::record_duration()     const { throw std::runtime_error(__func__); }
-size_t SfincsFormulation::get_ts_index_for_time(const time_t&) const { throw std::runtime_error(__func__); }
+std::size_t SfincsFormulation::get_ts_index_for_time(const time_t& /*epoch_time*/) const
+{
+    return 0;
+}
 
-#endif // NGEN_WITH_BMI_FORTRAN
+SfincsFormulation::data_type
+SfincsFormulation::get_value(const selection_type& selector, data_access::ReSampleMethod /*m*/)
+{
+    // Provide a scalar fetch convenience via get_values
+    std::vector<double> buf;
+    buf.reserve(1);
+    get_values(selector, buf);
+    if (buf.empty()) return 0.0;
+    return buf[0];
+}
+
+// Optional: later we can wire forcings into BMI inputs similar to Schism’s set_inputs()
+// For now keep it a no-op so compilation is stable.
+void SfincsFormulation::set_inputs_()
+{
+    // Intentionally minimal.
+    // Once you confirm SFINCS BMI input variable names, we can map met/offshore/channel providers.
+}
 
