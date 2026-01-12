@@ -368,6 +368,7 @@ if(NGEN_WITH_NETCDF)
         ${NGEN_INC_DIR}/forcing
         ${NGEN_INC_DIR}/core/mediator
         ${Python_INCLUDE_DIRS}
+        ${pybind11_INCLUDE_DIR}
     )
     target_link_libraries(NetCDFCreator PUBLIC NGen::config_header)
     target_link_libraries(NetCDFCreator PRIVATE NetCDF)
