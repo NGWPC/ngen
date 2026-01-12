@@ -717,7 +717,7 @@ int main(int argc, char* argv[]) {
                                                        mpi_rank,
                                                        mpi_num_procs);
     #if NGEN_WITH_NETCDF
-       simulation->create_netcdf_writer(manager, "catchment_output");
+       simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank);
     #endif
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;

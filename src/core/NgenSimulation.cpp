@@ -50,6 +50,10 @@ void NgenSimulation::run_catchments()
         if (simulation_step_ + 1 < num_times) {
             sim_time_->advance_timestep();
         }
+
+        if(simulation_step_ == 2){
+            return;
+        }
     }
 }
 
@@ -275,7 +279,7 @@ void NgenSimulation::serialize(Archive& ar) {
     ar & nexus_downstream_flows_;
 }
 
-void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name)
+void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank)
 {
-   this->nc_writer_ = std::make_unique<NetCDFCreator>(manager,nc_output_file_name,*sim_time_);
+   this->nc_writer_ = std::make_unique<NetCDFCreator>(manager,nc_output_file_name,*sim_time_, mpi_rank);
 }

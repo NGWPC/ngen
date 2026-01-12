@@ -17,7 +17,7 @@ class NetCDFCreator
 {
 public:
     NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> manager, 
-        const std::string& output_name, Simulation_Time const& sim_time);
+        const std::string& output_name, Simulation_Time const& sim_time, int mpi_rank);
     NetCDFCreator() = delete;
     ~NetCDFCreator();
     
