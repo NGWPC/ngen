@@ -33,6 +33,7 @@ const std::string  EV_NGEN_LOGFILEPATH = "NGEN_LOG_FILE_PATH";   // ngen log fil
 
 const std::string  CONFIG_FILENAME     = "ngen_logging.json";    // ngen logging config file 
 
+/*
 // String to LogLevel map
 static const std::unordered_map<std::string, LogLevel> logLevelMap = {
     {"NONE", LogLevel::NONE}, {"0", LogLevel::NONE},
@@ -42,7 +43,20 @@ static const std::unordered_map<std::string, LogLevel> logLevelMap = {
     {"SEVERE", LogLevel::SEVERE}, {"4", LogLevel::SEVERE},
     {"FATAL", LogLevel::FATAL}, {"5", LogLevel::FATAL},
 };
+*/
+static const std::unordered_map<std::string, LogLevel>& getStringToLogLevelMap() {
+    static const std::unordered_map<std::string, LogLevel> map = {
+        {"NONE", LogLevel::NONE}, {"0", LogLevel::NONE},
+        {"DEBUG", LogLevel::DEBUG}, {"1", LogLevel::DEBUG},
+        {"INFO", LogLevel::INFO}, {"2", LogLevel::INFO},
+        {"WARNING", LogLevel::WARNING}, {"3", LogLevel::WARNING},
+        {"SEVERE", LogLevel::SEVERE}, {"4", LogLevel::SEVERE},
+        {"FATAL", LogLevel::FATAL}, {"5", LogLevel::FATAL},
+    };
+    return map;
+}
 
+/*
 // Reverse map: LogLevel to String
 static const std::unordered_map<LogLevel, std::string> logLevelToStringMap = {
     {LogLevel::NONE,    "NONE   "},
@@ -52,6 +66,18 @@ static const std::unordered_map<LogLevel, std::string> logLevelToStringMap = {
     {LogLevel::SEVERE,  "SEVERE "},
     {LogLevel::FATAL,   "FATAL  "},
 };
+*/
+
+static std::unordered_map<LogLevel, std::string>& getLogLevelToStringMap() {
+    static std::unordered_map<LogLevel, std::string> map = {
+        {LogLevel::DEBUG, "DEBUG"},
+        {LogLevel::INFO, "INFO"},
+        {LogLevel::WARNING, "WARNING"},
+        {LogLevel::SEVERE, "SEVERE"},
+        {LogLevel::FATAL, "FATAL"}
+    };
+    return map;
+}
 
 const std::unordered_map<std::string, std::string> moduleNamesMap = {
     {"NGEN", "NGEN"},
@@ -555,11 +581,14 @@ std::string Logger::TrimString(const std::string& str) {
 }
 
 std::string Logger::ConvertLogLevelToString(LogLevel level) {
+    return getLogLevelToStringMap().find(level)->second;
+/*
     auto it = logLevelToStringMap.find(level);
     if (it != logLevelToStringMap.end()) {
         return it->second;  // Found valid named or numeric log level
     }
     return "NONE";
+*/
 }
 
 /**
@@ -567,7 +596,15 @@ std::string Logger::ConvertLogLevelToString(LogLevel level) {
 * @param levelStr : String log level
 * @return LogLevel
 */
+LogLevel Logger::ConvertStringToLogLevel(const std::string& str) {
+    auto& map = getStringToLogLevelMap();
+    auto it = map.find(str);
+    return (it != map.end()) ? it->second : LogLevel::NONE;
+}
+
+/*
 LogLevel Logger::ConvertStringToLogLevel(const std::string& levelStr) {
+
     std::string level = TrimString(levelStr);
     if (!level.empty()) {
         // Convert string to LogLevel (supports both names and numbers)
@@ -588,6 +625,7 @@ LogLevel Logger::ConvertStringToLogLevel(const std::string& levelStr) {
     }
 	return LogLevel::NONE;
 }
+*/
 
 std::string Logger::CreateTimestamp(bool appendMS, bool iso) {
     using namespace std::chrono;
