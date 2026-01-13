@@ -64,7 +64,7 @@ public:
     size_t get_num_output_times() const;
     std::string get_timestamp_for_step(int step) const;
 
-    void create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank);
+    void create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank, int mpi_num_procs);
 
 private:
     void advance_models_one_output_step();

@@ -369,11 +369,11 @@ if(NGEN_WITH_NETCDF)
         ${NGEN_INC_DIR}/core/mediator
         ${Python_INCLUDE_DIRS}
         ${pybind11_INCLUDE_DIR}
+        ${MPI_CXX_INCLUDE_DIRS}
     )
     target_link_libraries(NetCDFCreator PUBLIC NGen::config_header)
     target_link_libraries(NetCDFCreator PRIVATE NetCDF)
     target_link_libraries(ngen PRIVATE NetCDFCreator)
-    target_link_libraries(core PUBLIC MPI::MPI_C MPI::MPI_CXX)
 endif()
 
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)

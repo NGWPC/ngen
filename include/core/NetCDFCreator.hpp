@@ -17,7 +17,7 @@ class NetCDFCreator
 {
 public:
     NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> manager, 
-        const std::string& output_name, Simulation_Time const& sim_time, int mpi_rank);
+        const std::string& output_name, Simulation_Time const& sim_time, int mpi_rank, int mpi_num_procs);
     NetCDFCreator() = delete;
     ~NetCDFCreator();
     
@@ -25,6 +25,8 @@ public:
 
 protected:
     void add_output_variable_info_from_formulation(); 
+
+    void retrieve_output_variables_mpi();
 
     std::vector<double> string_split(std::string str, char delimiter);
 

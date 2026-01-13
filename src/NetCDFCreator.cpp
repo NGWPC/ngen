@@ -4,17 +4,40 @@
 #include <NetCDFCreator.hpp>
 #include <netcdf>
 #include <Logger.hpp>
+
 #if NGEN_WITH_MPI
 #include <mpi.h>
+#include "parallel_utils.h"
 #endif
 
-
 NetCDFCreator::NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> manager, 
-    const std::string& output_name,Simulation_Time const& sim_time, int mpi_rank)
+    const std::string& output_name,Simulation_Time const& sim_time, int mpi_rank, int mpi_num_procs)
 {
     manager_ = manager;
     sim_time_ = std::make_shared<Simulation_Time>(sim_time);
+    catchments.reserve(manager_->get_size());
     try{
+        
+        for (auto const& formulation_info : manager->get_all_formulations())
+        {
+            std::string catchm = formulation_info.first;
+            catchments.push_back(catchm);
+        }
+        
+        #if NGEN_WITH_MPI
+            if (mpi_num_procs > 1){
+                std::vector<std::string> all_catchments = catchments;
+                all_catchments = parallel::gather_strings(catchments, mpi_rank, mpi_num_procs);
+                if (mpi_rank == 0){
+                    std::sort(all_catchments.begin(), all_catchments.end());
+                    all_catchments.erase(
+                        std::unique(all_catchments.begin(), all_catchments.end()),
+                        all_catchments.end()
+                    );
+                }
+            catchments = parallel::broadcast_strings(all_catchments, mpi_rank, mpi_num_procs);
+            }
+        #endif
         std::string ncOutputFileName = manager->get_output_root() + output_name + ".nc";
         if(mpi_rank == 0){
             catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::replace);
@@ -41,23 +64,22 @@ NetCDFCreator::NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> m
 
             //Add dimension and coordinate variable for catchments
             //TO DO: create a separate function if this action is initiated from outside the class.
-            auto catchments_dim = catchmentNcFile->addDim("catchments", manager->get_size());
+            auto catchments_dim = catchmentNcFile->addDim("catchments", catchments.size());
             auto catchments_var = catchmentNcFile->addVar("catchments", NC_STRING, catchments_dim);
             catchments_var.putAtt("Catchment ID", "Catchment identifier in input");
-            //std::vector<const char*> catchment_ids;
-            //catchment_ids.reserve(manager->get_size());
-            catchments.reserve(manager->get_size()); //populate the catchment IDs in a vector to be used for getvar() later
             int item_index = 0;
             std::vector<size_t> index;
             index.resize(1);
-            for (auto const& formulation_info : manager->get_all_formulations())
+            for (auto const& catchment : catchments)
             {
-                std::string catchm = formulation_info.first;
-                catchments.push_back(catchm);
                 index[0] = item_index;
-                catchments_var.putVar(index,catchm);
+                catchments_var.putVar(index,catchment);
                 item_index++;
             }
+
+            //Add output data variables information such as headers, variable names, units to netcdf
+            //TO DO: change scope of this function if this is initiated from outside the class.
+            add_output_variable_info_from_formulation();
             
             //Add global attributes
             catchmentNcFile->putAtt("title", "NextGen Catchment Output Data");
@@ -71,18 +93,10 @@ NetCDFCreator::NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> m
 
         if (mpi_rank != 0){
             catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::write);
-            for (auto const& formulation_info : manager->get_all_formulations())
-            {
-                std::string catchm = formulation_info.first;
-                catchments.push_back(catchm);
-            }
+            retrieve_output_variables_mpi();
         }
-        //Add output data variables information such as headers, variable names, units to netcdf
-        //TO DO: change scope of this function if this is initiated from outside the class.
-        add_output_variable_info_from_formulation();
-        LOG(std::string("Catchments: ") + catchments[0] + "; " + catchments[1] + "; mpi rank: " + std::to_string(mpi_rank), LogLevel::INFO);
-
-    }catch (const netCDF::exceptions::NcException& e){
+    }
+    catch (const netCDF::exceptions::NcException& e){
         LOG(std::string("Error in catchments NetCDF initiation: ") + e.what(), LogLevel::FATAL);
         throw std::runtime_error(std::string("Error in catchments NetCDF initiation: ") + e.what());
     }
@@ -108,7 +122,25 @@ void NetCDFCreator::add_output_variable_info_from_formulation()
             nc_output_variables[index].putAtt("missing_value", NC_DOUBLE, -2.0); //TO DO: Change to another value, if recommended.
         }
     }else{
-        LOG("No output variables/headers information provided in the realization config. No output variables writtedn to NetCDF.", LogLevel::WARNING);
+        LOG("No output variables/headers information provided in the realization config. No output variables written to NetCDF.", LogLevel::WARNING);
+    }
+}
+
+void NetCDFCreator::retrieve_output_variables_mpi() 
+{
+    typename std::map<std::string, std::shared_ptr<realization::Catchment_Formulation>>::const_iterator it = manager_->begin();
+    const auto& catchment_info = *it;
+    auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(catchment_info.second);
+    if(r_c->get_output_header_count() > 0){
+        std::vector<std::string>output_headers = r_c->get_output_header_fields();
+        nc_output_variables.resize(output_headers.size());
+
+        std::vector<netCDF::NcDim> dims = {catchmentNcFile->getDim("time"), catchmentNcFile->getDim("catchments")};
+        for(int index = 0; index < output_headers.size(); index ++){
+            nc_output_variables[index] = catchmentNcFile->getVar(output_headers[index]);
+        }
+    }else{
+        LOG("No output variables/headers information provided in the realization config. No output variables written to NetCDF.", LogLevel::WARNING);
     }
 }
 
@@ -120,28 +152,19 @@ void NetCDFCreator::write_simulations_response_from_formulation(size_t time_inde
         
         //iterate through catchment dimension to find the index of the catchment for writing.
         //also split the comma separated outputs string to a vector of double values
-        size_t catchm_index_in_netcdf = -1;
         std::vector<double> catchment_output;
-        for (int c_index = 0; c_index < catchments.size(); ++c_index)
+        std::vector<size_t> count = {1, 1};
+        for (size_t c_index = 0; c_index < catchments.size(); ++c_index)
         {
             if(catchments[c_index] == catchment_id){
                 catchment_output = string_split(catchment_val.second, ',');
-                catchm_index_in_netcdf = c_index;
+                std::vector<size_t> start = {time_index, c_index};
+                for(int var_index = 0; var_index < nc_output_variables.size(); ++var_index)
+                {
+                    nc_output_variables[var_index].putVar(start, count, &catchment_output[var_index]);
+                }
                 break;
             }
-        }
-        if (catchm_index_in_netcdf > -1) //is this check necessary?
-        {
-            //populate the outputs to the data variables at a given time and catchment index
-            std::vector<size_t> start = {time_index, catchm_index_in_netcdf};
-            std::vector<size_t> count = {1, 1};
-            for(int var_index = 0; var_index < nc_output_variables.size(); ++var_index)
-            {
-                nc_output_variables[var_index].putVar(start, count, &catchment_output[var_index]);
-            }
-        }
-        else{
-            LOG("Catchment ID '" + catchment_id + "' not found in the output. Skip wirting it to NetCDF", LogLevel::WARNING);
         }
     }
 }
