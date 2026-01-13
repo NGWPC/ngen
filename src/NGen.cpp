@@ -10,7 +10,11 @@
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
 #include "realizations/coastal/ModelCreatorRegistry.h"
+
+#if NGEN_ENABLE_SCHISM
 #include "realizations/coastal/SchismCreator.h"
+#endif
+
 #include "realizations/coastal/SfincsCreator.h"  
 
 #if NGEN_WITH_SQLITE3
@@ -611,7 +615,10 @@ int main(int argc, char *argv[]) {
       ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
 
       // register all supported coastal models
+      #if NGEN_ENABLE_SCHISM
       registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
+      #endif
+
       registry.registerCreator(ModelType::SFINCS, std::make_unique<SfincsCreator>()); //
 
       // retrieve the creator for the model selected in the config

@@ -68,16 +68,7 @@ void SfincsFormulation::initialize()
 #if NGEN_WITH_BMI_FORTRAN
     bmi_->Initialize();
 
-    // Try to populate available vars after initialization.
-    // If adapter doesn’t support these calls in your build, comment this out and keep empty list.
-    try {
-        auto out_names = bmi_->GetOutputVarNames();
-        available_vars_.assign(out_names.begin(), out_names.end());
-    }
-    catch (...) {
-        // leave empty; still compiles and runs
-        available_vars_.clear();
-    }
+    available_vars_.clear();
 #endif
 }
 
@@ -204,35 +195,6 @@ void SfincsFormulation::get_values(const selection_type& selector, std::vector<d
     std::fill(out.begin(), out.end(), 0.0);
 #endif
 }
-/*
-void SfincsFormulation::get_values(const selection_type& selector, std::vector<double>& out)
-{
-    // selector is MeshPointsSelector from forcing/MeshPointsSelectors.hpp
-    // it has variable_name (per your compile error), not "variable"
-    const std::string& var = selector.variable_name;
-
-#if NGEN_WITH_BMI_FORTRAN
-    if (!bmi_) {
-        throw std::runtime_error("SfincsFormulation::get_values called before initialize()");
-    }
-
-    if (out.empty()) {
-        // allocate from BMI variable size if possible
-        const auto nbytes   = bmi_->GetVarNbytes(var);
-        const auto itemsize = bmi_->GetVarItemsize(var);
-        if (itemsize == 0) {
-            throw std::runtime_error("BMI reported itemsize=0 for var: " + var);
-        }
-        out.resize(static_cast<std::size_t>(nbytes / itemsize));
-    }
-
-    bmi_->GetValue(var, out.data());
-#else
-    (void)var;
-    std::fill(out.begin(), out.end(), 0.0);
-#endif
-}
-*/
 
 std::size_t SfincsFormulation::mesh_size(const std::string& mesh_name)
 {

@@ -5,6 +5,15 @@ if(NOT DEFINED PROJECT_NAME)
   project(ngen_coastal LANGUAGES C CXX)
 endif()
 
+option(NGEN_ENABLE_SCHISM "Enable SCHISM coastal model support" OFF)
+
+if (NGEN_ENABLE_SCHISM)
+  add_compile_definitions(NGEN_ENABLE_SCHISM=1)
+else()
+  add_compile_definitions(NGEN_ENABLE_SCHISM=0)
+endif()
+
+
 # Try to infer the repo root when configured from src/realizations/coastal
 # ngen root is 3 levels up from here: ngen/src/realizations/coastal
 set(NGEN_TOP "${CMAKE_CURRENT_LIST_DIR}/../../.." CACHE PATH "Path to ngen repository root")
