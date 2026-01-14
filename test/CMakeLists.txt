@@ -446,7 +446,12 @@ ngen_add_test(
         NGen::geojson
         NGen::logging
         NGen::core_mediator
+        NGen::realizations_catchment
+        NGen::forcing
         NGen::ngen_bmi
+        NetCDFCreator
+    REQUIRES
+        NGEN_WITH_NETCDF
 )
 
 ########################### Netcdf Forcing Tests
