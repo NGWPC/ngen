@@ -16,6 +16,8 @@
 #endif
 
 #include "realizations/coastal/SfincsCreator.h"  
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+#include "realizations/coastal/SchismCreator.hpp"
 
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
@@ -607,7 +609,7 @@ int main(int argc, char *argv[]) {
                   << std::endl;
     }
 
-    if(manager->get_using_coastal()) {
+    if (manager->get_using_coastal()) {
 
       auto coastal_conf = manager->get_coastal_config();
 
@@ -628,8 +630,6 @@ int main(int argc, char *argv[]) {
       // execute the selected coastal model (SCHISM or SFINCS)
       coastal_creator->executeModel( *coastal_conf, 
 		                    *(manager->Simulation_Time_Object) );
-
-    }
 
     manager->finalize();
 

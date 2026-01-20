@@ -15,24 +15,24 @@ std::map<std::string, SchismFormulation::InputMapping> SchismFormulation::expect
     {
         /* Meteorological Forcings */
         // RAINRATE - precipitation
-        {"RAINRATE", { SchismFormulation::METEO, "RAINRATE"}},
+        {"RAINRATE", { SchismFormulation::METEO, SchismFormulation::MeshLocationSelector::ELEMENTS, "RAINRATE"}},
         // SFCPRS - surface atmospheric pressure
-        {"SFCPRS", { SchismFormulation::METEO, "PSFC"}},
+        {"SFCPRS", { SchismFormulation::METEO, MeshLocationSelector::NODES,"PSFC"}},
         // SPFH2m - specific humidity at 2m
-        {"SPFH2m", { SchismFormulation::METEO, "Q2D"}},
+        {"SPFH2m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"Q2D"}},
         // TMP2m - temperature at 2m
-        {"TMP2m", { SchismFormulation::METEO, "T2D"}},
+        {"TMP2m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"T2D"}},
         // UU10m, VV10m - wind velocity components at 10m
-        {"U10m", { SchismFormulation::METEO, "U2D"}},
-        {"V10m", { SchismFormulation::METEO, "V2D"}},
+        {"U10m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"U2D"}},
+        {"V10m", { SchismFormulation::METEO, MeshLocationSelector::NODES,"V2D"}},
 
         /* Input Boundary Conditions */
         // ETA2_bnd - water surface elevation at the boundaries
-        {"ETA2_bnd", { SchismFormulation::OFFSHORE, "ETA2_bnd"}},
+        {"ETA2_bnd", { SchismFormulation::OFFSHORE, MeshLocationSelector::BOUNDARY, "ETA2_bnd"}},
         // Q_bnd - flows at boundaries
-        {"Q_bnd_source", { SchismFormulation::CHANNEL_FLOW, "Q_bnd_source"}},
+        {"Q_bnd_source", { SchismFormulation::CHANNEL_FLOW, MeshLocationSelector::UNKNOWN, "Q_bnd_source"}},
         // Q_bnd - flows at boundaries
-        {"Q_bnd_sink", { SchismFormulation::CHANNEL_FLOW, "Q_bnd_sink"}},
+        {"Q_bnd_sink", { SchismFormulation::CHANNEL_FLOW, MeshLocationSelector::UNKNOWN, "Q_bnd_sink"}},
     };
 
 std::vector<std::string> SchismFormulation::exported_output_variable_names_ =
@@ -175,8 +175,21 @@ void SchismFormulation::set_inputs()
         auto const& name = var.first;
         auto const& mapping = var.second;
         auto selector = mapping.selector;
+        auto locationSelector = mapping.meshLocSelector;
         auto const& source_name = mapping.name;
-        auto points = MeshPointsSelector{source_name, current_time_, time_step_length_, input_variable_units_[name], all_points};
+
+	MeshPointsSelector points;
+        switch(locationSelector) {
+	    case ELEMENTS: 
+	       points = MeshPointsSelector{source_name, current_time_, time_step_length_, 
+		       input_variable_units_[name], all_element_points};
+	    case NODES: 
+	       points = MeshPointsSelector{source_name, current_time_, time_step_length_, 
+		       input_variable_units_[name], all_node_points};
+            default:
+	       points = MeshPointsSelector{source_name, current_time_, time_step_length_, 
+		       input_variable_units_[name], all_points};
+	}
 
         ProviderType* provider = [this, selector](){
             switch(selector) {
@@ -265,18 +278,18 @@ void SchismFormulation::update_until( double const& time )
 
 double SchismFormulation::get_current_time()
 {
-	return bmi_->GetCurrentTime();
+    return bmi_->GetCurrentTime();
 }
 double SchismFormulation::get_start_time()
 {
-	return bmi_->GetStartTime();
+    return bmi_->GetStartTime();
 }
 double SchismFormulation::get_end_time()
 {
-        return bmi_->GetEndTime();
+    return bmi_->GetEndTime();
 }
 double SchismFormulation::get_time_step()
 {
-        return bmi_->GetTimeStep();
+    return bmi_->GetTimeStep();
 }
 #endif // NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI

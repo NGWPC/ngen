@@ -104,13 +104,13 @@ class Simulation_Time
 
     time_t get_start_date_time_epoch() const
     {
-        return start_date_time_epoch; 
-    }   
+        return start_date_time_epoch;
+    }
 
     time_t get_end_date_time_epoch() const
     {
         return end_date_time_epoch;
-    }   
+    }
 
     /**
      * @brief Accessor to the current timestamp string

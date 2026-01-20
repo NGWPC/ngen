@@ -3,7 +3,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 
-#include "realizations/coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
 
 namespace realization{
   namespace config{
@@ -16,6 +16,6 @@ namespace realization{
         }
     };
 
-  }//end namespace config
-}//end namespace realization
+  } //end namespace config
+} //end namespace realization
 #endif //NGEN_REALIZATION_CONFIG_COASTAL_H
