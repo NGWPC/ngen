@@ -40,7 +40,7 @@ std::unique_ptr<CoastalFormulation>
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
-      SchismFormulation::check_forcing_provider( *netcdf_met_provider, SchismFormulation::METEO );
+      //SchismFormulation::check_forcing_provider( *netcdf_met_provider, SchismFormulation::METEO );
 
       auto netcdf_streamflow_provider = 
               std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
@@ -49,8 +49,8 @@ std::unique_ptr<CoastalFormulation>
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
-      SchismFormulation::check_forcing_provider( *netcdf_streamflow_provider, 
-                                                           SchismFormulation::CHANNEL_FLOW );
+      //SchismFormulation::check_forcing_provider( *netcdf_streamflow_provider, 
+      //                                                   SchismFormulation::CHANNEL_FLOW );
 
       auto netcdf_offshore_provider = 
               std::make_shared<data_access::NetCDFMeshPointsDataProvider< 
@@ -59,8 +59,9 @@ std::unique_ptr<CoastalFormulation>
                       std::chrono::system_clock::from_time_t(start_time_t),
                       std::chrono::system_clock::from_time_t(stop_time_t));
 
-      SchismFormulation::check_forcing_provider( *netcdf_offshore_provider, 
-                                                           SchismFormulation::OFFSHORE );
+      //SchismFormulation::check_forcing_provider( *netcdf_offshore_provider, 
+      // 
+      /*                                                    SchismFormulation::OFFSHORE );
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,
                                             init_config,
@@ -68,8 +69,9 @@ std::unique_ptr<CoastalFormulation>
                                             netcdf_met_provider, 
                                             netcdf_offshore_provider, 
                                             netcdf_streamflow_provider
-                                           );
-}
+                                          );
+*/
+					  }
 
 SchismCreator* SchismCreator::clone() const
 {
