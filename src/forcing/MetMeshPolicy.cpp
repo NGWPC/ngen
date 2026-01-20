@@ -1,13 +1,13 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
 #include <netcdf>
 #include <UnitsHelper.hpp>
-#include "forcing/MetMeshPolicy.h"
+#include "forcing/MetMeshPolicy.hpp"
+#include "forcing/NetCDFMeshPointsDataProvider.hpp"
 
 void data_access::MetMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
-                             time_point_type const& start_time,
-                             std::vector< time_point_type >& times,
+		             time_point_type const& start_time,
+		             std::vector< time_point_type >& times,
                              std::chrono::seconds& stride )
 {
     auto num_times = nc_file.getDim("time").getSize();
@@ -55,7 +55,7 @@ std::vector< std::string > data_access::MetMeshPolicy::getVarNames( netCDF::NcFi
     std::vector< std::string > varnames;
     std::multimap< std::string, netCDF::NcVar > vars = nc_file.getVars();
     std::transform(vars.begin(), vars.end(), 
-                    std::back_inserter(varnames),
+		    std::back_inserter(varnames),
           [](const std::pair< std::string, netCDF::NcVar >& pair) { return pair.first; });
 #ifdef DEBUG_NETCDFMESH
     std::cerr << "var names: " << std::endl;
@@ -66,14 +66,14 @@ std::vector< std::string > data_access::MetMeshPolicy::getVarNames( netCDF::NcFi
 }
 
 void data_access::MetMeshPolicy::get_values( netCDF::NcFile const& nc_file,
-                                              MeshPointsSelector const& selector,
-                                              boost::span<double> data,
-                                              size_t const& time_index,
-                                              netCDF::NcVar const& ncvar,
-                                              std::string const& source_units,
-                                              double const& scale_factor,
-                                              double const& offset
-                                                      )
+		                              MeshPointsSelector const& selector,
+					      boost::span<double> data,
+	                                      size_t const& time_index,
+					      netCDF::NcVar const& ncvar,
+	                                      std::string const& source_units,
+					      double const& scale_factor,
+					      double const& offset
+	                                      	)
 {
 
     // XXX: Ignores the point selection in `selector`
@@ -99,19 +99,23 @@ void data_access::MetMeshPolicy::get_values( netCDF::NcFile const& nc_file,
 }
 
 double data_access::MetMeshPolicy::get_value( netCDF::NcFile const& nc_file,
-                              MeshPointsSelector const& selector, data_access::ReSampleMethod m,
-                              size_t const& pt_index,
-                              size_t const& time_index,
-                        netCDF::NcVar const& ncvar,
-                        std::string const& source_units,
-                        double const& scale_factor,
-                        double const& offset
-                       )
+		              MeshPointsSelector const& selector, data_access::ReSampleMethod m,
+			      size_t const& pt_index,
+	                      size_t const& time_index,
+			netCDF::NcVar const& ncvar,
+	                std::string const& source_units,
+			double const& scale_factor,
+			double const& offset
+	       	)
 {
     size_t n_elem = nc_file.getDim( "element-id" ).getSize();
+    size_t n_node = nc_file.getDim( "nodeCount" ).getSize();
 
-    if ( pt_index >= n_elem ) {
-        throw std::out_of_range("Point index exceeds available spatial dimension size (y * x).");
+    if ( pt_index >= n_elem && selector.points.type() == typeid( ElementPoints) ) {
+        throw std::out_of_range("Point index exceeds available dimension size of elements.");
+    }
+    if ( pt_index >= n_node && selector.points.type() == typeid( NodePoints) ) {
+        throw std::out_of_range("Point index exceeds available dimension size of nodes.");
     }
 
     // Read raw value from NetCDF variable
@@ -145,9 +149,9 @@ double data_access::MetMeshPolicy::get_value( netCDF::NcFile const& nc_file,
                 ncvar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<float>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
-            } else if (vartype == NC_DOUBLE) {
+	    } else if (vartype == NC_DOUBLE) {
                 double fv; 
-                ncvar.getAtt("_FillValue").getValues(&fv);
+		ncvar.getAtt("_FillValue").getValues(&fv);
                 if (static_cast<double>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data).");
             } else if (vartype == NC_INT || vartype == NC_SHORT || vartype == NC_BYTE) {
@@ -156,7 +160,7 @@ double data_access::MetMeshPolicy::get_value( netCDF::NcFile const& nc_file,
                 if (static_cast<int>(raw_value) == fv)
                     throw std::runtime_error("Encountered _FillValue (missing data)");
             }
-        } else {
+	} else {
             // No _FillValue attribute — use NetCDF library defaults
             if (vartype == NC_DOUBLE && raw_value == static_cast<double>(NC_FILL_DOUBLE))
                 throw std::runtime_error("Encountered default NC_FILL_DOUBLE missing data.");
@@ -185,5 +189,5 @@ double data_access::MetMeshPolicy::get_value( netCDF::NcFile const& nc_file,
 
 std::string data_access::MetMeshPolicy::convertVarName( std::string const& var_name_in )
 {
-        return var_name_in;
+	return var_name_in;
 }

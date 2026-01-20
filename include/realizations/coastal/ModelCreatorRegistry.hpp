@@ -3,8 +3,8 @@
 
 #include <memory>
 #include <unordered_map>
-#include "realizations/coastal/ModelCreator.h"
-#include "realizations/coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/ModelCreator.hpp"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
 
 // This is singleton class.
 class ModelCreatorRegistry {

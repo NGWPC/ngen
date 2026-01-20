@@ -92,13 +92,14 @@
             }
         ],
         "forcing": {
-            "path": "./data/gauge_01073000/forcing.nc",
-            "provider": "NetCDF"
+            "file_pattern": ".*{{id}}.*.csv", 
+            "path": "./data/gauge_01073000/forcing",
+            "provider": "CsvPerFeature"
         }
     },
     "time": {
-        "start_time": "2015-12-01 0:00:00",
-        "end_time": "2015-12-30 23:00:00",
+        "start_time": "2024-02-20 12:00:00",
+        "end_time": "2024-02-20 23:00:00",
         "output_interval": 3600
     },
     "routing": {
@@ -109,9 +110,9 @@
                  "params": {
                                 "model_type_name": "schism_coastal_formulation",
                                 "library_file": "/contrib/Zhengtao.Cui/home/ngwpc/schism/build/lib/libschism_bmi.so",
-                                "met_forcing_netcdf_path": "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_output_201104302300.nc",
+                                "met_forcing_netcdf_path": "/efs/coastal_testdata/hrrr_scratch/NextGen_Forcings_Engine_MESH_output_202402201200.nc",
                                 "offshore_boundary_netcdf_path": "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_offshsort_output_201104302300.nc",
-                                "streamflow_boundary_netcdf_path": "/mnt/SCHISM_Lake_Champlain_BMI_test/NextGen_Forcings_Engine_MESH_streamflow_output_201104302300.nc",
+                                "streamflow_boundary_netcdf_path": "/contrib/Zhengtao.Cui/home/ngwpc/ngen_coastal/data/SCHISM_Hawaii/source_TRoute.nc",
 				"working_dir" : "/contrib/Zhengtao.Cui/home/ngwpc/ngen_coastal/data/SCHISM_Lake_Champlain_BMI_Driver_Test/",
 				"model_start_time_in_secs" : "0",
 				"nscribs" : "0",

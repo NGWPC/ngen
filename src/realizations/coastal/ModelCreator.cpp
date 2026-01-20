@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <iostream>
-#include "realizations/coastal/ModelCreator.h"
+#include "realizations/coastal/ModelCreator.hpp"
 
 void ModelCreator::executeModel( coastal_config_params const& config,
                     Simulation_Time const& sim_time ){
@@ -29,10 +29,6 @@ void ModelCreator::executeModel( coastal_config_params const& config,
 
 	    std::cerr << "end_time = " << end_time << std::endl;
 	    model->update_until( end_time );
-//            for (int i = 0; i < 3; ++i) {
-//             std::cout << "Step " << i << std::endl;
-//              model->update();
-//            }
 
             using namespace std::chrono_literals;
 
@@ -58,32 +54,30 @@ void ModelCreator::executeModel( coastal_config_params const& config,
           for (int i = 0; i < bedlevel.size(); ++i) {
            if (bedlevel[i] == -9999) {
             std::cout << "Bed level is sentinel at index " << i << std::endl;
-           }
-         }
+        }
+    }
 
-         MeshPointsSelector eta2_selector{"ETA2", std::chrono::system_clock::now(), 3600s, "m", all_points};
-         auto eta2 = model->get_values(eta2_selector, data_access::ReSampleMethod::FRONT_FILL);
-         report(eta2, "ETA2");
+    MeshPointsSelector eta2_selector{"ETA2", std::chrono::system_clock::now(), 3600s, "m", all_points};
+    auto eta2 = model->get_values(eta2_selector, data_access::ReSampleMethod::FRONT_FILL);
+    report(eta2, "ETA2");
 
-         MeshPointsSelector tr_eta2_selector{"TROUTE_ETA2", std::chrono::system_clock::now(), 3600s, "m", all_points};
-         auto tr_eta2 = model->get_values(tr_eta2_selector, data_access::ReSampleMethod::FRONT_FILL);
-         report(tr_eta2, "TROUTE_ETA2");
+    MeshPointsSelector tr_eta2_selector{"TROUTE_ETA2", std::chrono::system_clock::now(), 3600s, "m", all_points};
+    auto tr_eta2 = model->get_values(tr_eta2_selector, data_access::ReSampleMethod::FRONT_FILL);
+    report(tr_eta2, "TROUTE_ETA2");
 
-         MeshPointsSelector vx_selector{"VX", std::chrono::system_clock::now(), 3600s, "m s-1", all_points};
-         auto vx = model->get_values(vx_selector, data_access::ReSampleMethod::FRONT_FILL);
-         report(vx, "VX");
+    MeshPointsSelector vx_selector{"VX", std::chrono::system_clock::now(), 3600s, "m s-1", all_points};
+    auto vx = model->get_values(vx_selector, data_access::ReSampleMethod::FRONT_FILL);
+    report(vx, "VX");
 
-         MeshPointsSelector vy_selector{"VY", std::chrono::system_clock::now(), 3600s, "m s-1", all_points};
-         auto vy = model->get_values(vy_selector, data_access::ReSampleMethod::FRONT_FILL);
-         report(vy, "VY");
+    MeshPointsSelector vy_selector{"VY", std::chrono::system_clock::now(), 3600s, "m s-1", all_points};
+    auto vy = model->get_values(vy_selector, data_access::ReSampleMethod::FRONT_FILL);
+    report(vy, "VY");
 
-//         model->update();
-         model->get_values(vx_selector, data_access::ReSampleMethod::FRONT_FILL);
-         model->get_values(vy_selector, data_access::ReSampleMethod::FRONT_FILL);
-         report(vx, "VX");
-         report(vy, "VY");
+    model->get_values(vx_selector, data_access::ReSampleMethod::FRONT_FILL);
+    model->get_values(vy_selector, data_access::ReSampleMethod::FRONT_FILL);
+    report(vx, "VX");
+    report(vy, "VY");
 
-         model->finalize();
-    
+    model->finalize();
+
 }
-

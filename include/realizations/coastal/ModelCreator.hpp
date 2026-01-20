@@ -10,14 +10,14 @@
 #include <limits>
 #include <iostream>
 #include "realizations/coastal/CoastalFormulation.hpp"
-#include "realizations/coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
 #include "simulation_time/Simulation_Time.hpp"
 
 // AbstractFactory
 class ModelCreator {
 public:
-    virtual std::unique_ptr<CoastalFormulation> createCoastalFormulation( 
-		    coastal_config_params const&,
+    virtual std::unique_ptr<CoastalFormulation> createCoastalFormulation(
+                    coastal_config_params const&,
                     Simulation_Time const&  ) const = 0;
 
     virtual ModelCreator* clone() const = 0;

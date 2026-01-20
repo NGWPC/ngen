@@ -6,7 +6,7 @@
 #include <sstream>
 #include <netcdf>
 #include <UnitsHelper.hpp>
-#include "forcing/TidalMeshPolicy.h"
+#include "forcing/TidalMeshPolicy.hpp"
 
 void data_access::TidalMeshPolicy::getTimes( netCDF::NcFile const& nc_file,
                              time_point_type const& start_time,
