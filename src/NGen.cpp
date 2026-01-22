@@ -808,6 +808,10 @@ int main(int argc, char* argv[]) {
     // run NGEN to completion and let it handle destroying resources
     int result = run_ngen(argc, argv, mpi_num_procs, mpi_rank);
 
+#if NGEN_WITH_PYTHON
+    _interp.reset();
+#endif
+
 #if NGEN_WITH_MPI
     MPI_Finalize();
 #endif
