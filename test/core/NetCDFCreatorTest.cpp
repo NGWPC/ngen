@@ -27,7 +27,6 @@ class NetCDFCreatorTest : public ::testing::Test {
 
         void SetUp() override {
             SetupFormulationManager();
-            //SetupSimulationResults();
         }
 
         void TearDown() override {
@@ -58,27 +57,6 @@ class NetCDFCreatorTest : public ::testing::Test {
             this->add_feature("cat-52");
             this->add_feature("cat-67");
             manager_->read(simulation_time_config, fabric, catchment_output);
-        }
-
-        //Set up similation time results
-        void SetupSimulationResults()
-        {
-            
-            double dt = 3600.0;
-
-            for (auto const& formulation : manager_->get_all_formulations()) {
-                if (calculated_results.count(formulation.first) == 0) {
-                    calculated_results.emplace(formulation.first, std::map<long, double>());
-                }
-
-                double calculation;
-
-                for (long t = 0; t < 4; t++) {
-                    calculation = formulation.second->get_response(t, dt);
-                    std::string resp = formulation.second->get_output_line_for_timestep(t);
-                    calculated_results.at(formulation.first).emplace(t, calculation);
-                }
-            }
         }
 
         std::string fix_paths(std::string json)

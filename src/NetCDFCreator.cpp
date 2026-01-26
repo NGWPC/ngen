@@ -88,7 +88,7 @@ NetCDFCreator::NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> m
         }
         
         #if NGEN_WITH_MPI
-            MPI_Barrier(MPI_COMM_WORLD);
+        if (mpi_num_procs > 1) MPI_Barrier(MPI_COMM_WORLD);
         #endif
 
         if (mpi_rank != 0){
