@@ -23,6 +23,8 @@ public:
     
     void write_simulations_response_from_formulation(size_t time_index, std::map<std::string, std::string> catchment_output_values);
 
+    netCDF::NcFile& GetNcFile();
+
 protected:
     void add_output_variable_info_from_formulation(); 
 

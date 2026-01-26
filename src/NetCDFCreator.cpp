@@ -180,6 +180,10 @@ std::vector<double> NetCDFCreator::string_split(std::string str, char delimiter)
     return res;
 }
 
+netCDF::NcFile& NetCDFCreator::GetNcFile(){
+    return *catchmentNcFile;
+}
+
 void  NetCDFCreator::close_ncfile(){
     if (catchmentNcFile != nullptr) {
         catchmentNcFile->close();
