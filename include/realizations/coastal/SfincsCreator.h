@@ -1,8 +1,8 @@
 #ifndef SFINCS_CREATOR_HEADER
 #define SFINCS_CREATOR_HEADER
 
-#include "realizations/coastal/ModelCreator.h"
-#include "realizations/coastal/Coastal_Config_Params.h"
+#include "realizations/coastal/ModelCreator.hpp"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
 
 class SfincsCreator : public ModelCreator {
 public:

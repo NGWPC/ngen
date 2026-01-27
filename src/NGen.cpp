@@ -9,11 +9,11 @@
 #include "realizations/catchment/Formulation_Manager.hpp"
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
-#include "realizations/coastal/ModelCreatorRegistry.h"
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
 
-#if NGEN_ENABLE_SCHISM
-#include "realizations/coastal/SchismCreator.h"
-#endif
+//#if NGEN_ENABLE_SCHISM
+#include "realizations/coastal/SchismCreator.hpp"
+//#endif
 
 #include "realizations/coastal/SfincsCreator.h"  
 #include "realizations/coastal/ModelCreatorRegistry.hpp"
@@ -58,7 +58,7 @@ bool is_subdivided_hydrofabric_wanted = false;
 #include "core/Partition_Parser.hpp"
 #include <HY_Features_MPI.hpp>
 
-#include "core/Partition_One.hpp>"
+#include "core/Partition_One.hpp"
 
 std::string PARTITION_PATH = "";
 #endif // NGEN_WITH_MPI
@@ -630,7 +630,7 @@ int main(int argc, char *argv[]) {
       // execute the selected coastal model (SCHISM or SFINCS)
       coastal_creator->executeModel( *coastal_conf, 
 		                    *(manager->Simulation_Time_Object) );
-
+    }
     manager->finalize();
 
 #if NGEN_WITH_MPI

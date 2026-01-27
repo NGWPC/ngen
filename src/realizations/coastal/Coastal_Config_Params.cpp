@@ -49,14 +49,14 @@ bool coastal_config_params::isValid()
         return false;
     }
 
-    boost::property_tree::ptree::const_assoc_iterator it;
+    //boost::property_tree::ptree::const_assoc_iterator it;
     it = params.find("params");
     if ( it == params.not_found() )
     {
         logging::critical(std::string("\"params\" not definded in coastal realization!\n").c_str());
         return false;
     }
-    boost::property_tree::ptree params_tree = params.get_child( "params" );
+    //boost::property_tree::ptree params_tree = params.get_child( "params" );
     it = params_tree.find("model_type_name");
     if ( it == params_tree.not_found() )
     {
