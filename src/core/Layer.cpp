@@ -46,10 +46,12 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                 r_c->get_output_line_for_timestep(output_time_index)+"\n";
             r_c->write_output(output);
 
-            //capture all the output values for this timestep to write to netcdf
+            //capture all the output values for this timestep to write to netcdf in non-MPI run.
             #if NGEN_WITH_NETCDF
+            #if !NGEN_WITH_MPI
                 catchment_output_values[id] = r_c->get_output_line_for_timestep(output_time_index);
-            #endif
+            #endif //NGEN_WITH_MPI
+            #endif //NGEN_WITH_NETCDF
         }
         //TODO put this somewhere else.  For now, just trying to ensure we get m^3/s into nexus output
         double area;

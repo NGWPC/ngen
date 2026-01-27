@@ -206,7 +206,7 @@ class NetCDFCreatorTest : public ::testing::Test {
 TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
 {
     nc_creator = std::make_unique<NetCDFCreator>(manager_,"catchment_test", *sim_time_, 0, 1);
-    netCDF::NcFile& ncFile = nc_creator->GetNcFile();
+    netCDF::NcFile& ncFile = nc_creator->get_ncfile();
     netCDF::NcVar catchments_var = ncFile.getVar("catchments");
     std::vector<netCDF::NcDim> nc_dims = catchments_var.getDims();
     size_t len = nc_dims[0].getSize();
@@ -251,7 +251,7 @@ TEST_F(NetCDFCreatorTest, TestOutputValues)
         std::vector<std::string>output_headers = r_c->get_output_header_fields();
         std::vector<std::string>output_units = r_c->get_output_variable_units();
 
-        netCDF::NcFile& ncFile = nc_creator->GetNcFile(); //get a handle to the netcdf file object
+        netCDF::NcFile& ncFile = nc_creator->get_ncfile(); //get a handle to the netcdf file object
 
         //find the index for "cat-52" and retrieve the values for the output variables
         double catchment_output_nc;

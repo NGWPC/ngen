@@ -181,9 +181,9 @@ namespace realization {
         }
 
         /**
-         * Get the values making up the header line from get_output_header_line(), but organized as a vector of strings.
+         * Get the units for the output variables organized as a vector of strings.
          *
-         * @return The values making up the header line from get_output_header_line() organized as a vector.
+         * @return The units for the output variables organized as a vector.
          */
         const std::vector<std::string> &get_output_variable_units() const {
             return output_variable_units;
@@ -279,7 +279,7 @@ namespace realization {
         std::vector<std::string> output_variable_names;
         /**
          * Output units corresponding to the variables output by the realization, as defined in
-         * `output_variable_names`.
+         * `output_variables`.
          */
         std::vector<std::string> output_variable_units;
         /** The degree of precision in output values when converting to text. */

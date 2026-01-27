@@ -95,11 +95,10 @@ void NgenSimulation::advance_models_one_output_step()
                                      simulation_step_
                                      ); // assume update_models() calls time->advance_timestep()
 
-                // After updating the layer, get the output data for that timestep and write to netcdf
+                // After updating the layer, get the output data for that timestep and write to netcdf. This is currently
+                //set up only for a non-MPI run.
                 #if NGEN_WITH_NETCDF
-                #if NGEN_WITH_MPI
-                    //do nothing?
-                #else
+                #if !NGEN_WITH_MPI
                     std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
                     nc_writer_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
                 #endif //NGEN_WITH_MPI

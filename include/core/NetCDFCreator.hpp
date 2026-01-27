@@ -23,7 +23,7 @@ public:
     
     void write_simulations_response_from_formulation(size_t time_index, std::map<std::string, std::string> catchment_output_values);
 
-    netCDF::NcFile& GetNcFile();
+    netCDF::NcFile& get_ncfile();
 
 protected:
     void add_output_variable_info_from_formulation(); 
@@ -31,6 +31,8 @@ protected:
     void retrieve_output_variables_mpi();
 
     std::vector<double> string_split(std::string str, char delimiter);
+
+    bool create_ncfile();
 
     void close_ncfile();
 

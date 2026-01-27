@@ -471,7 +471,7 @@ ngen_add_test(
         NGEN_WITH_NETCDF
 )
 
-########################## NgenSimulation Class Tests
+########################## NetCDFCreator Class Tests
 ngen_add_test(
     test_netcdf_creator
     OBJECTS

@@ -15,90 +15,96 @@ NetCDFCreator::NetCDFCreator(std::shared_ptr<realization::Formulation_Manager> m
 {
     manager_ = manager;
     sim_time_ = std::make_shared<Simulation_Time>(sim_time);
-    catchments.reserve(manager_->get_size());
-    try{
-        
-        for (auto const& formulation_info : manager->get_all_formulations())
-        {
-            std::string catchm = formulation_info.first;
-            catchments.push_back(catchm);
-        }
-        
-        #if NGEN_WITH_MPI
-            if (mpi_num_procs > 1){
-                std::vector<std::string> all_catchments = catchments;
-                all_catchments = parallel::gather_strings(catchments, mpi_rank, mpi_num_procs);
-                if (mpi_rank == 0){
-                    std::sort(all_catchments.begin(), all_catchments.end());
-                    all_catchments.erase(
-                        std::unique(all_catchments.begin(), all_catchments.end()),
-                        all_catchments.end()
-                    );
-                }
-            catchments = parallel::broadcast_strings(all_catchments, mpi_rank, mpi_num_procs);
-            }
-        #endif
-        std::string ncOutputFileName = manager->get_output_root() + output_name + ".nc";
-        if(mpi_rank == 0){
-            catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::replace);
-            if(!catchmentNcFile){
-                LOG("Catchment output netcdf file creation failed: " + ncOutputFileName, LogLevel::FATAL);
-                throw std::runtime_error("Catchment output netcdf file creation failed: " + ncOutputFileName);
-            }
-            //Add dimension and coordinate variable for time
-            //TO DO: create a separate function if this action is initiated from outside the class.
-            //TO DO: convert seconds epoch to minutes or days?
-            int num_timesteps = sim_time_->get_total_output_times();
-            auto time_dim = catchmentNcFile->addDim("time", num_timesteps);
-            auto time_var = catchmentNcFile->addVar("time", NC_INT, time_dim);
-            time_var.putAtt("units", "Seconds since 1970-01-01 00:00:00");
-            time_var.putAtt("calendar", "gregorian");
-            std::vector<int> time_epoch_seconds(num_timesteps);
-            time_epoch_seconds[0] = sim_time_->get_current_epoch_time();
-            for(int time_index = 1; time_index < num_timesteps; time_index++)
-            {
-                sim_time_->advance_timestep();
-                time_epoch_seconds[time_index] = sim_time_->get_current_epoch_time();
-            }
-            time_var.putVar(time_epoch_seconds.data());
 
-            //Add dimension and coordinate variable for catchments
-            //TO DO: create a separate function if this action is initiated from outside the class.
-            auto catchments_dim = catchmentNcFile->addDim("catchments", catchments.size());
-            auto catchments_var = catchmentNcFile->addVar("catchments", NC_STRING, catchments_dim);
-            catchments_var.putAtt("Catchment ID", "Catchment identifier in input");
-            int item_index = 0;
-            std::vector<size_t> index;
-            index.resize(1);
-            for (auto const& catchment : catchments)
+    //Check if there is a need to create a netcdf file (whether output variables are mentioned in realization)
+    if (create_ncfile()){
+        try{
+            catchments.reserve(manager_->get_size());
+            for (auto const& formulation_info : manager->get_all_formulations())
             {
-                index[0] = item_index;
-                catchments_var.putVar(index,catchment);
-                item_index++;
+                std::string catchm = formulation_info.first;
+                catchments.push_back(catchm);
             }
-
-            //Add output data variables information such as headers, variable names, units to netcdf
-            //TO DO: change scope of this function if this is initiated from outside the class.
-            add_output_variable_info_from_formulation();
             
-            //Add global attributes
-            catchmentNcFile->putAtt("title", "NextGen Catchment Output Data");
-            catchmentNcFile->putAtt("description", "NetCDF file containing catchment-level output data from NextGen simulation");
-            catchmentNcFile->putAtt("institution", "NOAA");
-        }
-        
-        #if NGEN_WITH_MPI
-        if (mpi_num_procs > 1) MPI_Barrier(MPI_COMM_WORLD);
-        #endif
+            #if NGEN_WITH_MPI
+                if (mpi_num_procs > 1){
+                    std::vector<std::string> all_catchments = catchments;
+                    all_catchments = parallel::gather_strings(catchments, mpi_rank, mpi_num_procs);
+                    if (mpi_rank == 0){
+                        std::sort(all_catchments.begin(), all_catchments.end());
+                        all_catchments.erase(
+                            std::unique(all_catchments.begin(), all_catchments.end()),
+                            all_catchments.end()
+                        );
+                    }
+                catchments = parallel::broadcast_strings(all_catchments, mpi_rank, mpi_num_procs);
+                }
+            #endif
+            std::string ncOutputFileName = manager->get_output_root() + output_name + ".nc";
+            if(mpi_rank == 0){
+                catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::replace);
+                if(!catchmentNcFile){
+                    LOG("Catchment output netcdf file creation failed: " + ncOutputFileName, LogLevel::FATAL);
+                    throw std::runtime_error("Catchment output netcdf file creation failed: " + ncOutputFileName);
+                }
+                //Add dimension and coordinate variable for time
+                //TO DO: create a separate function if this action is initiated from outside the class.
+                //TO DO: convert seconds epoch to minutes or days?
+                int num_timesteps = sim_time_->get_total_output_times();
+                auto time_dim = catchmentNcFile->addDim("time", num_timesteps);
+                auto time_var = catchmentNcFile->addVar("time", NC_INT, time_dim);
+                time_var.putAtt("units", "Seconds since 1970-01-01 00:00:00");
+                time_var.putAtt("calendar", "gregorian");
+                std::vector<int> time_epoch_seconds(num_timesteps);
+                time_epoch_seconds[0] = sim_time_->get_current_epoch_time();
+                for(int time_index = 1; time_index < num_timesteps; time_index++)
+                {
+                    sim_time_->advance_timestep();
+                    time_epoch_seconds[time_index] = sim_time_->get_current_epoch_time();
+                }
+                time_var.putVar(time_epoch_seconds.data());
 
-        if (mpi_rank != 0){
-            catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::write);
-            retrieve_output_variables_mpi();
+                //Add dimension and coordinate variable for catchments
+                //TO DO: create a separate function if this action is initiated from outside the class.
+                auto catchments_dim = catchmentNcFile->addDim("catchments", catchments.size());
+                auto catchments_var = catchmentNcFile->addVar("catchments", NC_STRING, catchments_dim);
+                catchments_var.putAtt("Catchment ID", "Catchment identifier in input");
+                int item_index = 0;
+                std::vector<size_t> index;
+                index.resize(1);
+                for (auto const& catchment : catchments)
+                {
+                    index[0] = item_index;
+                    catchments_var.putVar(index,catchment);
+                    item_index++;
+                }
+
+                //Add output data variables information such as headers, variable names, units to netcdf
+                //TO DO: change scope of this function if this is initiated from outside the class.
+                add_output_variable_info_from_formulation();
+                
+                //Add global attributes
+                catchmentNcFile->putAtt("title", "NextGen Catchment Output Data");
+                catchmentNcFile->putAtt("description", "NetCDF file containing catchment-level output data from NextGen simulation");
+                catchmentNcFile->putAtt("institution", "NOAA");
+            }
+            
+            #if NGEN_WITH_MPI
+            if (mpi_num_procs > 1) MPI_Barrier(MPI_COMM_WORLD);
+            #endif
+
+            if (mpi_rank != 0){
+                catchmentNcFile = std::make_shared<netCDF::NcFile>(ncOutputFileName, netCDF::NcFile::write);
+                retrieve_output_variables_mpi();
+            }
+        }
+        catch (const netCDF::exceptions::NcException& e){
+            LOG(std::string("Error in catchments NetCDF initiation: ") + e.what(), LogLevel::FATAL);
+            throw std::runtime_error(std::string("Error in catchments NetCDF initiation: ") + e.what());
         }
     }
-    catch (const netCDF::exceptions::NcException& e){
-        LOG(std::string("Error in catchments NetCDF initiation: ") + e.what(), LogLevel::FATAL);
-        throw std::runtime_error(std::string("Error in catchments NetCDF initiation: ") + e.what());
+    else{
+        LOG("No output variables/headers information provided in the realization config. A NetCDF file for the catchment output will not be created.", LogLevel::INFO);
     }
 }
 
@@ -121,8 +127,6 @@ void NetCDFCreator::add_output_variable_info_from_formulation()
             nc_output_variables[index].putAtt("_FillValue", NC_DOUBLE, -1.0); //TO DO: Change to another value, if recommended.
             nc_output_variables[index].putAtt("missing_value", NC_DOUBLE, -2.0); //TO DO: Change to another value, if recommended.
         }
-    }else{
-        LOG("No output variables/headers information provided in the realization config. No output variables written to NetCDF.", LogLevel::WARNING);
     }
 }
 
@@ -139,8 +143,6 @@ void NetCDFCreator::retrieve_output_variables_mpi()
         for(int index = 0; index < output_headers.size(); index ++){
             nc_output_variables[index] = catchmentNcFile->getVar(output_headers[index]);
         }
-    }else{
-        LOG("No output variables/headers information provided in the realization config. No output variables written to NetCDF.", LogLevel::WARNING);
     }
 }
 
@@ -180,7 +182,15 @@ std::vector<double> NetCDFCreator::string_split(std::string str, char delimiter)
     return res;
 }
 
-netCDF::NcFile& NetCDFCreator::GetNcFile(){
+bool NetCDFCreator::create_ncfile()
+{
+    typename std::map<std::string, std::shared_ptr<realization::Catchment_Formulation>>::const_iterator it = manager_->begin();
+    const auto& catchment_info = *it;
+    auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(catchment_info.second);
+    return (r_c->get_output_header_count() > 0) ? true : false;
+}
+
+netCDF::NcFile& NetCDFCreator::get_ncfile(){
     return *catchmentNcFile;
 }
 

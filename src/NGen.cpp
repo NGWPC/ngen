@@ -661,7 +661,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::shared_ptr<ngen::Layer>> layers;
     layers.resize(keys.size());
-    
+
     for (long i = 0; i < keys.size(); ++i) {
         auto& desc = layer_meta_data.get_layer(keys[i]);
         std::vector<std::string> cat_ids;
@@ -717,15 +717,16 @@ int main(int argc, char* argv[]) {
                                                        mpi_rank,
                                                        mpi_num_procs);
     #if NGEN_WITH_NETCDF
-       simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs);
-    #endif
+    #if NGEN_WITH_MPI
+        LOG("Under MPI mode, a NetCDF file for catchment output values is not created due to limitations in NetCDFCxx4 library.", LogLevel::INFO);
+    #else
+        simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs); //create a NetCDF file only for Non-MPI run.
+    #endif //NGEN_WITH_MPI
+    #endif //NGEN_WITH_NETCDF
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
     LOG("[TIMING]: Init: " + std::to_string(time_elapsed_init.count()), LogLevel::INFO);
     
-    #if NGEN_WITH_MPI
-        LOG("Under MPI mode, catchments output values from simulation runs cannot be added to NetCDF file due to limitations in NetCDFCxx4 library.", LogLevel::WARNING);
-    #endif
     simulation->run_catchments();
     
 
