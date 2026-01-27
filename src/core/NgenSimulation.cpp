@@ -97,9 +97,14 @@ void NgenSimulation::advance_models_one_output_step()
 
                 // After updating the layer, get the output data for that timestep and write to netcdf
                 #if NGEN_WITH_NETCDF
+                #if NGEN_WITH_MPI
+                    //do nothing?
+                #else
                     std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
                     nc_writer_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
-                #endif
+                #endif //NGEN_WITH_MPI
+                #endif //NGEN_WITH_NETCDF
+                
                 prev_layer_time = layer_next_time;
             } else {
                 layer_min_next_time = prev_layer_time = layer->current_timestep_epoch_time();

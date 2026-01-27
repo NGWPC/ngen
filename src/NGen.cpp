@@ -722,7 +722,10 @@ int main(int argc, char* argv[]) {
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
     LOG("[TIMING]: Init: " + std::to_string(time_elapsed_init.count()), LogLevel::INFO);
-
+    
+    #if NGEN_WITH_MPI
+        LOG("Under MPI mode, catchments output values from simulation runs cannot be added to NetCDF file due to limitations in NetCDFCxx4 library.", LogLevel::WARNING);
+    #endif
     simulation->run_catchments();
     
 
