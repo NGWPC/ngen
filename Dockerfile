@@ -195,7 +195,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     pip3 install 'pandas' && \
     pip3 install 'pyyml' && \
     pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    pip install /ngen-app/ngen-forcing/
+    pip install /ngen-app/ngen-forcing/ && \
+    pip install /ngen-app/ngen-forcing/nextgen_forcings_ewts/
 
 WORKDIR /ngen-app/
 
@@ -303,6 +304,11 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     cd extern/topoflow-glacier; \
     pip install .
 
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+    set -eux; \
+    cd extern/lstm; \
+    pip install . ./lstm_ewts
+
 RUN set -eux && \
     mkdir --parents /ngencerf/data/ngen-run-logs/ && \
     mkdir --parents /ngen-app/bin/ && \
@@ -391,7 +397,7 @@ RUN set -eux && \
     mv /ngen-app/merged_git_info.json $GIT_INFO_PATH && \
     rm -rf /ngen-app/submodules-json
 
- # Extend PYTHONPATH for LSTM models (preserve venv path from ngen-bmi-forcing)
+# Extend PYTHONPATH for LSTM models (preserve venv path from ngen-bmi-forcing)
 ENV PYTHONPATH="${PYTHONPATH}:/ngen-app/ngen/extern/lstm:/ngen-app/ngen/extern/lstm/lstm"
 
  # Extend PYTHONPATH for Topoflow-Glacier
