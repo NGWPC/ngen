@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "realizations/coastal/SfincsCreator.h"
+#include "realizations/coastal/SfincsCreator.hpp"
 #include "realizations/coastal/SfincsFormulation.hpp"
 
 // ----------------- small POSIX helpers -----------------
