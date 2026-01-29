@@ -15,7 +15,7 @@
 #include "realizations/coastal/SchismCreator.hpp"
 //#endif
 
-#include "realizations/coastal/SfincsCreator.h"  
+#include "realizations/coastal/SfincsCreator.hpp"  
 #include "realizations/coastal/ModelCreatorRegistry.hpp"
 #include "realizations/coastal/SchismCreator.hpp"
 
