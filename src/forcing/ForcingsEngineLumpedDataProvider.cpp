@@ -36,6 +36,14 @@ Provider::ForcingsEngineLumpedDataProvider(
 )
   : BaseProvider(init_config, time_begin_seconds, time_end_seconds)
 {
+    // Align time_end_ to forcing timestep resolution
+    auto time_step_seconds = std::chrono::duration_cast<std::chrono::seconds>(time_step_).count();
+    auto duration_seconds = time_end_seconds - time_begin_seconds;
+    auto remainder = duration_seconds % time_step_seconds;
+    if (remainder != 0) {
+        time_end_ -= std::chrono::seconds(remainder);
+    }
+
     // Add detailed logging of the constructor arguments
     std::stringstream ss; 
     ss.str(""); 

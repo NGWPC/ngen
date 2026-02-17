@@ -71,7 +71,7 @@ namespace realization {
 
             // Construct the provider using the start/end times (as time_t)
             auto start = forcing_config.simulation_start_t;
-            auto end   = forcing_config.simulation_end_t;
+            auto end   = forcing_config.simulation_end_t - 3600;
 
             ss.str(""); 
             ss << "About to call ForcingsEngineLumpedDataProvider constructor" << std::endl;
