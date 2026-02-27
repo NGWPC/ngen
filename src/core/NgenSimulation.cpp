@@ -14,6 +14,94 @@
 
 #include "parallel_utils.h"
 
+// local functions to decrease repeating code
+namespace {
+    #if NGEN_WITH_MPI
+    // collect and merge output values from other MPI processes
+    void gather_indexes_and_values(
+        const NgenSimulation::hy_features_t &features,
+        const std::unordered_map<std::string, int> &indexes,
+        const std::vector<double> &values,
+        std::unordered_map<std::string, int> &gathered_indexes,
+        std::vector<double> &gathered_values,
+        size_t number_of_timesteps,
+        int mpi_rank,
+        int mpi_num_procs
+    ) {
+        std::vector<std::string> local_ids;
+        for (const auto& ids : indexes) {
+            local_ids.push_back(ids.first);
+        }
+        // MPI_Gather all IDs into a single vector
+        std::vector<std::string> all_ids = parallel::gather_strings(local_ids, mpi_rank, mpi_num_procs);
+        if (mpi_rank == 0) {
+            // filter to only the unique IDs
+            std::sort(all_ids.begin(), all_ids.end());
+            all_ids.erase(
+                std::unique(all_ids.begin(), all_ids.end()),
+                all_ids.end()
+            );
+        }
+        // MPI_Broadcast so all processes share the IDs
+        all_ids = std::move(parallel::broadcast_strings(all_ids, mpi_rank, mpi_num_procs));
+
+        // MPI_Reduce to collect the results from processes
+        if (mpi_rank == 0) {
+            gathered_values.resize(number_of_timesteps * all_ids.size(), 0.0);
+        }
+        std::vector<double> local_buffer(number_of_timesteps);
+        std::vector<double> receive_buffer(number_of_timesteps, 0.0);
+        for (int i = 0; i < all_ids.size(); ++i) {
+            std::string current_id = all_ids[i];
+            if (indexes.find(current_id) != indexes.end() && !features.is_remote_sender_nexus(current_id)) {
+                // if this process has the id and receives/records data, copy the values to the buffer
+                int value_index = indexes.at(current_id);
+                for (int step = 0; step < number_of_timesteps; ++step) {
+                    int offset = step * indexes.size() + value_index;
+                    local_buffer[step] = values[offset];
+                }
+            } else {
+                // if this process does not have the id, fill with 0 to make sure it doesn't affect reduce sum
+                std::fill(local_buffer.begin(), local_buffer.end(), 0.0);
+            }
+            MPI_Reduce(local_buffer.data(), receive_buffer.data(), number_of_timesteps, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            if (mpi_rank == 0) {
+                // copy reduce values to a combined downflows vector
+                gathered_indexes[current_id] = i;
+                for (int step = 0; step < number_of_timesteps; ++step) {
+                    int offset = step * all_ids.size() + i;
+                    gathered_values[offset] = receive_buffer[step];
+                    receive_buffer[step] = 0.0;
+                }
+            }
+        }
+    }
+    #endif // NGEN_WITH_MPI
+
+    // convert IDs in the indexes lookup into a vector of int representations with the same order as the map indexes
+    std::vector<int> ids_stoi(std::unordered_map<std::string, int> *indexes_map) {
+        std::vector<int> int_ids(indexes_map->size());
+        for (const auto& key_value : *indexes_map) {
+            int id_index = key_value.second;
+
+            // Convert string ID into numbers for T-route index
+            int id_as_int = -1;
+            size_t sep_index = key_value.first.find(hy_features::identifiers::separator);
+            if (sep_index != std::string::npos) {
+                std::string numbers = key_value.first.substr(sep_index + hy_features::identifiers::separator.length());
+                id_as_int = std::stoi(numbers);
+            }
+            if (id_as_int == -1) {
+                std::string error_msg = "Cannot convert the ID to an integer: " + key_value.first;
+                LOG(LogLevel::FATAL, error_msg);
+                throw std::runtime_error(error_msg);
+            }
+            int_ids[id_index] = id_as_int;
+        }
+        return int_ids;
+    }
+}
+
 NgenSimulation::NgenSimulation(
     Simulation_Time const& sim_time,
     std::vector<std::shared_ptr<ngen::Layer>> layers,
@@ -141,19 +229,25 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
     std::unordered_map<std::string, int> all_catchment_indexes;
 
     if (mpi_num_procs_ > 1) {
-        this->gather_indexes_and_values(
+        gather_indexes_and_values(
             features,
             this->catchment_indexes_,
             this->catchment_evapotranspiration_,
             all_catchment_indexes,
-            all_evapotranspiration
+            all_evapotranspiration,
+            number_of_timesteps,
+            this->mpi_rank_,
+            this->mpi_num_procs_
         );
-        this->gather_indexes_and_values(
+        gather_indexes_and_values(
             features,
             this->nexus_indexes_,
             this->nexus_downstream_flows_,
             all_nexus_indexes,
-            all_nexus_downflows
+            all_nexus_downflows,
+            number_of_timesteps,
+            this->mpi_rank_,
+            this->mpi_num_procs_
         );
         if (mpi_rank_ == 0) {
             // update root's local data for running t-route below
@@ -181,96 +275,23 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         int64_t nexus_count = routing_nexus_indexes->size();
         py_troute.SetValue("land_surface_water_source__volume_flow_rate__count", &nexus_count);
         py_troute.SetValue("land_surface_water_source__id__count", &nexus_count);
-        // set up nexus id indexes
-        std::vector<int> nexus_df_index(nexus_count);
-        for (const auto& key_value : *routing_nexus_indexes) {
-            int id_index = key_value.second;
+        // set up id indexes
+        std::vector<int> cat_df_index = std::move(ids_stoi(routing_catchment_indexes));
+        std::vector<int> nexus_df_index = std::move(ids_stoi(routing_nexus_indexes));
 
-            // Convert string ID into numbers for T-route index
-            int id_as_int = -1;
-            size_t sep_index = key_value.first.find(hy_features::identifiers::separator);
-            if (sep_index != std::string::npos) {
-                std::string numbers = key_value.first.substr(sep_index + hy_features::identifiers::separator.length());
-                id_as_int = std::stoi(numbers);
-            }
-            if (id_as_int == -1) {
-                std::string error_msg = "Cannot convert the nexus ID to an integer: " + key_value.first;
-                LOG(LogLevel::FATAL, error_msg);
-                throw std::runtime_error(error_msg);
-            }
-            nexus_df_index[id_index] = id_as_int;
-        }
         py_troute.SetValue("land_surface_water_source__id", nexus_df_index.data());
         for (int i = 0; i < number_of_timesteps; ++i) {
             py_troute.SetValue("land_surface_water_source__volume_flow_rate",
                                routing_nexus_downflows->data() + (i * nexus_count));
             py_troute.Update();
         }
-        // TODO: messaging to send evapotranspirtion data to T-Route BMI
+        // send ET forcing data to t-route BMI
+        py_troute.set_value_unchecked("et_forcing_id", cat_df_index.data(), cat_df_index.size());
+        py_troute.set_value_unchecked("et_forcing_data", routing_evapotranspiration->data(), routing_evapotranspiration->size());
         // Finalize will write the output file
         py_troute.Finalize();
     }
 #endif // NGEN_WITH_ROUTING
-}
-
-void NgenSimulation::gather_indexes_and_values(
-    const NgenSimulation::hy_features_t &features,
-    const std::unordered_map<std::string, int> &indexes,
-    const std::vector<double> &values,
-    std::unordered_map<std::string, int> &gathered_indexes,
-    std::vector<double> &gathered_values
-) {
-#if NGEN_WITH_MPI
-    size_t number_of_timesteps = sim_time_->get_total_output_times();
-
-    std::vector<std::string> local_ids;
-    for (const auto& ids : indexes) {
-        local_ids.push_back(ids.first);
-    }
-    // MPI_Gather all IDs into a single vector
-    std::vector<std::string> all_ids = parallel::gather_strings(local_ids, this->mpi_rank_, this->mpi_num_procs_);
-    if (mpi_rank_ == 0) {
-        // filter to only the unique IDs
-        std::sort(all_ids.begin(), all_ids.end());
-        all_ids.erase(
-            std::unique(all_ids.begin(), all_ids.end()),
-            all_ids.end()
-        );
-    }
-    // MPI_Broadcast so all processes share the IDs
-    all_ids = std::move(parallel::broadcast_strings(all_ids, this->mpi_rank_, this->mpi_num_procs_));
-
-    // MPI_Reduce to collect the results from processes
-    if (this->mpi_rank_ == 0) {
-        gathered_values.resize(number_of_timesteps * all_ids.size(), 0.0);
-    }
-    std::vector<double> local_buffer(number_of_timesteps);
-    std::vector<double> receive_buffer(number_of_timesteps, 0.0);
-    for (int i = 0; i < all_ids.size(); ++i) {
-        std::string current_id = all_ids[i];
-        if (indexes.find(current_id) != indexes.end() && !features.is_remote_sender_nexus(current_id)) {
-            // if this process has the id and receives/records data, copy the values to the buffer
-            int value_index = indexes.at(current_id);
-            for (int step = 0; step < number_of_timesteps; ++step) {
-                int offset = step * indexes.size() + value_index;
-                local_buffer[step] = values[offset];
-            }
-        } else {
-            // if this process does not have the id, fill with 0 to make sure it doesn't affect reduce sum
-            std::fill(local_buffer.begin(), local_buffer.end(), 0.0);
-        }
-        MPI_Reduce(local_buffer.data(), receive_buffer.data(), number_of_timesteps, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        if (mpi_rank_ == 0) {
-            // copy reduce values to a combined downflows vector
-            gathered_indexes[current_id] = i;
-            for (int step = 0; step < number_of_timesteps; ++step) {
-                int offset = step * all_ids.size() + i;
-                gathered_values[offset] = receive_buffer[step];
-                receive_buffer[step] = 0.0;
-            }
-        }
-    }
-#endif // NGEN_WITH_MPI
 }
 
 size_t NgenSimulation::get_num_output_times() const

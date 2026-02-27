@@ -62,13 +62,6 @@ public:
 private:
     void advance_models_one_output_step();
 
-    // collect and merge output values from other MPI processes
-    void gather_indexes_and_values(const NgenSimulation::hy_features_t &features,
-                                   const std::unordered_map<std::string, int> &indexes,
-                                   const std::vector<double> &values,
-                                   std::unordered_map<std::string, int> &gathered_indexes,
-                                   std::vector<double> &gathered_values);
-
     int simulation_step_;
 
     std::shared_ptr<Simulation_Time> sim_time_;
