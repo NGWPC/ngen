@@ -271,6 +271,8 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         // model for routing
         models::bmi::Bmi_Py_Adapter py_troute("T-Route", t_route_config_file_with_path, "troute_nwm_bmi.troute_bmi.BmiTroute", true);
 
+        py_troute.SetValue("delta_time", &delta_time);
+
         // tell BMI to resize nexus containers
         int64_t nexus_count = routing_nexus_indexes->size();
         py_troute.SetValue("land_surface_water_source__volume_flow_rate__count", &nexus_count);
