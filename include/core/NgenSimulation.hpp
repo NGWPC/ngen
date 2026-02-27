@@ -42,7 +42,7 @@ public:
     /**
      * Run the catchment formulations for the full configured duration of the simulation
      *
-     * Captures calculated runoff values in `catchment_outflows_` and
+     * Captures calculated runoff values in `catchment_evapotranspiration_` and
      * `nexus_downstream_flows_` for subsequent output and consumption
      * by `run_routing()`
      */
@@ -71,7 +71,7 @@ private:
 
     // Routing data structured for t-route
     std::unordered_map<std::string, int> catchment_indexes_;
-    std::vector<double> catchment_outflows_;
+    std::vector<double> catchment_evapotranspiration_;
     std::unordered_map<std::string, int> nexus_indexes_;
     std::vector<double> nexus_downstream_flows_;
 
