@@ -687,10 +687,15 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
     auto simulation = std::make_unique<NgenSimulation>(*sim_time,
                                                        layers,
+                                                       &features,
                                                        std::move(catchment_indexes),
                                                        std::move(nexus_indexes),
                                                        mpi_rank,
                                                        mpi_num_procs);
+
+    if (manager->get_using_routing()) {
+        simulation->initialize_routing(manager->get_t_route_config_file_with_path());
+    }
 
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
@@ -740,7 +745,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 #endif
 
     if (manager->get_using_routing()) {
-        simulation->run_routing(features, manager->get_t_route_config_file_with_path());
+        simulation->run_routing();
     }
 
     auto time_done_routing                             = std::chrono::steady_clock::now();
