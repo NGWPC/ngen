@@ -1,7 +1,8 @@
 #include "Bmi_Module_Formulation.hpp"
 #include "utilities/logging_utils.h"
 #include <UnitsHelper.hpp>
-#include "Logger.hpp"
+#include <stdexcept>
+#include "ewts_ngen/logger.hpp"
 
 std::stringstream bmiform_ss;
 
@@ -235,7 +236,7 @@ namespace realization {
             //  consistent with times
             /*
             if (last_model_response_delta == 0 && last_model_response_start_time == 0) {
-                throw runtime_error(get_formulation_type() + " does not properly set output time validity ranges "
+                throw std::runtime_error(get_formulation_type() + " does not properly set output time validity ranges "
                                                              "needed to provide outputs as forcings");
             }
             */
@@ -296,7 +297,7 @@ namespace realization {
             //  consistent with times
             /*
             if (last_model_response_delta == 0 && last_model_response_start_time == 0) {
-                throw runtime_error(get_formulation_type() + " does not properly set output time validity ranges "
+                throw std::runtime_error(get_formulation_type() + " does not properly set output time validity ranges "
                                                              "needed to provide outputs as forcings");
             }
             */
