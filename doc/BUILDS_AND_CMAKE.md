@@ -102,6 +102,20 @@ The project has several dependencies, as discussed in more detail in the [Depend
 
 In some cases - in particular **Google Test** - the build system will need to be [generated](#generating-a-build-system) or [regenerated](#regenerating) after the dependency is available.  If it is not, several build targets may either fail or simply not be available.
 
+## EWTS Prefix (`CMAKE_PREFIX_PATH`)
+
+EWTS (Error, Warning, and Trapping System) must be built and installed before configuring ngen.  CMake locates it via `find_package(ewts CONFIG REQUIRED)`, which searches the paths listed in `CMAKE_PREFIX_PATH`.
+
+If EWTS was installed to a non-standard location (e.g., `/opt/ewts`), pass that path when generating the build system:
+
+    cmake -DCMAKE_PREFIX_PATH=/opt/ewts ...
+
+Without this, CMake will fail with an error like:
+
+    Could not find a package configuration file provided by "ewts"
+
+See [DEPENDENCIES.md](DEPENDENCIES.md#ewts) for instructions on building and installing EWTS, and [EWTS_INTEGRATION.md](EWTS_INTEGRATION.md) for a full description of the integration.
+
 ## Boost ENV Variable
 
 The Boost libraries must be available for the project to compile.  The details are discussed more in the [Dependencies](DEPENDENCIES.md) doc, but as a helpful hint, the **BOOST_ROOT** environmental variable can be set to the path of the applicable [Boost root directory](https://www.boost.org/doc/libs/1_86_0/more/getting_started/unix-variants.html#the-boost-distribution).  The project's [CMakeLists.txt](../CMakeLists.txt) is written to check for this env variable and use it to set the Boost include directory.

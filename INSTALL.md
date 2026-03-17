@@ -54,6 +54,23 @@ git submodule update --init --recursive -- test/googletest
 git submodule update --init --recursive -- extern/pybind11
 ```
 
+**Build and install EWTS:**
+
+EWTS (Error, Warning, and Trapping System) is a required dependency.  Clone, build, and install it before configuring ngen:
+
+```shell
+git clone -b development https://github.com/NGWPC/nwm-ewts.git /tmp/nwm-ewts
+cd /tmp/nwm-ewts
+cmake -B cmake_build \
+      -DEWTS_WITH_NGEN=ON \
+      -DEWTS_BUILD_SHARED=ON
+cmake --build cmake_build
+cmake --install cmake_build --prefix /opt/ewts
+cd -
+```
+
+See [doc/EWTS_INTEGRATION.md](doc/EWTS_INTEGRATION.md) for more details.
+
 **Configure NGen using cmake:**
 
 In addition to normal CMake options, the following `ngen` configuration options are available:
@@ -80,6 +97,7 @@ The following CMake command will configure the build:
 ```shell
 cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
       -DBOOST_ROOT=boost_1_86_0 \
+      -DCMAKE_PREFIX_PATH=/opt/ewts \
       -B /build \
       -S .
 ```

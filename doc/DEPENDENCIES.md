@@ -7,6 +7,7 @@
 | [Google Test](#google-test) | submodule  | `release-1.10.0` | |
 | [C/C++ Compiler](#c-and-c-compiler) | external | see below |  |
 | [CMake](#cmake) | external | \>= `3.17` | |
+| [EWTS](#ewts) | external | `development` | Error, Warning, and Trapping System; required logging framework for ngen and all submodules |
 | [Boost (Headers Only)](#boost-headers-only) | external | `1.86.0` | headers only library |
 | [Udunits libraries](https://www.unidata.ucar.edu/software/udunits) | external | >= 2.0 | Can be installed via package manager or from source |
 | [MPI](https://www.mpi-forum.org) | external | No current implementation or version requirements | Required for [multi-process distributed execution](DISTRIBUTED_PROCESSING.md) |
@@ -75,6 +76,32 @@ However, a [CMake build system](BUILDS_AND_CMAKE.md#generating-a-build-system) m
 ### Version Requirements
 
 Currently, a version of CMake >= `3.14.0` is required.
+
+## EWTS
+
+EWTS (Error, Warning, and Trapping System) is the unified logging framework used by ngen core and all C, C++, Fortran, and Python submodules.  It is a required dependency — the build will fail without it.
+
+See [EWTS_INTEGRATION.md](EWTS_INTEGRATION.md) for a full description of the architecture, CMake targets, and how submodules integrate with it.
+
+### Setup
+
+Clone and build EWTS from its repository, then install it to a known prefix (e.g., `/opt/ewts`):
+
+```shell
+git clone -b development https://github.com/NGWPC/nwm-ewts.git /tmp/nwm-ewts
+cd /tmp/nwm-ewts
+cmake -B cmake_build \
+      -DEWTS_WITH_NGEN=ON \
+      -DEWTS_BUILD_SHARED=ON
+cmake --build cmake_build
+cmake --install cmake_build --prefix /opt/ewts
+```
+
+Then pass `-DCMAKE_PREFIX_PATH=/opt/ewts` when configuring ngen so CMake can locate the `ewtsConfig.cmake` package file.  See [BUILDS_AND_CMAKE.md](BUILDS_AND_CMAKE.md#ewts-prefix-cmake_prefix_path) for details.
+
+### Version Requirements
+
+The `development` branch is the default.  A specific tag or commit SHA can be used by substituting it for `development` in the clone command above, or by passing `EWTS_REF=<ref>` when building with Docker.
 
 ## Boost (Headers Only)
 
