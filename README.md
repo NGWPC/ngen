@@ -35,6 +35,10 @@ This framework includes an encapsulation strategy which focuses on the hydrologi
 
 See the [Dependencies](doc/DEPENDENCIES.md).
 
+## Logging
+
+ngen uses EWTS (Error, Warning, and Trapping System) as its unified logging framework.  EWTS is used by ngen core and all C, C++, Fortran, and Python submodules to provide consistent, structured log output.  See [doc/EWTS_INTEGRATION.md](doc/EWTS_INTEGRATION.md) for details.
+
 ## Installation
 
 See [INSTALL](INSTALL.md).

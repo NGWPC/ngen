@@ -16,6 +16,10 @@ Complex Realization - A single catchment representation of a network of higher d
 
 Encapsulation - A fundamental concept of object-oriented programming that is the practice of bundling data and methods that operate on that data into one unit. This entails information hiding, which is hiding the details of the internal implementation of this unit that are not relevant to those who wish to use it. Various levels of access can be assigned to data held by an object that determine whether or not any external parts of a program can access or modify the data with an object's defined methods. Specifically for this framework, encapsulation is used for bundling of hydrologic data and methods into a model for a given catchment realization among other areas in the code. 
 
+EWTS (Error, Warning, and Trapping System) - The unified logging framework used by ngen core and all C, C++, Fortran, and Python submodules.  EWTS is built from the [nwm-ewts](https://github.com/NGWPC/nwm-ewts) repository and installed as a CMake package before building ngen.  It provides language-specific runtime libraries (`ewts_c`, `ewts_cpp`, `ewts_fortran`) and a Python wheel, all integrated into ngen via the `ewts_ngen_bridge` library.  See [EWTS_INTEGRATION.md](EWTS_INTEGRATION.md).
+
+ewts_ngen_bridge - The shared library that bridges EWTS to the ngen framework core.  It provides the C shim (`ewts_ngen_log()`) that ngen calls to route log messages from submodule models through a unified logging pipeline.  Linked by the ngen and partitionGenerator targets, and conditionally by submodules that need to forward messages into ngen's logging context.
+
 Formulation - The actualization of a catchment realization into a computable object with set parameters.
 
 Flowpath Realization - One-dimensional (linear) feature that is a hydrology-specific realization of the holistic catchment. Relates waterbodies to a catchment at hydrologic locations. [see HY\_Features](https://docs.opengeospatial.org/is/14-111r6/14-111r6.html#_flowpath_also_flow_path) 

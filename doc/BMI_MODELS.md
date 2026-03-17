@@ -44,6 +44,8 @@ The basic outline of steps needed to work with an external BMI model is:
 * Be aware of any model-language-specific caveats
   * [Caveats for C language models](#bmi-c-caveats)
 
+BMI submodule models are expected to use **EWTS** (Error, Warning, and Trapping System) for logging rather than writing directly to stdout/stderr.  EWTS provides language-specific libraries for C, C++, Fortran, and Python models and integrates with ngen's logging pipeline via the `ewts_ngen_bridge` library.  See [EWTS_INTEGRATION.md](EWTS_INTEGRATION.md) for how to add EWTS to a submodule.
+
 [//]: # (TODO: what does the realization config need to look like?)
 
 [//]: # (TODO: Python )
