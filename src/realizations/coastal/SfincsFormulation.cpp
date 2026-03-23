@@ -26,6 +26,13 @@ SfincsFormulation::~SfincsFormulation()
     try { finalize(); } catch (...) {}
 }
 
+static std::string normalize_var(const std::string& v)
+{
+    if (v == "BEDLEVEL" || v == "bedlevel" || v == "bed_level")
+        return "zb";
+    return v;
+}
+
 void SfincsFormulation::create_formulation_()
 {
 #if NGEN_WITH_BMI_FORTRAN
@@ -154,7 +161,7 @@ double SfincsFormulation::get_time_step()
 
 void SfincsFormulation::get_values(const selection_type& selector, boost::span<double> out)
 {
-    const std::string& var = selector.variable_name;
+    const std::string var = normalize_var(selector.variable_name);
 
 #if NGEN_WITH_BMI_FORTRAN
     if (!bmi_) {
