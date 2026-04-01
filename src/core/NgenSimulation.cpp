@@ -8,8 +8,16 @@
 #include "HY_Features.hpp"
 #endif
 
+#include "state_save_restore/vecbuf.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include "state_save_restore/State_Save_Restore.hpp"
+
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/unordered_map.hpp>
+
 #include "parallel_utils.h"
 
 namespace {
@@ -53,6 +61,27 @@ void NgenSimulation::run_catchments()
 
         if (simulation_step_ + 1 < num_times) {
             sim_time_->advance_timestep();
+        }
+    }
+}
+
+void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_saver, int frequency) {
+    int num_times = get_num_output_times();
+
+    for (; simulation_step_ < num_times; simulation_step_++) {
+        // Make room for this output step's results
+        catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
+        nexus_downstream_flows_.resize(nexus_downstream_flows_.size() + nexus_indexes_.size(), 0.0);
+        
+        advance_models_one_output_step();
+
+        if (simulation_step_ + 1 < num_times) {
+            sim_time_->advance_timestep();
+        }
+
+        if (simulation_step_ != 0 && simulation_step_ % frequency == 0) {
+            auto step_saver = checkpoint_saver->initialize_checkpoint_snapshot(simulation_step_, State_Saver::State_Durability::strict);
+            this->save_checkpoint(step_saver);
         }
     }
 }
@@ -120,20 +149,10 @@ void NgenSimulation::advance_models_one_output_step()
 
 }
 
-void NgenSimulation::save_state_snapshot(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
-{
-    // TODO: save the current nexus data
-    auto unit_name = this->unit_name();
-    // XXX Handle self, then recursively pass responsibility to Layers
-    for (auto& layer : layers_) {
-        layer->save_state_snapshot(snapshot_saver);
-    }
-}
-
 void NgenSimulation::save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
 {
     for (auto& layer : layers_) {
-        layer->save_state_snapshot(snapshot_saver);
+        layer->save_end_of_run(snapshot_saver);
     }
 #if NGEN_WITH_ROUTING
     if (this->mpi_rank_ == 0 && this->py_troute_) {
@@ -148,11 +167,21 @@ void NgenSimulation::save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snaps
 #endif // NGEN_WITH_ROUTING
 }
 
-void NgenSimulation::load_state_snapshot(std::shared_ptr<State_Snapshot_Loader> snapshot_loader) {
-    // TODO: load the state data related to nexus outflows
-    auto unit_name = this->unit_name();
+void NgenSimulation::save_checkpoint(std::shared_ptr<State_Snapshot_Saver> snapshot_saver) {
+#if NGEN_WITH_MPI
+    // Remote data is currently handled by MPI, so saving a checkpoint without retreiving all messages could lose data.
+    // An example would be checkpointing every 100 steps with two ranks. Rank 1 is faster than Rank 0, so it saves
+    //   step 200 whilst Rank 1 has only saved step 100. If checkpoints are loaded, all data in MPI messages from Rank 1
+    //   for steps 100-199 will be lost, and the program will likely hang as Rank 0 waits for those messages from Rank 1.
+    // For now, set up a barrier is set up to make sure all ranks can catch up before checkpointing.
+    // A possible later improvement would be the ability to store and recreate the MPI messages when saving/loading checkpoints.
+    if (this->mpi_num_procs_ > 1) {
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+#endif
+    snapshot_saver->archive_unit(this->unit_name(), this);
     for (auto& layer : layers_) {
-        layer->load_state_snapshot(snapshot_loader);
+        layer->save_checkpoint(snapshot_saver);
     }
 }
 
@@ -183,6 +212,24 @@ void NgenSimulation::load_hot_start(std::shared_ptr<State_Snapshot_Loader> snaps
         }
     }
 #endif // NGEN_WITH_ROUTING
+}
+
+void NgenSimulation::load_checkpoint(std::shared_ptr<State_Snapshot_Loader> checkpoint_loader) {
+    checkpoint_loader->dearchive_unit(this->unit_name(), this);
+    for (auto& layer : layers_) {
+        layer->load_checkpoint(checkpoint_loader);
+    }
+}
+
+std::vector<std::string> NgenSimulation::required_checkpoint_units() const {
+    std::vector<std::string> units;
+    units.push_back(this->unit_name());
+    for (const auto &layer : this->layers_) {
+        const auto layer_units = layer->required_checkpoint_units();
+        for (const auto &unit : layer_units)
+            units.push_back(unit);
+    }
+    return units;
 }
 
 
@@ -332,7 +379,7 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         // case a future implementation needs these two values from the ngen framework.
         int delta_time = sim_time_->get_output_interval_seconds();
 
-        // model for routing
+        // if the t-route model was not created from a hot start load, make it now
         if (this->py_troute_ == NULL) {
             this->make_troute(t_route_config_file_with_path);
         }
@@ -369,16 +416,14 @@ std::string NgenSimulation::get_timestamp_for_step(int step) const
 }
 
 template <class Archive>
-void NgenSimulation::serialize(Archive& ar) {
+void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
     /* Handle `catchment_formulation_manager` specially in the
      * overall checkpoint/restart logic, so that we can subset
      * individual catchments and do other tricky things */
     //ar & catchment_formulation_manager
 
     ar & simulation_step_;
-    ar & sim_time_;
-
-    // Layers will be reconstructed, but their internal time keeping needs to be serialized
+    ar & (*sim_time_);
 
     // Nexus and catchment indexes could be re-generated, but only if
     // the set of catchments remains consistent

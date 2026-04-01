@@ -95,6 +95,11 @@ namespace realization {
          */
         virtual void load_hot_start(std::shared_ptr<State_Snapshot_Loader> loader) = 0;
 
+        // Unit name used for identifying a save state ID
+        inline std::string save_state_unit_name() const {
+            return this->get_id();
+        }
+
         /**
          * Convert a time value from the model to an epoch time in seconds.
          *

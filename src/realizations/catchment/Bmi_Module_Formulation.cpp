@@ -25,14 +25,14 @@ namespace realization {
             // Rely on Formulation_Manager also using this->get_id()
             // as a unique key for the individual catchment
             // formulations
-            saver->save_unit(this->get_id(), data);
+            saver->save_unit(this->save_state_unit_name(), data);
 
             this->free_serialization_state();
         }
 
         void Bmi_Module_Formulation::load_state(std::shared_ptr<State_Snapshot_Loader> loader) {
             std::vector<char> buffer;
-            loader->load_unit(this->get_id(), buffer);
+            loader->load_unit(this->save_state_unit_name(), buffer);
             boost::span<char> data(buffer.data(), buffer.size());
             this->load_serialization_state(data);
         }

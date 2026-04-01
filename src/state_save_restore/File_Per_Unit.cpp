@@ -20,17 +20,6 @@
 #include <fstream>
 #include <iomanip>
 
-namespace unit_saving_utils {
-    std::string format_epoch(State_Saver::snapshot_time_t epoch)
-    {
-        time_t t = std::chrono::system_clock::to_time_t(epoch);
-        std::tm tm = *std::gmtime(&t);
-
-        std::stringstream tss;
-        tss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
-        return tss.str();
-    }
-}
 
 // This class is only declared and defined here, in the .cpp file,
 // because it is strictly an implementation detail of the top-level
@@ -66,9 +55,9 @@ std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_snapshot(S
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(path(this->base_path_), durability);
 }
 
-std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_checkpoint_snapshot(snapshot_time_t epoch, State_Durability durability)
+std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_checkpoint_snapshot(int step, State_Durability durability)
 {
-    path checkpoint_path = path(this->base_path_) / unit_saving_utils::format_epoch(epoch);
+    path checkpoint_path = path(this->base_path_) / std::to_string(step);
     create_directory(checkpoint_path);
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(checkpoint_path, durability);
 }
@@ -188,9 +177,36 @@ std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_snapshot
     return std::make_shared<File_Per_Unit_Snapshot_Loader>(path(dir_path_));
 }
 
-std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoint_snapshot(State_Saver::snapshot_time_t epoch)
+std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoint_snapshot(const std::vector<std::string> &required_units, int *const checkpoint_step)
 {
-    path checkpoint_path = path(dir_path_) / unit_saving_utils::format_epoch(epoch);;
-    return std::make_shared<File_Per_Unit_Snapshot_Loader>(checkpoint_path);
+    std::vector<path> options;
+    for (const auto &subdir : directory_iterator(dir_path_)) {
+        path subdir_path = subdir.path();
+        // make sure subfolder is a number from a timestep
+        if (subdir_path.filename().string().find_first_not_of("0123456789") == std::string::npos) {
+            options.push_back(subdir);
+        }
+    }
+    // sort options by the highest number representation
+    std::sort(options.begin(), options.end(), [](const path &a, const path &b) {
+        return std::stoi(a.filename().string()) > std::stoi(b.filename().string());
+    });
+    for (const path &option : options) {
+        auto loader = std::make_shared<File_Per_Unit_Snapshot_Loader>(option);
+        bool passes = true;
+        for (const auto &unit : required_units) {
+            if (!loader->has_unit(unit)) {
+                passes = false;
+                break;
+            }
+        }
+        if (passes) {
+            *checkpoint_step = std::stoi(option.filename().string());
+            return loader;
+        }
+    }
+    std::string error = "No checkpoint location found with all required units in root directory " + this->dir_path_;
+    LOG(LogLevel::FATAL, error);
+    throw std::runtime_error(error);
 }
 

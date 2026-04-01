@@ -5,6 +5,9 @@
 
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/core/span.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -12,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "vecbuf.hpp"
 #include "State_Save_Utils.hpp"
 
 class State_Saver;
@@ -49,15 +53,22 @@ public:
      */
     std::unique_ptr<State_Loader> hot_start() const;
 
+    std::unique_ptr<State_Loader> checkpoint_loader() const;
+
+    bool has_checkpoint_saver() const;
+
+    std::shared_ptr<State_Saver> checkpoint_saver(int *const frequency) const;
+
     struct instance
     {
-        instance(std::string const& direction, std::string const& label, std::string const& path, std::string const& mechanism, std::string const& timing);
+        instance(std::string const& direction, std::string const& label, std::string const& path, std::string const& mechanism, std::string const& timing, boost::optional<int> frequency);
 
         State_Save_Direction direction_;
         State_Save_Mechanism mechanism_;
         State_Save_When timing_;
         std::string label_;
         std::string path_;
+        int frequency_;
 
         std::string mechanism_string() const;
     };
@@ -69,8 +80,6 @@ private:
 class State_Saver
 {
 public:
-    using snapshot_time_t = std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>;
-
     // Flag type to indicate whether state saving needs to ensure
     // stability of saved data wherever it is stored before returning
     // success
@@ -78,8 +87,6 @@ public:
 
     State_Saver() = default;
     virtual ~State_Saver() = default;
-
-    static snapshot_time_t snapshot_time_now();
 
     /**
      * Return an object suitable for saving a simulation state as of a
@@ -91,7 +98,7 @@ public:
      */
     virtual std::shared_ptr<State_Snapshot_Saver> initialize_snapshot(State_Durability durability) = 0;
 
-    virtual std::shared_ptr<State_Snapshot_Saver> initialize_checkpoint_snapshot(snapshot_time_t epoch, State_Durability durability) = 0;
+    virtual std::shared_ptr<State_Snapshot_Saver> initialize_checkpoint_snapshot(int step, State_Durability durability) = 0;
 
     /**
      * Execute any logic necessary to cleanly finish usage, and
@@ -113,6 +120,18 @@ public:
      * Capture the data from a single unit of the simulation
      */
     virtual void save_unit(std::string const& unit_name, boost::span<char const> data) = 0;
+
+    /**
+     * Capture the data from a single unit that can be serialized with a Boost binary_oarchive
+     */
+    template <class T>
+    void archive_unit(const std::string &unit_name, T *item) {
+        vecbuf<char> buffer;
+        boost::archive::binary_oarchive archive(buffer);
+        archive << (*item);
+        boost::span<char> data(buffer.data(), buffer.size());
+        this->save_unit(unit_name, data);
+    }
 
     /**
      * Execute logic to complete the saving process
@@ -142,7 +161,13 @@ public:
      */
     virtual std::shared_ptr<State_Snapshot_Loader> initialize_snapshot() = 0;
 
-    virtual std::shared_ptr<State_Snapshot_Loader> initialize_checkpoint_snapshot(State_Saver::snapshot_time_t epoch) = 0;
+    /**
+     * Return an object suitable for loading a checkpoint simulation state with all the required units.
+     * 
+     * @param required_units Vector of all units that are required for a simulation state to be considered complete.
+     * @param checkpoint_step Pointer that will be set to the step number of the valid state.
+     */
+    virtual std::shared_ptr<State_Snapshot_Loader> initialize_checkpoint_snapshot(const std::vector<std::string> &required_units, int *const checkpoint_step) = 0;
 
     /**
      * Execute any logic necessary to cleanly finish usage, and
@@ -168,6 +193,18 @@ public:
      * Load data from whatever source, and pass it to @param unit_loader->load()
      */
     virtual void load_unit(const std::string &unit_name, std::vector<char> &data) = 0;
+
+    /**
+     * Load unit data and immediately dearchive it with a Boost binary_iarchive
+     */
+    template<class T>
+    void dearchive_unit(const std::string &unit_name, T *item) {
+        std::vector<char> buffer;
+        this->load_unit(unit_name, buffer);
+        membuf data(buffer.data(), buffer.size());
+        boost::archive::binary_iarchive archive(data);
+        archive >> (*item);
+    }
 
     /**
      * Execute logic to complete the saving process

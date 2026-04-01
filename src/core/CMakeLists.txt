@@ -9,6 +9,7 @@ target_link_libraries(core PUBLIC
 
 target_link_libraries(core PRIVATE
                            NGen::parallel
+                           NGen::state_save_restore
                            )
 
 if(USE_EWTS)

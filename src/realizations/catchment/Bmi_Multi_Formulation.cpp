@@ -26,7 +26,7 @@ using namespace realization;
 
 
 void Bmi_Multi_Formulation::save_state(std::shared_ptr<State_Snapshot_Saver> saver) {
-    LOG(LogLevel::DEBUG, "Saving state for Multi-BMI %s", this->get_id());
+    LOG(LogLevel::DEBUG, "Saving state for Multi-BMI %s", this->save_state_unit_name());
     vecbuf<char> data;
     boost::archive::binary_oarchive archive(data);
     // serialization function handles freeing the sub-BMI states after archiving them
@@ -38,13 +38,13 @@ void Bmi_Multi_Formulation::save_state(std::shared_ptr<State_Snapshot_Saver> sav
         bmi->free_serialization_state();
     }
     boost::span<const char> span(data.data(), data.size());
-    saver->save_unit(this->get_id(), span);
+    saver->save_unit(this->save_state_unit_name(), span);
 }
 
 void Bmi_Multi_Formulation::load_state(std::shared_ptr<State_Snapshot_Loader> loader) {
-    LOG(LogLevel::DEBUG, "Loading save state for Multi-BMI %s", this->get_id());
+    LOG(LogLevel::DEBUG, "Loading save state for Multi-BMI %s", this->save_state_unit_name());
     std::vector<char> data;
-    loader->load_unit(this->get_id(), data);
+    loader->load_unit(this->save_state_unit_name(), data);
     membuf stream(data.data(), data.size());
     boost::archive::binary_iarchive archive(stream);
     archive >> (*this);

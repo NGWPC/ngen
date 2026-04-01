@@ -24,6 +24,8 @@ class State_Snapshot_Loader;
 #include <unordered_map>
 #include <string>
 
+#include <boost/serialization/serialization.hpp>
+
 // Contains all of the dynamic state and logic to run a NextGen hydrologic simulation
 class NgenSimulation
 {
@@ -55,6 +57,9 @@ public:
      */
     void run_catchments();
 
+    // Alternative method of running catchments that includes saving checkpoints at a desired frequency.
+    void run_catchments(std::shared_ptr<State_Saver> checkpoint_saver, int frequency);
+
     // Tear down of any items stored on the NgenSimulation object that could throw errors and, thus, should be kept separate from the deconstructor.
     void finalize();
 
@@ -69,8 +74,6 @@ public:
     size_t get_num_output_times() const;
     std::string get_timestamp_for_step(int step) const;
 
-    void save_state_snapshot(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
-    void load_state_snapshot(std::shared_ptr<State_Snapshot_Loader> snapshot_loader);
     /**
      * Saves a snapshot state that's intended to be run at the end of a simulation.
      * 
@@ -79,6 +82,10 @@ public:
     void save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
     // Load a snapshot of the end of a previous run. This will create a T-Route python adapter if the loader finds a unit for it and the config path is not empty.
     void load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot_loader, const std::string &t_route_config_file_with_path);
+    // Load a snapshot of a checkpoint from a previous run. This will create a T-Route python adapter if the loader finds a unit for it (most likely to happen if the checkpoint is derived from )
+    void load_checkpoint(std::shared_ptr<State_Snapshot_Loader> checkpoint_loader);
+
+    std::vector<std::string> required_checkpoint_units() const;
 
 private:
     void advance_models_one_output_step();
@@ -123,8 +130,9 @@ private:
     int mpi_num_procs_;
 
     // Serialization template will be defined and instantiated in the .cpp file
+    friend class boost::serialization::access;
     template <class Archive>
-    void serialize(Archive& ar);
+    void serialize(Archive& ar, const unsigned int version);
 };
 
 #endif
