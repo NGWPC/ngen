@@ -349,6 +349,7 @@ add_subdirectory("src/core")
 add_subdirectory("src/geojson")
 add_subdirectory("src/bmi")
 add_subdirectory("src/realizations/catchment")
+add_subdirectory("src/realizations/coastal")
 add_subdirectory("src/forcing")
 add_subdirectory("src/state_save_restore")
 add_subdirectory("src/utilities")
@@ -366,6 +367,7 @@ target_link_libraries(ngen
         NGen::core_nexus
         NGen::geojson
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::forcing
         NGen::core_mediator
         NGen::logging

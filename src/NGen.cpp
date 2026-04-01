@@ -10,6 +10,15 @@
 #include "realizations/catchment/Formulation_Manager.hpp"
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+
+//#if NGEN_ENABLE_SCHISM
+#include "realizations/coastal/SchismCreator.hpp"
+//#endif
+
+#include "realizations/coastal/SfincsCreator.hpp"  
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+#include "realizations/coastal/SchismCreator.hpp"
 
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
@@ -33,6 +42,17 @@
 #include "python/InterpreterUtil.hpp"
 #include <pybind11/embed.h>
 #endif // NGEN_WITH_PYTHON
+    
+#if NGEN_WITH_ROUTING
+#include "routing/Routing_Py_Adapter.hpp"
+#endif // NGEN_WITH_ROUTING
+
+std::string catchmentDataFile = "";
+std::string nexusDataFile = "";
+std::string REALIZATION_CONFIG_PATH = "";
+bool is_subdivided_hydrofabric_wanted = false;
+
+#include "parallel_utils.h"
 
 #if NGEN_WITH_MPI
 
@@ -48,6 +68,7 @@
 
 #include "core/Partition_One.hpp"
 
+std::string PARTITION_PATH = "";
 #endif // NGEN_WITH_MPI
 
 #include <DomainLayer.hpp>
@@ -363,16 +384,12 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
         // Do some extra steps if we expect to load a subdivided hydrofabric
         if (is_subdivided_hydrofabric_wanted) {
-            // Ensure the hydrofabric is subdivided (either already or by doing it now), and then
-            // adjust these paths
-            if (parallel::is_hydrofabric_subdivided(catchmentDataFile, mpi_rank, mpi_num_procs, true) ||
-                parallel::subdivide_hydrofabric(
-                    mpi_rank,
-                    mpi_num_procs,
-                    catchmentDataFile,
-                    nexusDataFile,
-                    PARTITION_PATH
-                )) {
+            // Ensure the hydrofabric is subdivided (either already or by doing it now), and then adjust these paths
+            if (parallel::is_hydrofabric_subdivided(mpi_rank, mpi_num_procs, catchmentDataFile, true) ||
+                parallel::subdivide_hydrofabric(mpi_rank, mpi_num_procs, catchmentDataFile, nexusDataFile,
+                                                PARTITION_PATH))
+            {
+>>>>>>> sfincs_schism_merged_012026
                 catchmentDataFile += "." + std::to_string(mpi_rank);
                 nexusDataFile += "." + std::to_string(mpi_rank);
             }
@@ -841,6 +858,29 @@ int main(int argc, char* argv[]) {
     // explicitly destroy the interpreter before calling MPI_Finalize
     _interp.reset();
 #endif
+    if (manager->get_using_coastal()) {
+
+      auto coastal_conf = manager->get_coastal_config();
+
+      // create the factory registry
+      ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
+
+      // register all supported coastal models
+      #if NGEN_ENABLE_SCHISM
+      registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
+      #endif
+
+      registry.registerCreator(ModelType::SFINCS, std::make_unique<SfincsCreator>()); //
+
+      // retrieve the creator for the model selected in the config
+      std::unique_ptr<ModelCreator> coastal_creator = 
+	                                registry.getCreator(coastal_conf->getModelType());
+
+      // execute the selected coastal model (SCHISM or SFINCS)
+      coastal_creator->executeModel( *coastal_conf, 
+		                    *(manager->Simulation_Time_Object) );
+    }
+    manager->finalize();
 
 #if NGEN_WITH_MPI
     MPI_Finalize();
@@ -848,3 +888,4 @@ int main(int argc, char* argv[]) {
 
     return result;
 }
+

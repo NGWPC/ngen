@@ -13,6 +13,7 @@ target_link_libraries(core PRIVATE
 
 target_link_libraries(core PUBLIC
                            ewts::ewts_ngen_bridge
+                           NGen::core_mediator
                            )
 
 target_include_directories(core PUBLIC
