@@ -1,0 +1,8 @@
+1 0 0 0 0 0 0 0 0 !on (1)|off(0) flags for elev,air pressure,windx,windy,T,S,u,v,w,rest of tracers (expanded into subclasses of each module)
+6 !# of stations
+1 -73.39736870 44.9072389 119717 Unable to render embedded object: File ( station #,x,y,z; if ics=2, x,y are degr in lon/lat. z is z-coord (not distance from surface) not found.). 
+2 -73.46089210 44.0541124 120426
+3 -73.20914400 44.6754512 119929
+4 -73.46484870 44.6238528 120136
+5 -73.28510080 45.1682558 40645
+6 -73.27450570 44.2314544 120411
