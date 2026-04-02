@@ -84,6 +84,8 @@ public:
     void load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot_loader, const std::string &t_route_config_file_with_path);
     // Load a snapshot of a checkpoint from a previous run. This will create a T-Route python adapter if the loader finds a unit for it (most likely to happen if the checkpoint is derived from )
     void load_checkpoint(std::shared_ptr<State_Snapshot_Loader> checkpoint_loader);
+    // Save a snapshot that preserves data related to the current time and could be loaded to jump a simulation into the middle of a run.
+    void save_checkpoint(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
 
     std::vector<std::string> required_checkpoint_units() const;
 

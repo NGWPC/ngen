@@ -100,6 +100,12 @@ public:
 
     virtual std::shared_ptr<State_Snapshot_Saver> initialize_checkpoint_snapshot(int step, State_Durability durability) = 0;
 
+    /** Clear unneeded data that may be generated over the lifetime of a State_Saver's lifetime
+     * 
+     * @param mpi_rank The process' MPI rank that may be used for determining responsibility of cleanup.
+     */
+    virtual void clear_cache(int mpi_rank) = 0;
+
     /**
      * Execute any logic necessary to cleanly finish usage, and
      * potentially report errors, before destructors would
@@ -167,7 +173,7 @@ public:
      * @param required_units Vector of all units that are required for a simulation state to be considered complete.
      * @param checkpoint_step Pointer that will be set to the step number of the valid state.
      */
-    virtual std::shared_ptr<State_Snapshot_Loader> initialize_checkpoint_snapshot(const std::vector<std::string> &required_units, int *const checkpoint_step) = 0;
+    virtual std::shared_ptr<State_Snapshot_Loader> initialize_checkpoint_snapshot(const std::vector<std::string> &required_units) = 0;
 
     /**
      * Execute any logic necessary to cleanly finish usage, and

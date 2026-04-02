@@ -17,9 +17,30 @@
   #error "No Filesystem library implementation available"
 #endif
 
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/file_descriptor.hpp>
+#include <boost/iostreams/stream.hpp>
+
 #include <fstream>
 #include <iomanip>
 
+namespace {
+    // Populate a vector of paths with subfolders with names that can be interpreted as ints.
+    // The vector will be sorted by highest numeric representation first.
+    void ordered_checkpoint_subfolders(const std::string &root, std::vector<path> &subdirs) {
+        for (const auto &subdir : directory_iterator(root)) {
+            path subdir_path = subdir.path();
+            // make sure subfolder is a number from a timestep
+            if (subdir_path.filename().string().find_first_not_of("0123456789") == std::string::npos) {
+                subdirs.push_back(subdir);
+            }
+        }
+        // sort options by the highest number representation
+        std::sort(subdirs.begin(), subdirs.end(), [](const path &a, const path &b) {
+            return std::stoi(a.filename().string()) > std::stoi(b.filename().string());
+        });
+    }
+}
 
 // This class is only declared and defined here, in the .cpp file,
 // because it is strictly an implementation detail of the top-level
@@ -51,7 +72,6 @@ File_Per_Unit_Saver::File_Per_Unit_Saver(std::string base_path)
 File_Per_Unit_Saver::~File_Per_Unit_Saver() = default;
 
 std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_snapshot(State_Durability durability) {
-    // TODO
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(path(this->base_path_), durability);
 }
 
@@ -60,6 +80,17 @@ std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_checkpoint
     path checkpoint_path = path(this->base_path_) / std::to_string(step);
     create_directory(checkpoint_path);
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(checkpoint_path, durability);
+}
+
+void File_Per_Unit_Saver::clear_cache(int mpi_rank) {
+    if (mpi_rank == 0) { // reserve file system deletion to just the main MPI rank
+        std::vector<path> subdirs;
+        ordered_checkpoint_subfolders(this->base_path_, subdirs);
+        // delete all checkpoint directories save the most recent one
+        for (int i = 1; i < subdirs.size(); ++i) {
+            remove_all(subdirs[i]);
+        }
+    }
 }
 
 void File_Per_Unit_Saver::finalize()
@@ -177,20 +208,10 @@ std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_snapshot
     return std::make_shared<File_Per_Unit_Snapshot_Loader>(path(dir_path_));
 }
 
-std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoint_snapshot(const std::vector<std::string> &required_units, int *const checkpoint_step)
+std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoint_snapshot(const std::vector<std::string> &required_units)
 {
     std::vector<path> options;
-    for (const auto &subdir : directory_iterator(dir_path_)) {
-        path subdir_path = subdir.path();
-        // make sure subfolder is a number from a timestep
-        if (subdir_path.filename().string().find_first_not_of("0123456789") == std::string::npos) {
-            options.push_back(subdir);
-        }
-    }
-    // sort options by the highest number representation
-    std::sort(options.begin(), options.end(), [](const path &a, const path &b) {
-        return std::stoi(a.filename().string()) > std::stoi(b.filename().string());
-    });
+    ordered_checkpoint_subfolders(this->dir_path_, options);
     for (const path &option : options) {
         auto loader = std::make_shared<File_Per_Unit_Snapshot_Loader>(option);
         bool passes = true;
@@ -201,7 +222,7 @@ std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoi
             }
         }
         if (passes) {
-            *checkpoint_step = std::stoi(option.filename().string());
+            LOG(LogLevel::INFO, "Loading state from checkpoint step " + option.filename().string());
             return loader;
         }
     }
