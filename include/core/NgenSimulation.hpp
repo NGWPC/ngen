@@ -109,6 +109,8 @@ private:
         const NgenSimulation::hy_features_t &features
     );
 
+    inline void sync_mpi_ranks() const;
+
     int simulation_step_;
 
     std::shared_ptr<Simulation_Time> sim_time_;

@@ -80,22 +80,26 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
         }
 
         if (simulation_step_ != 0 && simulation_step_ % frequency == 0) {
-#if NGEN_WITH_MPI
             // Remote data is currently handled by MPI, so saving a checkpoint without retreiving all messages could lose data.
             // An example would be checkpointing every 100 steps with two ranks. Rank 1 is faster than Rank 0, so it saves
             //   step 200 whilst Rank 1 has only saved step 100. If checkpoints are loaded, all data in MPI messages from Rank 1
             //   for steps 100-199 will be lost, and the program will likely hang as Rank 0 waits for those messages from Rank 1.
             // For now, set up a barrier to make sure all ranks can catch up before checkpointing.
             // A possible later improvement would be the ability to store and recreate the MPI messages when saving/loading checkpoints.
-            if (this->mpi_num_procs_ > 1) {
-                MPI_Barrier(MPI_COMM_WORLD);
-            }
-#endif // NGEN_WITH_MPI
+            this->sync_mpi_ranks();
             checkpoint_saver->clear_cache(this->mpi_rank_);
+            this->sync_mpi_ranks();
             auto step_saver = checkpoint_saver->initialize_checkpoint_snapshot(simulation_step_, State_Saver::State_Durability::strict);
             this->save_checkpoint(step_saver);
         }
     }
+}
+
+void NgenSimulation::sync_mpi_ranks() const {
+#if NGEN_WITH_MPI
+    if (this->mpi_num_procs_ > 1)
+        MPI_Barrier(MPI_COMM_WORLD);
+#endif // NGEN_WITH_MPI
 }
 
 void NgenSimulation::finalize() {
