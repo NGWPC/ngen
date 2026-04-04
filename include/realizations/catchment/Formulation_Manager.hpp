@@ -16,6 +16,14 @@
 #include <unistd.h>
 #include <string>
 
+#include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <vector>
+
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <FeatureBuilder.hpp>
@@ -27,6 +35,8 @@
 #include "realizations/config/config.hpp"
 #include "realizations/config/layer.hpp"
 #include "forcing/ForcingsEngineDataProvider.hpp"
+
+
 
 namespace realization {
 
@@ -63,6 +73,12 @@ namespace realization {
             }
 
             ~Formulation_Manager() = default;
+
+	    static std::string to_lower_copy(std::string s) {
+                std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+                return s;
+            }
 
             void read(simulation_time_params &simulation_time_config,
                       geojson::GeoJSON fabric, utils::StreamHandler output_stream) {
@@ -383,6 +399,298 @@ namespace realization {
 
 
         protected:
+            static std::string trim_copy(const std::string& s) {
+                const auto begin = s.find_first_not_of(" \t\r\n");
+                if (begin == std::string::npos) {
+                    return "";
+                }
+                const auto end = s.find_last_not_of(" \t\r\n");
+                return s.substr(begin, end - begin + 1);
+            }
+
+            static std::string dirname_of(const std::string& path) {
+                const auto pos = path.find_last_of('/');
+                if (pos == std::string::npos) {
+                    return ".";
+                }
+                if (pos == 0) {
+                    return "/";
+                }
+                return path.substr(0, pos);
+            }
+
+            static std::string basename_of(const std::string& path) {
+                const auto pos = path.find_last_of('/');
+                if (pos == std::string::npos) {
+                    return path;
+                }
+                return path.substr(pos + 1);
+            }
+
+            static std::string basename_without_extension(const std::string& path) {
+                const std::string base = basename_of(path);
+                const auto pos = base.find_last_of('.');
+                if (pos == std::string::npos) {
+                    return base;
+                }
+                return base.substr(0, pos);
+            }
+
+            static std::string join_path(const std::string& a, const std::string& b) {
+                if (a.empty()) {
+                    return b;
+                }
+                if (a.back() == '/') {
+                    return a + b;
+                }
+                return a + "/" + b;
+            }
+
+            static bool is_absolute_path(const std::string& p) {
+                return !p.empty() && p.front() == '/';
+            }
+
+            static std::string absolutize_path(const std::string& maybe_relative, const std::string& base_dir) {
+                const std::string trimmed = trim_copy(maybe_relative);
+                if (trimmed.empty()) {
+                    return trimmed;
+                }
+                if (is_absolute_path(trimmed)) {
+                    return trimmed;
+                }
+                return join_path(base_dir, trimmed);
+            }
+
+            static void ensure_directory_exists(const std::string& dir) {
+                struct stat sb {};
+                if (stat(dir.c_str(), &sb) == 0) {
+                    if (S_ISDIR(sb.st_mode)) {
+                        return;
+                    }
+                    throw std::runtime_error("Path exists but is not a directory: " + dir);
+                }
+
+                if (mkdir(dir.c_str(), 0755) != 0 && errno != EEXIST) {
+                    throw std::runtime_error("Failed to create directory '" + dir + "': " + std::string(std::strerror(errno)));
+                }
+            }
+
+            static void parse_realization_datetime(
+                const std::string& dt,
+                int& year,
+                int& month,
+                int& day,
+                int& hour,
+                int& minute,
+                int& second
+            ) {
+                if (std::sscanf(dt.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) {
+                    throw std::runtime_error("Unable to parse realization datetime: " + dt);
+                }
+            }
+
+            static std::string format_ueb_datetime_line(const std::string& dt) {
+                int year, month, day, hour, minute, second;
+                parse_realization_datetime(dt, year, month, day, hour, minute, second);
+                const double fractional_hour = static_cast<double>(hour)
+                                             + (static_cast<double>(minute) / 60.0)
+                                             + (static_cast<double>(second) / 3600.0);
+
+                std::ostringstream oss;
+                oss << year << " " << month << " " << day << " "
+                    << std::fixed << std::setprecision(6) << fractional_hour;
+                return oss.str();
+            }
+
+            static std::string sanitize_identifier_for_filename(std::string s) {
+                std::replace_if(
+                    s.begin(),
+                    s.end(),
+                    [](unsigned char c) {
+                        return !(std::isalnum(c) || c == '_' || c == '-');
+                    },
+                    '_'
+                );
+                return s;
+            }
+
+            bool property_map_contains_ueb_module(const geojson::PropertyMap& params) const {
+                auto model_type_it = params.find(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE);
+                if (model_type_it != params.end() &&
+                    model_type_it->second.get_type() == geojson::PropertyType::String) {
+                    const std::string model_type_name = to_lower_copy(model_type_it->second.as_string());
+                    if (model_type_name.find("ueb") != std::string::npos) {
+                        return true;
+                    }
+
+                }
+
+                auto modules_it = params.find("modules");
+                if (modules_it != params.end() &&
+                    modules_it->second.get_type() == geojson::PropertyType::List) {
+                    for (const auto& module_prop : modules_it->second.as_list()) {
+                        if (module_prop.get_type() != geojson::PropertyType::Object) {
+                            continue;
+                        }
+                        auto module_map = module_prop.get_values();
+                        auto params_it = module_map.find("params");
+                        if (params_it != module_map.end() &&
+                            params_it->second.get_type() == geojson::PropertyType::Object) {
+                            if (property_map_contains_ueb_module(params_it->second.get_values())) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            std::string generate_ueb_runtime_init_config(
+                std::string init_config_path,
+                const std::string& identifier,
+                simulation_time_params& simulation_time_config
+            ) const {
+                const std::string id_pattern = "{{id}}";
+                std::size_t pos = 0;
+                while ((pos = init_config_path.find(id_pattern, pos)) != std::string::npos) {
+                    init_config_path.replace(pos, id_pattern.size(), identifier);
+                    pos += identifier.size();
+                }
+
+                std::ifstream ifs(init_config_path);
+                if (!ifs.is_open()) {
+                    throw std::runtime_error("Unable to open UEB init config: " + init_config_path);
+                }
+
+                std::vector<std::string> lines;
+                std::string line;
+                while (std::getline(ifs, line)) {
+                    lines.push_back(line);
+                }
+                ifs.close();
+
+                // Expected UEB control.dat layout:
+                // 0 header
+                // 1 param file
+                // 2 site file
+                // 3 input control
+                // 4 output control
+                // 5 agg output file
+                // 6 watershed file
+                // 7 watershed var/y/x names
+                // 8 start date line
+                // 9 end date line
+                // 10 dt line
+                // ...
+                if (lines.size() < 11) {
+                    throw std::runtime_error("UEB control file is shorter than expected: " + init_config_path);
+                }
+
+                const std::string control_dir = dirname_of(init_config_path);
+
+                // Make path lines absolute so the generated file can live anywhere.
+                for (int i = 1; i <= 6 && i < static_cast<int>(lines.size()); ++i) {
+                    lines[i] = absolutize_path(lines[i], control_dir);
+                }
+
+                lines[8]  = format_ueb_datetime_line(simulation_time_config.start_time);
+                lines[9]  = format_ueb_datetime_line(simulation_time_config.end_time);
+
+                const double dt_hours = static_cast<double>(simulation_time_config.output_interval) / 3600.0;
+                if (dt_hours <= 0.0) {
+                    throw std::runtime_error("Invalid realization output_interval for UEB: " + std::to_string(simulation_time_config.output_interval));
+                }
+
+                {
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(6) << dt_hours;
+                    lines[10] = oss.str();
+                }
+
+                const std::string runtime_root = join_path(get_output_root(), "ueb_runtime_configs");
+                ensure_directory_exists(runtime_root);
+
+                const std::string safe_id = sanitize_identifier_for_filename(identifier);
+                const std::string runtime_config =
+                    join_path(runtime_root,
+                              basename_without_extension(init_config_path) + "__" + safe_id + ".dat");
+
+                std::ofstream ofs(runtime_config, std::ios::out | std::ios::trunc);
+                if (!ofs.is_open()) {
+                    throw std::runtime_error("Unable to write generated UEB init config: " + runtime_config);
+                }
+
+                for (std::size_t i = 0; i < lines.size(); ++i) {
+                    ofs << lines[i];
+                    if (i + 1 < lines.size()) {
+                        ofs << "\n";
+                    }
+                }
+                ofs.close();
+
+                std::stringstream ss;
+                ss << "Generated UEB runtime init config for " << identifier << ": " << runtime_config << std::endl;
+                ss << "  realization start_time: " << simulation_time_config.start_time << std::endl;
+                ss << "  realization end_time:   " << simulation_time_config.end_time << std::endl;
+                ss << "  realization dt_hours:   " << dt_hours << std::endl;
+                LOG(ss.str(), LogLevel::INFO);
+
+                return runtime_config;
+            }
+
+            void apply_realization_time_to_ueb_modules(
+                geojson::PropertyMap& params,
+                const std::string& identifier,
+                simulation_time_params& simulation_time_config
+            ) const {
+                auto model_type_it = params.find(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE);
+                auto init_config_it = params.find(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG);
+
+                if (model_type_it != params.end() &&
+                    init_config_it != params.end() &&
+                    model_type_it->second.get_type() == geojson::PropertyType::String &&
+                    init_config_it->second.get_type() == geojson::PropertyType::String) {
+
+		    const std::string model_type_name = to_lower_copy(model_type_it->second.as_string());
+
+                    if (model_type_name.find("ueb") != std::string::npos) {
+                        const std::string original_init_config = init_config_it->second.as_string();
+                        const std::string generated_init_config =
+                            generate_ueb_runtime_init_config(original_init_config, identifier, simulation_time_config);
+
+                        params[BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG] =
+                            geojson::JSONProperty(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG, generated_init_config);
+                    }
+                }
+
+                auto modules_it = params.find("modules");
+                if (modules_it != params.end() &&
+                    modules_it->second.get_type() == geojson::PropertyType::List) {
+
+                    std::vector<geojson::JSONProperty> updated_modules;
+                    for (auto module_prop : modules_it->second.as_list()) {
+                        if (module_prop.get_type() != geojson::PropertyType::Object) {
+                            updated_modules.push_back(module_prop);
+                            continue;
+                        }
+
+                        auto module_map = module_prop.get_values();
+                        auto nested_params_it = module_map.find("params");
+                        if (nested_params_it != module_map.end() &&
+                            nested_params_it->second.get_type() == geojson::PropertyType::Object) {
+                            auto nested_params = nested_params_it->second.get_values();
+                            apply_realization_time_to_ueb_modules(nested_params, identifier, simulation_time_config);
+                            module_map["params"] = geojson::JSONProperty("params", nested_params);
+                        }
+
+                        updated_modules.emplace_back("", module_map);
+                    }
+
+                    params["modules"] = geojson::JSONProperty("modules", updated_modules);
+                }
+            }
+
             std::shared_ptr<Catchment_Formulation> construct_formulation_from_config(
                 simulation_time_params &simulation_time_config,
                 std::string identifier,
@@ -468,7 +776,19 @@ namespace realization {
                 // Create formulation instance
                 ss.str(""); ss << "Calling create_formulation for identifier: " << identifier << std::endl;
                 LOG(ss.str(), LogLevel::DEBUG);
-                constructed_formulation->create_formulation(catchment_formulation.formulation.parameters);
+            
+	   	// constructed_formulation->create_formulation(catchment_formulation.formulation.parameters);
+                realization::config::Config local_copy = catchment_formulation;
+
+                if (property_map_contains_ueb_module(local_copy.formulation.parameters)) {
+                    apply_realization_time_to_ueb_modules(
+                        local_copy.formulation.parameters,
+                        identifier,
+                        simulation_time_config
+                    );
+                }
+
+                constructed_formulation->create_formulation(local_copy.formulation.parameters);
                 ss.str(""); ss << "Formulation creation completed for identifier: " << identifier << std::endl;
                 LOG(ss.str(), LogLevel::DEBUG);
 
@@ -584,16 +904,26 @@ namespace realization {
 
                 // Link external properties
                 ss.str(""); ss << "Linking external properties for identifier: " << identifier << std::endl;
-                LOG(ss.str(), LogLevel::DEBUG);
+		LOG(ss.str(), LogLevel::DEBUG);
                 auto formulation = realization::config::Formulation(global_copy.formulation);
                 formulation.link_external(feature);
+
+                // Apply realization time override for UEB before BMI initialization
+                if (property_map_contains_ueb_module(formulation.parameters)) {
+                    apply_realization_time_to_ueb_modules(
+                        formulation.parameters,
+                        identifier,
+                        simulation_time_config
+                    );
+                }
 
                 // Create the formulation
                 ss.str(""); ss << "Creating formulation for identifier: " << identifier << std::endl;
                 LOG(ss.str(), LogLevel::DEBUG);
                 missing_formulation->create_formulation(formulation.parameters);
-//                ss.str(""); ss << "Formulation creation completed for identifier: " << identifier << std::endl;
-//                LOG(ss.str(), LogLevel::DEBUG);
+
+                ss.str(""); ss << "Formulation creation completed for identifier: " << identifier << std::endl;
+                LOG(ss.str(), LogLevel::DEBUG);
 
                 return missing_formulation;
             }
