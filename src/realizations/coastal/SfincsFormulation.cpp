@@ -3,7 +3,6 @@
 #include <stdexcept>
 #include <utility>
 #include <limits>
-#include <iostream> 
 
 SfincsFormulation::SfincsFormulation(std::string model_id,
                                      std::string library_file,
@@ -25,6 +24,13 @@ SfincsFormulation::~SfincsFormulation()
 {
     // be safe if finalize wasn't called
     try { finalize(); } catch (...) {}
+}
+
+static std::string normalize_var(const std::string& v)
+{
+    if (v == "BEDLEVEL" || v == "bedlevel" || v == "bed_level")
+        return "zb";
+    return v;
 }
 
 void SfincsFormulation::create_formulation_()
@@ -86,7 +92,6 @@ void SfincsFormulation::finalize()
 void SfincsFormulation::update()
 {
 #if NGEN_WITH_BMI_FORTRAN
-    std::cerr << "NGEN-TRACE: SfincsFormulation::update -> bmi_->Update()\n";
     if (!bmi_) {
         throw std::runtime_error("SfincsFormulation::update called before initialize()");
     }
@@ -107,9 +112,7 @@ void SfincsFormulation::update_until(double const& t)
         throw std::runtime_error("SfincsFormulation::update_until called before initialize()");
     }
 
-    std::cerr << "NGEN-TRACE: SfincsFormulation::update_until(t=" << t
-          << ") current=" << bmi_->GetCurrentTime() << "\n";
-
+    // Mirror Schism behavior
     while (bmi_->GetCurrentTime() < t) {
         // set_inputs_();
         bmi_->Update();
@@ -158,7 +161,7 @@ double SfincsFormulation::get_time_step()
 
 void SfincsFormulation::get_values(const selection_type& selector, boost::span<double> out)
 {
-    const std::string& var = selector.variable_name;
+    const std::string var = normalize_var(selector.variable_name);
 
 #if NGEN_WITH_BMI_FORTRAN
     if (!bmi_) {
@@ -169,11 +172,7 @@ void SfincsFormulation::get_values(const selection_type& selector, boost::span<d
         return;
     }
 
-    std::cerr << "NGEN-TRACE: GetValue('" << var << "') n=" << out.size() << "\n";
     bmi_->GetValue(var, out.data());
-    std::cerr << "NGEN-TRACE: GetValue('" << var << "') first=["
-              << out[0] << "," << out[1] << "," << out[2] << "," << out[3] << "," << out[4]
-              << "]\n";
 #else
     (void)var;
     std::fill(out.begin(), out.end(), 0.0);
