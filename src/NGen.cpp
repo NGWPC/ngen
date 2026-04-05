@@ -389,7 +389,6 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                 parallel::subdivide_hydrofabric(mpi_rank, mpi_num_procs, catchmentDataFile, nexusDataFile,
                                                 PARTITION_PATH))
             {
->>>>>>> sfincs_schism_merged_012026
                 catchmentDataFile += "." + std::to_string(mpi_rank);
                 nexusDataFile += "." + std::to_string(mpi_rank);
             }
