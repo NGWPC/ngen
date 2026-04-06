@@ -82,7 +82,7 @@ std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_checkpoint
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(checkpoint_path, durability);
 }
 
-void File_Per_Unit_Saver::clear_cache(int mpi_rank) {
+void File_Per_Unit_Saver::clear_prior(int mpi_rank) {
     if (mpi_rank == 0) { // reserve file system deletion to just the main MPI rank
         std::vector<path> subdirs;
         ordered_checkpoint_subfolders(this->base_path_, subdirs);

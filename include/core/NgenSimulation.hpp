@@ -87,7 +87,12 @@ public:
     // Save a snapshot that preserves data related to the current time and could be loaded to jump a simulation into the middle of a run.
     void save_checkpoint(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
 
-    std::vector<std::string> required_checkpoint_units() const;
+    /**
+     * Get a vector of all the required units the NgenSimulation would need to load a checkpoint state.
+     * 
+     * @param merge_all_ranks Whether to also get the units from other MPI ranks. This should only be `true` when calling blocking MPI processes is safe for the program.
+     */
+    std::vector<std::string> required_checkpoint_units(bool merge_all_ranks) const;
 
 private:
     void advance_models_one_output_step();

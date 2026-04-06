@@ -707,7 +707,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
         auto checkpoint_loader = state_saving_config.checkpoint_loader();
         if (checkpoint_loader) {
             LOG(LogLevel::INFO, "Loading checkpoint data from prior snapshot.");
-            const std::vector<std::string> required_units = simulation->required_checkpoint_units();
+            const std::vector<std::string> required_units = simulation->required_checkpoint_units(true);
             std::shared_ptr<State_Snapshot_Loader> snapshot_loader
                 = checkpoint_loader->initialize_checkpoint_snapshot(required_units);
             simulation->load_checkpoint(snapshot_loader);

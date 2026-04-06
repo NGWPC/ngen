@@ -21,8 +21,26 @@
 #include "parallel_utils.h"
 
 namespace {
-    const auto NGEN_UNIT_NAME = "ngen";
     const auto TROUTE_UNIT_NAME = "troute";
+
+    #if NGEN_WITH_MPI
+    // Merge strings from multiple MPI ranks and broadcast the results to all ranks. Duplicates will be removed.
+    std::vector<std::string> collect_unique_strings(const std::vector<std::string> &items, int mpi_rank, int mpi_num_procs) {
+        // MPI_Gather all items to rank 0
+        std::vector<std::string> all_items
+            = parallel::gather_strings(items, mpi_rank, mpi_num_procs);
+        if (mpi_rank == 0) {
+            // filter to only the unique items
+            std::sort(all_items.begin(), all_items.end());
+            all_items.erase(
+                std::unique(all_items.begin(), all_items.end()),
+                all_items.end()
+            );
+        }
+        // MPI_Broadcast unique, sorted results to all ranks
+        return parallel::broadcast_strings(all_items, mpi_rank, mpi_num_procs);
+    }
+    #endif // NGEN_WITH_MPI
 }
 
 NgenSimulation::NgenSimulation(
@@ -87,10 +105,10 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
             // For now, set up a barrier to make sure all ranks can catch up before checkpointing.
             // A possible later improvement would be the ability to store and recreate the MPI messages when saving/loading checkpoints.
             this->sync_mpi_ranks();
-            checkpoint_saver->clear_cache(this->mpi_rank_);
-            this->sync_mpi_ranks();
             auto step_saver = checkpoint_saver->initialize_checkpoint_snapshot(simulation_step_, State_Saver::State_Durability::strict);
             this->save_checkpoint(step_saver);
+            this->sync_mpi_ranks();
+            checkpoint_saver->clear_prior(this->mpi_rank_);
         }
     }
 }
@@ -226,7 +244,8 @@ void NgenSimulation::load_checkpoint(std::shared_ptr<State_Snapshot_Loader> chec
     }
 }
 
-std::vector<std::string> NgenSimulation::required_checkpoint_units() const {
+
+std::vector<std::string> NgenSimulation::required_checkpoint_units(bool merge_all_ranks) const {
     std::vector<std::string> units;
     units.push_back(this->unit_name());
     for (const auto &layer : this->layers_) {
@@ -234,6 +253,12 @@ std::vector<std::string> NgenSimulation::required_checkpoint_units() const {
         for (const auto &unit : layer_units)
             units.push_back(unit);
     }
+#if NGEN_WITH_MPI
+    if (merge_all_ranks && this->mpi_num_procs_ > 1) {
+        // merge all ranks' units so to ensure all read from the same source
+        units = collect_unique_strings(units, this->mpi_rank_, this->mpi_num_procs_);
+    }
+#endif // NGEN_WITH_MPI
     return units;
 }
 
@@ -287,18 +312,10 @@ void NgenSimulation::set_troute_inputs(
         for (const auto& id_pair : *feature_indexes) {
             local_ids.push_back(id_pair.first);
         }
-        // MPI_Gather all IDs into a single vector
-        std::vector<std::string> all_ids = parallel::gather_strings(local_ids, mpi_rank_, mpi_num_procs_);
-        if (mpi_rank_ == 0) {
-            // filter to only the unique IDs
-            std::sort(all_ids.begin(), all_ids.end());
-            all_ids.erase(
-                std::unique(all_ids.begin(), all_ids.end()),
-                all_ids.end()
-            );
-        }
-        // MPI_Broadcast so all processes share the IDs
-        all_ids = std::move(parallel::broadcast_strings(all_ids, mpi_rank_, mpi_num_procs_));
+        // gather all nexus IDs into a single vector
+        std::vector<std::string> all_ids = std::move(collect_unique_strings(
+            local_ids, mpi_rank_, mpi_num_procs_
+        ));
 
         // MPI_Reduce to collect the results from processes
         if (this->mpi_rank_ == 0) {

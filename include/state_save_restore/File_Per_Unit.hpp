@@ -13,7 +13,7 @@ public:
 
     std::shared_ptr<State_Snapshot_Saver> initialize_checkpoint_snapshot(int step, State_Durability durability) override;
 
-    void clear_cache(int mpi_rank) override;
+    void clear_prior(int mpi_rank) override;
 
     void finalize() override;
 
