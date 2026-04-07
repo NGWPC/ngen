@@ -43,7 +43,7 @@ void SfincsFormulation::create_formulation_()
     //  - (type_name, library, init_config, has_fixed_dt, reg_func)
     //
     // We want to pass init_config_ so use the 5-arg overload.
-    const bool has_fixed_time_step = true;
+    const bool has_fixed_time_step = false;
 
     // Default in adapter header is "register_bmi", but pass explicitly for clarity.
     const std::string registration_function = "register_bmi";
