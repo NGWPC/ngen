@@ -85,19 +85,27 @@ void NgenSimulation::run_catchments()
 
 void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_saver, int frequency) {
     int num_times = get_num_output_times();
+    if (frequency > num_times) {
+        LOG(LogLevel::WARNING, "The frequency of checkpoints (%d) is less than the number of simulation steps (%d). No checkpoints will be generated.", frequency, num_times);
+    }
 
-    for (; simulation_step_ < num_times; simulation_step_++) {
+    while (simulation_step_ < num_times) {
         // Make room for this output step's results
         catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
         nexus_downstream_flows_.resize(nexus_downstream_flows_.size() + nexus_indexes_.size(), 0.0);
         
         advance_models_one_output_step();
 
-        if (simulation_step_ + 1 < num_times) {
+        // advance_models_one_output_step runs the BMIs for the next time step,
+        // so the checkpoint state should include advancing the step
+        this->simulation_step_++;
+
+        if (simulation_step_ < num_times) {
             sim_time_->advance_timestep();
         }
 
-        if (simulation_step_ != 0 && simulation_step_ % frequency == 0) {
+        // this position allows creating a checkpoint on the very last step. This might be useful if t-route fails and we want to "skip" the final steps
+        if (simulation_step_ % frequency == 0) {
             // Remote data is currently handled by MPI, so saving a checkpoint without retreiving all messages could lose data.
             // An example would be checkpointing every 100 steps with two ranks. Rank 1 is faster than Rank 0, so it saves
             //   step 200 whilst Rank 1 has only saved step 100. If checkpoints are loaded, all data in MPI messages from Rank 1
