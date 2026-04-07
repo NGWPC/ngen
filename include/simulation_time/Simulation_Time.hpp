@@ -107,6 +107,15 @@ class Simulation_Time
     }   
 
     /**
+     * @brief Accessor to the the current simulation time
+     * @return start_date_time_epoch
+    */
+    time_t get_start_time()
+    {
+        return start_date_time_epoch;
+    }
+
+    /**
      * @brief Accessor to the current timestamp string
      * @return current_timestamp
      */ 

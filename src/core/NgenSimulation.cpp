@@ -8,6 +8,10 @@
 #include "HY_Features.hpp"
 #endif
 
+#if NGEN_WITH_PYTHON
+#include <forcing/ForcingsEngineDataProvider.hpp>
+#endif
+
 #include "state_save_restore/vecbuf.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include "state_save_restore/State_Save_Restore.hpp"
@@ -250,6 +254,12 @@ void NgenSimulation::load_checkpoint(std::shared_ptr<State_Snapshot_Loader> chec
     for (auto& layer : layers_) {
         layer->load_checkpoint(checkpoint_loader);
     }
+#if NGEN_WITH_PYTHON
+    // advance any forcing engine instances to make sure the first query doesn't get messy when catching up to the simulation's time
+    auto now = this->sim_time_->get_current_epoch_time();
+    auto start = this->sim_time_->get_start_time();
+    data_access::detail::ForcingsEngineStorage::instances.advance_to(now - start);
+#endif // NGEN_WITH_PYTHON
 }
 
 
