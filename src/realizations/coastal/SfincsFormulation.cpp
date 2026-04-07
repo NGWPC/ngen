@@ -105,6 +105,7 @@ void SfincsFormulation::update()
 #endif
 }
 
+
 void SfincsFormulation::update_until(double const& t)
 {
 #if NGEN_WITH_BMI_FORTRAN
@@ -115,7 +116,7 @@ void SfincsFormulation::update_until(double const& t)
     // Mirror Schism behavior
     while (bmi_->GetCurrentTime() < t) {
         // set_inputs_();
-        bmi_->Update();
+        bmi_->UpdateUntil(t);
     }
 #else
     (void)t;
