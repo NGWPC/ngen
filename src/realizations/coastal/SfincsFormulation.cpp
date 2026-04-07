@@ -27,6 +27,13 @@ SfincsFormulation::~SfincsFormulation()
     try { finalize(); } catch (...) {}
 }
 
+static std::string normalize_var(const std::string& v)
+{
+    if (v == "BEDLEVEL" || v == "bedlevel" || v == "bed_level")
+        return "zb";
+    return v;
+}
+
 void SfincsFormulation::create_formulation_()
 {
 #if NGEN_WITH_BMI_FORTRAN
@@ -37,7 +44,7 @@ void SfincsFormulation::create_formulation_()
     //  - (type_name, library, init_config, has_fixed_dt, reg_func)
     //
     // We want to pass init_config_ so use the 5-arg overload.
-    const bool has_fixed_time_step = true;
+    const bool has_fixed_time_step = false;
 
     // Default in adapter header is "register_bmi", but pass explicitly for clarity.
     const std::string registration_function = "register_bmi";
@@ -100,6 +107,7 @@ void SfincsFormulation::update()
 #endif
 }
 
+
 void SfincsFormulation::update_until(double const& t)
 {
 #if NGEN_WITH_BMI_FORTRAN
@@ -112,7 +120,7 @@ void SfincsFormulation::update_until(double const& t)
 
     while (bmi_->GetCurrentTime() < t) {
         // set_inputs_();
-        bmi_->Update();
+        bmi_->UpdateUntil(t);
     }
 #else
     (void)t;
@@ -158,7 +166,7 @@ double SfincsFormulation::get_time_step()
 
 void SfincsFormulation::get_values(const selection_type& selector, boost::span<double> out)
 {
-    const std::string& var = selector.variable_name;
+    const std::string var = normalize_var(selector.variable_name);
 
 #if NGEN_WITH_BMI_FORTRAN
     if (!bmi_) {
