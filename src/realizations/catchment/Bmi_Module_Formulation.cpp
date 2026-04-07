@@ -1,3 +1,11 @@
+
+#include <fstream>
+#include <iomanip>
+#include <algorithm>
+#include <cctype>
+#include <vector>
+#include <ctime>
+
 #include "Bmi_Module_Formulation.hpp"
 #include "utilities/logging_utils.h"
 #include <UnitsHelper.hpp>
@@ -7,6 +15,143 @@
 #include <state_save_restore/State_Save_Restore.hpp>
 
 std::stringstream bmiform_ss;
+
+
+namespace {
+    std::string to_lower_copy_local(std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        return s;
+    }
+
+    std::string dirname_of(const std::string& path) {
+        const auto pos = path.find_last_of('/');
+        if (pos == std::string::npos) {
+            return ".";
+        }
+        if (pos == 0) {
+            return "/";
+        }
+        return path.substr(0, pos);
+    }
+
+    std::string basename_of(const std::string& path) {
+        const auto pos = path.find_last_of('/');
+        if (pos == std::string::npos) {
+            return path;
+        }
+        return path.substr(pos + 1);
+    }
+
+    std::string basename_without_extension(const std::string& path) {
+        const std::string base = basename_of(path);
+        const auto pos = base.find_last_of('.');
+        if (pos == std::string::npos) {
+            return base;
+        }
+        return base.substr(0, pos);
+    }
+
+    std::string join_path(const std::string& a, const std::string& b) {
+        if (a.empty()) {
+            return b;
+        }
+        if (a.back() == '/') {
+            return a + b;
+        }
+        return a + "/" + b;
+    }
+
+    std::string sanitize_identifier_for_filename(std::string s) {
+        std::replace_if(
+            s.begin(),
+            s.end(),
+            [](unsigned char c) {
+                return !(std::isalnum(c) || c == '_' || c == '-');
+            },
+            '_'
+        );
+        return s;
+    }
+
+    std::string format_ueb_datetime_line_from_epoch(time_t epoch_time) {
+        std::tm* t = std::gmtime(&epoch_time);
+        if (t == nullptr) {
+            throw std::runtime_error("Unable to convert epoch time to UTC calendar time for UEB init config rewrite");
+        }
+
+        const double fractional_hour = static_cast<double>(t->tm_hour)
+                                     + (static_cast<double>(t->tm_min) / 60.0)
+                                     + (static_cast<double>(t->tm_sec) / 3600.0);
+
+        std::ostringstream oss;
+        oss << (t->tm_year + 1900) << " "
+            << (t->tm_mon + 1) << " "
+            << t->tm_mday << " "
+            << std::fixed << std::setprecision(6) << fractional_hour;
+        return oss.str();
+    }
+
+    std::string rewrite_ueb_runtime_init_config(
+        const std::string& original_init_config,
+        const std::string& identifier,
+        time_t realization_start_time,
+        time_t realization_end_time
+    ) {
+        std::ifstream ifs(original_init_config);
+        if (!ifs.is_open()) {
+            throw std::runtime_error("Unable to open original UEB init config: " + original_init_config);
+        }
+
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(ifs, line)) {
+            lines.push_back(line);
+        }
+        ifs.close();
+
+        // Expected UEB control.dat layout:
+        // 0 header
+        // 1 param file
+        // 2 site file
+        // 3 input control
+        // 4 output control
+        // 5 agg output file
+        // 6 watershed file
+        // 7 watershed var/y/x names
+        // 8 start date line
+        // 9 end date line
+        // 10 dt line
+        // ...
+        if (lines.size() < 11) {
+            throw std::runtime_error("UEB control file is shorter than expected: " + original_init_config);
+        }
+
+        lines[8] = format_ueb_datetime_line_from_epoch(realization_start_time);
+        lines[9] = format_ueb_datetime_line_from_epoch(realization_end_time);
+
+        const std::string runtime_dir = dirname_of(original_init_config);
+        const std::string safe_id = sanitize_identifier_for_filename(identifier);
+        const std::string runtime_init_config =
+            join_path(runtime_dir,
+                      basename_without_extension(original_init_config) + "__" + safe_id + ".ngen.dat");
+
+        std::ofstream ofs(runtime_init_config, std::ios::out | std::ios::trunc);
+        if (!ofs.is_open()) {
+            throw std::runtime_error("Unable to write UEB runtime init config: " + runtime_init_config);
+        }
+
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            ofs << lines[i];
+            if (i + 1 < lines.size()) {
+                ofs << "\n";
+            }
+        }
+        ofs.close();
+
+        return runtime_init_config;
+    }
+}
 
 namespace realization {
         void Bmi_Module_Formulation::create_formulation(boost::property_tree::ptree &config, geojson::PropertyMap *global) {
@@ -435,6 +580,48 @@ namespace realization {
             set_bmi_main_output_var(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MAIN_OUT_VAR).as_string());
             set_model_type_name(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string());
 
+            {
+                const std::string model_type_name = to_lower_copy_local(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string());
+                if (model_type_name.find("ueb") != std::string::npos) {
+                    const std::string original_init_config = get_bmi_init_config();
+
+                    std::stringstream ss;
+                    ss << "UEB original init_config before runtime rewrite for catchment '" << this->get_id()
+                       << "': '" << original_init_config << "'" << std::endl;
+                    LOG(ss.str(), LogLevel::INFO);
+
+                    if (original_init_config.empty()) {
+                        throw std::runtime_error("UEB init_config is empty in Bmi_Module_Formulation for catchment '" + this->get_id() + "'");
+                    }
+
+                    const time_t realization_start_time = forcing->get_data_start_time();
+                    const time_t realization_end_time = forcing->get_data_stop_time();
+
+                    std::stringstream ss_times;
+                    ss_times << "UEB realization-based forcing times for catchment '" << this->get_id() << "': "
+                             << "start=" << realization_start_time
+                             << ", end=" << realization_end_time << std::endl;
+                    LOG(ss_times.str(), LogLevel::INFO);
+
+                    const std::string rewritten_init_config =
+                        rewrite_ueb_runtime_init_config(
+                            original_init_config,
+                            this->get_id(),
+                            realization_start_time,
+                            realization_end_time
+                        );
+
+                    std::stringstream ss_rewrite;
+                    ss_rewrite << "UEB rewritten runtime init_config for catchment '" << this->get_id()
+                               << "': '" << rewritten_init_config << "'" << std::endl;
+                    LOG(ss_rewrite.str(), LogLevel::INFO);
+
+                    set_bmi_init_config(rewritten_init_config);
+                    properties[BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG] =
+                        geojson::JSONProperty(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG, rewritten_init_config);
+                }
+            }
+
             // Then optional ...
 
             auto uses_forcings_it = properties.find(BMI_REALIZATION_CFG_PARAM_OPT__USES_FORCINGS);
@@ -622,6 +809,7 @@ namespace realization {
                 output_var_indices.resize(names.size(), 0);
             }
         }
+
         /**
          * @brief Template function for copying iterator range into contiguous array.
          *
