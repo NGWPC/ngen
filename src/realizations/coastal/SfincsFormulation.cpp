@@ -113,16 +113,14 @@ void SfincsFormulation::update_until(double const& t)
         throw std::runtime_error("SfincsFormulation::update_until called before initialize()");
     }
 
-    // Mirror Schism behavior
-    while (bmi_->GetCurrentTime() < t) {
-        // set_inputs_();
-        bmi_->UpdateUntil(t);
-    }
+    bmi_->UpdateUntil(t);
+
 #else
     (void)t;
     throw std::runtime_error("SfincsFormulation requires NGEN_WITH_BMI_FORTRAN=ON");
 #endif
 }
+
 
 double SfincsFormulation::get_current_time()
 {
