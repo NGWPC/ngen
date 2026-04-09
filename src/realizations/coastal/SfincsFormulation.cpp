@@ -43,7 +43,7 @@ void SfincsFormulation::create_formulation_()
     //  - (type_name, library, init_config, has_fixed_dt, reg_func)
     //
     // We want to pass init_config_ so use the 5-arg overload.
-    const bool has_fixed_time_step = true;
+    const bool has_fixed_time_step = false;
 
     // Default in adapter header is "register_bmi", but pass explicitly for clarity.
     const std::string registration_function = "register_bmi";
@@ -105,6 +105,7 @@ void SfincsFormulation::update()
 #endif
 }
 
+
 void SfincsFormulation::update_until(double const& t)
 {
 #if NGEN_WITH_BMI_FORTRAN
@@ -112,16 +113,14 @@ void SfincsFormulation::update_until(double const& t)
         throw std::runtime_error("SfincsFormulation::update_until called before initialize()");
     }
 
-    // Mirror Schism behavior
-    while (bmi_->GetCurrentTime() < t) {
-        // set_inputs_();
-        bmi_->Update();
-    }
+    bmi_->UpdateUntil(t);
+
 #else
     (void)t;
     throw std::runtime_error("SfincsFormulation requires NGEN_WITH_BMI_FORTRAN=ON");
 #endif
 }
+
 
 double SfincsFormulation::get_current_time()
 {
