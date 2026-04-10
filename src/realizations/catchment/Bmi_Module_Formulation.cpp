@@ -19,28 +19,41 @@ namespace realization {
         }
 
         void Bmi_Module_Formulation::save_state(std::shared_ptr<State_Snapshot_Saver> saver) {
-            uint64_t size = 1;
-            boost::span<char> data = this->get_serialization_state();
+            // get the BMI's state and the formulation's metadata
+            boost::span<char> bmi_data = this->get_serialization_state();
+            std::vector<char> metadata = this->create_state_metadata();
 
-            // Rely on Formulation_Manager also using this->get_id()
-            // as a unique key for the individual catchment
-            // formulations
+            // append the BMI state to the end of the metadata
+            metadata.reserve(metadata.size() + bmi_data.size());
+            memcpy(metadata.data() + metadata.size(), bmi_data.data(), bmi_data.size());
+
+            // save the merged state, then clear the state stored on the BMI
+            boost::span<char> data(metadata.data(), metadata.size() + bmi_data.size());
             saver->save_unit(this->save_state_unit_name(), data);
-
             this->free_serialization_state();
         }
 
         void Bmi_Module_Formulation::load_state(std::shared_ptr<State_Snapshot_Loader> loader) {
+            // get the data from the loader
             std::vector<char> buffer;
             loader->load_unit(this->save_state_unit_name(), buffer);
-            boost::span<char> data(buffer.data(), buffer.size());
-            this->load_serialization_state(data);
+
+            // extract the metadata
+            size_t metadata_size = this->load_state_metadata(buffer);
+
+            // send the remaining data to the BMI
+            boost::span<char> bmi_data(buffer.data() + metadata_size, buffer.size() - metadata_size);
+            this->load_serialization_state(bmi_data);
         }
 
         void Bmi_Module_Formulation::load_hot_start(std::shared_ptr<State_Snapshot_Loader> loader) {
+            // get a copy of the current metadata
+            std::vector<char> metadata = this->create_state_metadata();
             this->load_state(loader);
             double rt;
             this->get_bmi_model()->SetValue(StateSaveNames::FREE, &rt);
+            // reset the metadata after load
+            this->load_state_metadata(metadata);
         }
 
         boost::span<const std::string> Bmi_Module_Formulation::get_available_variable_names() const {
@@ -1118,5 +1131,17 @@ namespace realization {
             // send message to clear memory associated with serialized data
             void* _; // this pointer will be unused by SetValue
             bmi->SetValue(StateSaveNames::FREE, _);
+        }
+
+        std::vector<char> Bmi_Module_Formulation::create_state_metadata() const {
+            // WARNING: Other parts of NGEN assume that the metadata should be copied and reset after loading a hot start.
+            std::vector<char> data(sizeof(this->next_time_step_index));
+            memcpy(data.data(), &this->next_time_step_index, sizeof(this->next_time_step_index));
+            return data;
+        }
+
+        size_t Bmi_Module_Formulation::load_state_metadata(const std::vector<char> &data) {
+            memcpy(&this->next_time_step_index, data.data(), sizeof(this->next_time_step_index));
+            return sizeof(this->next_time_step_index);
         }
 }

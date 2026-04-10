@@ -21,6 +21,7 @@
 #include <boost/serialization/serialization.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
 
 using namespace realization;
 
@@ -51,13 +52,25 @@ void Bmi_Multi_Formulation::load_state(std::shared_ptr<State_Snapshot_Loader> lo
 }
 
 void Bmi_Multi_Formulation::load_hot_start(std::shared_ptr<State_Snapshot_Loader> loader) {
+    // create a copy of the BMIs' metadata
+    std::vector<std::vector<char>> metadata;
+    for (size_t i = 0; i < this->modules.size(); ++i) {
+        const auto &m = this->modules[i];
+        auto bmi = dynamic_cast<Bmi_Module_Formulation *>(m.get());
+        metadata.push_back(bmi->create_state_metadata());
+    }
+    // create copy of next_time_step_index to restore after loading
+    auto next_time_step_index = this->next_time_step_index;
     this->load_state(loader);
+    this->next_time_step_index = next_time_step_index;
     double rt;
     LOG(LogLevel::DEBUG, "Resetting time for sub-BMIs");
     // Multi-BMI's current forwards its primary BMI's current time, so no additional action needed for the formulation's reset time
-    for (const nested_module_ptr &m : modules) {
+    for (size_t i = 0; i < this->modules.size(); ++i) {
+        const auto &m = this->modules[i];
         auto bmi = dynamic_cast<Bmi_Module_Formulation *>(m.get());
         bmi->get_bmi_model()->SetValue(StateSaveNames::RESET, &rt);
+        bmi->load_state_metadata(metadata[i]);
     }
 }
 
@@ -664,11 +677,15 @@ template<class Archive>
 void Bmi_Multi_Formulation::serialize(Archive &ar, const unsigned int version) {
     uint64_t data_size;
     std::vector<char> buffer;
+    std::vector<char> metadata;
+    ar & this->next_time_step_index;
     for (const nested_module_ptr &m : modules) {
         auto bmi = dynamic_cast<Bmi_Module_Formulation *>(m.get());
         // if saving, make the BMI's state and record its size and data
         if (Archive::is_saving::value) {
             LOG(LogLevel::DEBUG, "Saving state from sub-BMI " + bmi->get_model_type_name());
+            metadata = std::move(bmi->create_state_metadata());
+            ar & metadata;
             boost::span<char> span = bmi->get_serialization_state();
             data_size = span.size();
             ar & data_size;
@@ -679,6 +696,8 @@ void Bmi_Multi_Formulation::serialize(Archive &ar, const unsigned int version) {
         // if loading, get the current data size stored at the front, then load that much data as a char blob passed to the BMI
         else {
             LOG(LogLevel::DEBUG, "Loading state from sub-BMI " + bmi->get_model_type_name());
+            ar & metadata;
+            bmi->load_state_metadata(metadata);
             ar & data_size;
             buffer.resize(data_size);
             ar & boost::serialization::make_array(buffer.data(), data_size);
