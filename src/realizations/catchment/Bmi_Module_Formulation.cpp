@@ -151,6 +151,168 @@ namespace {
 
         return runtime_init_config;
     }
+
+    std::string trim_copy_local(const std::string& s) {
+        const auto begin = s.find_first_not_of(" \t\r\n");
+        if (begin == std::string::npos) {
+            return "";
+        }
+        const auto end = s.find_last_not_of(" \t\r\n");
+        return s.substr(begin, end - begin + 1);
+    }
+
+    std::string format_noah_datetime_from_epoch(time_t epoch_time) {
+        std::tm* t = std::gmtime(&epoch_time);
+        if (t == nullptr) {
+            throw std::runtime_error("Unable to convert epoch time to UTC calendar time for Noah init config rewrite");
+        }
+
+        std::ostringstream oss;
+        oss << std::setfill('0')
+            << std::setw(4) << (t->tm_year + 1900)
+            << std::setw(2) << (t->tm_mon + 1)
+            << std::setw(2) << t->tm_mday
+            << std::setw(2) << t->tm_hour
+            << std::setw(2) << t->tm_min;
+        return oss.str();
+    }
+
+    std::string rewrite_noah_assignment_line(
+        const std::string& original_line,
+        const std::string& key,
+        const std::string& new_value,
+        bool quote_value
+    ) {
+        std::string line = original_line;
+
+        const auto comment_pos = line.find('!');
+        const std::string comment = (comment_pos == std::string::npos) ? "" : line.substr(comment_pos);
+        const std::string no_comment = (comment_pos == std::string::npos) ? line : line.substr(0, comment_pos);
+
+        const auto eq_pos = no_comment.find('=');
+        if (eq_pos == std::string::npos) {
+            return original_line;
+        }
+
+        const std::string lhs = no_comment.substr(0, eq_pos);
+        const std::string trimmed_lhs = trim_copy_local(lhs);
+        if (trimmed_lhs != key) {
+            return original_line;
+        }
+
+        std::ostringstream rewritten;
+        rewritten << lhs << "= ";
+        if (quote_value) {
+            rewritten << "'" << new_value << "'";
+        }
+        else {
+            rewritten << new_value;
+        }
+
+        if (!comment.empty()) {
+            rewritten << " " << comment;
+        }
+
+        return rewritten.str();
+    }
+
+    std::string rewrite_noah_runtime_init_config(
+        const std::string& original_init_config,
+        const std::string& identifier,
+        time_t realization_start_time,
+        time_t realization_end_time,
+        long realization_dt_seconds
+    ) {
+        std::ifstream ifs(original_init_config);
+        if (!ifs.is_open()) {
+            throw std::runtime_error("Unable to open original Noah-OWP init config: " + original_init_config);
+        }
+
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(ifs, line)) {
+            lines.push_back(line);
+        }
+        ifs.close();
+
+        const std::string startdate_str = format_noah_datetime_from_epoch(realization_start_time);
+        const std::string enddate_str   = format_noah_datetime_from_epoch(realization_end_time);
+
+        std::ostringstream dt_ss;
+        dt_ss << std::fixed << std::setprecision(1) << static_cast<double>(realization_dt_seconds);
+
+        bool in_timing_block = false;
+        bool rewrote_startdate = false;
+        bool rewrote_enddate = false;
+        bool rewrote_dt = false;
+
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            const std::string trimmed = to_lower_copy_local(trim_copy_local(lines[i]));
+
+            if (trimmed == "&timing") {
+                in_timing_block = true;
+                continue;
+            }
+
+            if (in_timing_block && trimmed == "/") {
+                in_timing_block = false;
+                continue;
+            }
+
+            if (!in_timing_block) {
+                continue;
+            }
+
+            const std::string updated_start = rewrite_noah_assignment_line(lines[i], "startdate", startdate_str, true);
+            if (updated_start != lines[i]) {
+                lines[i] = updated_start;
+                rewrote_startdate = true;
+                continue;
+            }
+
+            const std::string updated_end = rewrite_noah_assignment_line(lines[i], "enddate", enddate_str, true);
+            if (updated_end != lines[i]) {
+                lines[i] = updated_end;
+                rewrote_enddate = true;
+                continue;
+            }
+
+            const std::string updated_dt = rewrite_noah_assignment_line(lines[i], "dt", dt_ss.str(), false);
+            if (updated_dt != lines[i]) {
+                lines[i] = updated_dt;
+                rewrote_dt = true;
+                continue;
+            }
+        }
+
+        if (!rewrote_startdate || !rewrote_enddate || !rewrote_dt) {
+            std::ostringstream err;
+            err << "Failed to rewrite Noah-OWP timing block completely in init config: " << original_init_config
+                << " (startdate=" << (rewrote_startdate ? "ok" : "missing")
+                << ", enddate=" << (rewrote_enddate ? "ok" : "missing")
+                << ", dt=" << (rewrote_dt ? "ok" : "missing") << ")";
+            throw std::runtime_error(err.str());
+        }
+
+        const std::string runtime_dir = dirname_of(original_init_config);
+        const std::string safe_id = sanitize_identifier_for_filename(identifier);
+        const std::string runtime_init_config =
+            join_path(runtime_dir,
+                      basename_without_extension(original_init_config) + "__" + safe_id + ".ngen.input");
+
+        std::ofstream ofs(runtime_init_config, std::ios::out | std::ios::trunc);
+        if (!ofs.is_open()) {
+            throw std::runtime_error("Unable to write Noah-OWP runtime init config: " + runtime_init_config);
+        }
+
+	for (const auto& l : lines) {
+            ofs << l << "\n";
+        }
+        ofs.close();
+	LOG("Noah runtime config last line: '" + lines.back() + "'", LogLevel::DEBUG);
+
+        return runtime_init_config;
+    }
 }
 
 namespace realization {
@@ -582,9 +744,9 @@ namespace realization {
 
             {
                 const std::string model_type_name = to_lower_copy_local(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string());
-                if (model_type_name.find("ueb") != std::string::npos) {
-                    const std::string original_init_config = get_bmi_init_config();
+                const std::string original_init_config = get_bmi_init_config();
 
+                if (model_type_name.find("ueb") != std::string::npos) {
                     std::stringstream ss;
                     ss << "UEB original init_config before runtime rewrite for catchment '" << this->get_id()
                        << "': '" << original_init_config << "'" << std::endl;
@@ -613,6 +775,49 @@ namespace realization {
 
                     std::stringstream ss_rewrite;
                     ss_rewrite << "UEB rewritten runtime init_config for catchment '" << this->get_id()
+                               << "': '" << rewritten_init_config << "'" << std::endl;
+                    LOG(ss_rewrite.str(), LogLevel::INFO);
+
+                    set_bmi_init_config(rewritten_init_config);
+                    properties[BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG] =
+                        geojson::JSONProperty(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG, rewritten_init_config);
+                }
+                else if (model_type_name.find("noah") != std::string::npos) {
+                    std::stringstream ss;
+                    ss << "Noah-OWP original init_config before runtime rewrite for catchment '" << this->get_id()
+                       << "': '" << original_init_config << "'" << std::endl;
+                    LOG(ss.str(), LogLevel::INFO);
+
+                    if (original_init_config.empty()) {
+                        throw std::runtime_error("Noah-OWP init_config is empty in Bmi_Module_Formulation for catchment '" + this->get_id() + "'");
+                    }
+
+                    const time_t realization_start_time = forcing->get_data_start_time();
+                    const time_t realization_end_time = forcing->get_data_stop_time();
+                    const long realization_dt_seconds = forcing->record_duration();
+
+                    std::stringstream ss_times;
+                    ss_times << "Noah-OWP realization-based forcing times for catchment '" << this->get_id() << "': "
+                             << "start=" << realization_start_time
+                             << ", end=" << realization_end_time
+                             << ", dt_seconds=" << realization_dt_seconds << std::endl;
+                    LOG(ss_times.str(), LogLevel::INFO);
+
+                    if (realization_dt_seconds <= 0) {
+                        throw std::runtime_error("Noah-OWP forcing record duration is invalid for catchment '" + this->get_id() + "'");
+                    }
+
+                    const std::string rewritten_init_config =
+                        rewrite_noah_runtime_init_config(
+                            original_init_config,
+                            this->get_id(),
+                            realization_start_time,
+                            realization_end_time,
+                            realization_dt_seconds
+                        );
+
+                    std::stringstream ss_rewrite;
+                    ss_rewrite << "Noah-OWP rewritten runtime init_config for catchment '" << this->get_id()
                                << "': '" << rewritten_init_config << "'" << std::endl;
                     LOG(ss_rewrite.str(), LogLevel::INFO);
 
