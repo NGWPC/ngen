@@ -141,11 +141,8 @@ namespace {
             throw std::runtime_error("Unable to write UEB runtime init config: " + runtime_init_config);
         }
 
-        for (std::size_t i = 0; i < lines.size(); ++i) {
-            ofs << lines[i];
-            if (i + 1 < lines.size()) {
-                ofs << "\n";
-            }
+        for (const auto& l : lines) {
+            ofs << l << "\n";
         }
         ofs.close();
 
@@ -305,11 +302,112 @@ namespace {
             throw std::runtime_error("Unable to write Noah-OWP runtime init config: " + runtime_init_config);
         }
 
-	for (const auto& l : lines) {
+        for (const auto& l : lines) {
             ofs << l << "\n";
         }
         ofs.close();
-	LOG("Noah runtime config last line: '" + lines.back() + "'", LogLevel::DEBUG);
+
+        if (!lines.empty()) {
+            LOG("Noah runtime config last line: '" + lines.back() + "'", LogLevel::DEBUG);
+        }
+
+        return runtime_init_config;
+    }
+
+
+    std::string rewrite_topoflow_glacier_runtime_init_config(
+        const std::string& original_init_config,
+        const std::string& identifier,
+        const std::string& start_time_str,
+        const std::string& end_time_str,
+        long dt_hours
+    ) {
+        std::ifstream ifs(original_init_config);
+        if (!ifs.is_open()) {
+            throw std::runtime_error("Unable to open original TopoFlow-Glacier init config: " + original_init_config);
+        }
+
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(ifs, line)) {
+            lines.push_back(line);
+        }
+        ifs.close();
+
+        bool rewrote_start_time = false;
+        bool rewrote_end_time = false;
+        bool rewrote_dt = false;
+
+        for (std::size_t i = 0; i < lines.size(); ++i) {
+            const std::string original_line = lines[i];
+
+            const auto comment_pos = original_line.find('#');
+            const std::string comment = (comment_pos == std::string::npos) ? "" : original_line.substr(comment_pos);
+            const std::string no_comment = (comment_pos == std::string::npos) ? original_line : original_line.substr(0, comment_pos);
+
+            const auto colon_pos = no_comment.find(':');
+            if (colon_pos == std::string::npos) {
+                continue;
+            }
+
+            const std::string lhs = no_comment.substr(0, colon_pos);
+            const std::string trimmed_lhs = trim_copy_local(lhs);
+
+            if (trimmed_lhs == "start_time") {
+                std::ostringstream oss;
+                oss << lhs << ": " << start_time_str;
+                if (!comment.empty()) {
+                    oss << " " << comment;
+                }
+                lines[i] = oss.str();
+                rewrote_start_time = true;
+            }
+            else if (trimmed_lhs == "end_time") {
+                std::ostringstream oss;
+                oss << lhs << ": " << end_time_str;
+                if (!comment.empty()) {
+                    oss << " " << comment;
+                }
+                lines[i] = oss.str();
+                rewrote_end_time = true;
+            }
+            else if (trimmed_lhs == "dt") {
+                std::ostringstream oss;
+                oss << lhs << ": " << dt_hours;
+                if (!comment.empty()) {
+                    oss << " " << comment;
+                }
+                lines[i] = oss.str();
+                rewrote_dt = true;
+            }
+        }
+
+        if (!rewrote_start_time || !rewrote_end_time || !rewrote_dt) {
+            std::ostringstream err;
+            err << "Failed to rewrite TopoFlow-Glacier timing fields in init config: " << original_init_config
+                << " (start_time=" << (rewrote_start_time ? "ok" : "missing")
+                << ", end_time=" << (rewrote_end_time ? "ok" : "missing")
+                << ", dt=" << (rewrote_dt ? "ok" : "missing") << ")";
+            throw std::runtime_error(err.str());
+        }
+
+        const std::string runtime_dir = dirname_of(original_init_config);
+        const std::string safe_id = sanitize_identifier_for_filename(identifier);
+        const std::string runtime_init_config =
+            join_path(
+                runtime_dir,
+                basename_without_extension(original_init_config) + "__" + safe_id + ".ngen.yaml"
+            );
+
+        std::ofstream ofs(runtime_init_config, std::ios::out | std::ios::trunc);
+        if (!ofs.is_open()) {
+            throw std::runtime_error("Unable to write TopoFlow-Glacier runtime init config: " + runtime_init_config);
+        }
+
+        for (const auto& l : lines) {
+            ofs << l << "\n";
+        }
+        ofs.close();
 
         return runtime_init_config;
     }
@@ -818,6 +916,83 @@ namespace realization {
 
                     std::stringstream ss_rewrite;
                     ss_rewrite << "Noah-OWP rewritten runtime init_config for catchment '" << this->get_id()
+                               << "': '" << rewritten_init_config << "'" << std::endl;
+                    LOG(ss_rewrite.str(), LogLevel::INFO);
+
+                    set_bmi_init_config(rewritten_init_config);
+                    properties[BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG] =
+                        geojson::JSONProperty(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG, rewritten_init_config);
+                }
+                else if (model_type_name.find("topoflow") != std::string::npos) {
+                    std::stringstream ss;
+                    ss << "TopoFlow-Glacier original init_config before runtime rewrite for catchment '" << this->get_id()
+                       << "': '" << original_init_config << "'" << std::endl;
+                    LOG(ss.str(), LogLevel::INFO);
+
+                    if (original_init_config.empty()) {
+                        throw std::runtime_error(
+                            "TopoFlow-Glacier init_config is empty in Bmi_Module_Formulation for catchment '" + this->get_id() + "'"
+                        );
+                    }
+
+                    const time_t realization_start_time = forcing->get_data_start_time();
+                    const time_t realization_end_time = forcing->get_data_stop_time();
+                    const long realization_dt_seconds = forcing->record_duration();
+
+                    if (realization_dt_seconds <= 0) {
+                        throw std::runtime_error(
+                            "TopoFlow-Glacier forcing record duration is invalid for catchment '" + this->get_id() + "'"
+                        );
+                    }
+
+                    if ((realization_dt_seconds % 3600) != 0) {
+                        throw std::runtime_error(
+                            "TopoFlow-Glacier forcing record duration is not an exact whole number of hours for catchment '" + this->get_id() + "'"
+                        );
+                    }
+
+                    std::tm start_tm = *std::gmtime(&realization_start_time);
+                    std::tm end_tm = *std::gmtime(&realization_end_time);
+
+                    std::ostringstream start_ss;
+                    start_ss << std::setfill('0')
+                             << std::setw(4) << (start_tm.tm_year + 1900)
+                             << std::setw(2) << (start_tm.tm_mon + 1)
+                             << std::setw(2) << start_tm.tm_mday
+                             << std::setw(2) << start_tm.tm_hour;
+
+                    std::ostringstream end_ss;
+                    end_ss << std::setfill('0')
+                           << std::setw(4) << (end_tm.tm_year + 1900)
+                           << std::setw(2) << (end_tm.tm_mon + 1)
+                           << std::setw(2) << end_tm.tm_mday
+                           << std::setw(2) << end_tm.tm_hour;
+
+                    const long realization_dt_hours = realization_dt_seconds / 3600;
+                    if (realization_dt_hours <= 0) {
+                        throw std::runtime_error(
+                            "TopoFlow-Glacier forcing record duration is less than one hour for catchment '" + this->get_id() + "'"
+                        );
+                    }
+
+                    std::stringstream ss_times;
+                    ss_times << "TopoFlow-Glacier realization-based forcing times for catchment '" << this->get_id() << "': "
+                             << "start=" << start_ss.str()
+                             << ", end=" << end_ss.str()
+                             << ", dt_hours=" << realization_dt_hours << std::endl;
+                    LOG(ss_times.str(), LogLevel::INFO);
+
+                    const std::string rewritten_init_config =
+                        rewrite_topoflow_glacier_runtime_init_config(
+                            original_init_config,
+                            this->get_id(),
+                            start_ss.str(),
+                            end_ss.str(),
+                            realization_dt_hours
+                        );
+
+                    std::stringstream ss_rewrite;
+                    ss_rewrite << "TopoFlow-Glacier rewritten runtime init_config for catchment '" << this->get_id()
                                << "': '" << rewritten_init_config << "'" << std::endl;
                     LOG(ss_rewrite.str(), LogLevel::INFO);
 
