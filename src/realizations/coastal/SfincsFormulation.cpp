@@ -76,6 +76,28 @@ void SfincsFormulation::initialize()
     bmi_->Initialize();
 
     available_vars_.clear();
+    available_var_units_.clear();
+
+    available_vars_.push_back("BEDLEVEL");
+    available_var_units_["BEDLEVEL"] = "m";
+
+    available_vars_.push_back("ETA2");
+    available_var_units_["ETA2"] = "m";
+
+    available_vars_.push_back("TROUTE_ETA2");
+    available_var_units_["TROUTE_ETA2"] = "m";
+
+    available_vars_.push_back("VX");
+    available_var_units_["VX"] = "m s-1";
+
+    available_vars_.push_back("VY");
+    available_var_units_["VY"] = "m s-1";
+
+    available_var_units_["zb"] = "m";
+    available_var_units_["zs"] = "m";
+    available_var_units_["troute_eta2"] = "m";
+    available_var_units_["u"] = "m s-1";
+    available_var_units_["v"] = "m s-1";
 #endif
 }
 
@@ -269,3 +291,16 @@ void SfincsFormulation::set_inputs_()
     // Once you confirm SFINCS BMI input variable names, we can map met/offshore/channel providers.
 }
 
+std::string SfincsFormulation::get_provider_units_for_variable(const std::string& name) const
+{
+    auto iter = available_forcing_units.find(name);
+
+    if (iter != available_forcing_units.end()) {
+        return iter->second;
+    }
+
+    throw std::runtime_error(
+        "SfincsFormulation: units requested for variable '" + name +
+        "' but not found in available_forcing_units."
+    );
+}
