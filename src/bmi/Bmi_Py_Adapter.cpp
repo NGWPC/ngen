@@ -236,4 +236,51 @@ void Bmi_Py_Adapter::UpdateUntil(double time) {
     bmi_model->attr("update_until")(time);
 }
 
+void Bmi_Py_Adapter::ApplyRealizationTimeConfig(const std::string& start_time_iso,
+                                                const std::string& end_time_iso,
+                                                double dt_seconds) {
+    if (bmi_model == nullptr) {
+        throw std::runtime_error("Bmi_Py_Adapter cannot apply realization time config: Python BMI model is null.");
+    }
+
+    py::object& model = *bmi_model;
+
+    if (!py::hasattr(model, "adapter_set_realization_times")) {
+        throw std::runtime_error(
+            "Bmi_Py_Adapter cannot apply realization time config: Python BMI model '" + model_name +
+            "' does not define adapter_set_realization_times(start, end)."
+        );
+    }
+
+    model.attr("adapter_set_realization_times")(start_time_iso, end_time_iso);
+
+    if (py::hasattr(model, "_timestep_size_s")) {
+        model.attr("_timestep_size_s") = py::float_(dt_seconds);
+    }
+
+    if (py::hasattr(model, "dt")) {
+        model.attr("dt") = py::float_(dt_seconds);
+    }
+
+    if (py::hasattr(model, "days_per_dt")) {
+        model.attr("days_per_dt") = py::float_(dt_seconds / 86400.0);
+    }
+
+    if (py::hasattr(model, "_apply_realization_time_from_strings")) {
+        model.attr("_apply_realization_time_from_strings")();
+    }
+    else {
+        throw std::runtime_error(
+            "Bmi_Py_Adapter cannot apply realization time config: Python BMI model '" + model_name +
+            "' does not define _apply_realization_time_from_strings()."
+        );
+    }
+
+    std::string msg = "Applied realization time config to Python BMI model '" + model_name +
+                      "': start='" + start_time_iso +
+                      "', end='" + end_time_iso +
+                      "', dt_seconds=" + std::to_string(dt_seconds);
+    LOG(LogLevel::INFO, msg);
+}
+
 #endif //NGEN_WITH_PYTHON
