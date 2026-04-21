@@ -538,6 +538,32 @@ namespace realization {
             }
 #endif
 
+            if (model_type_name.find("ueb") != std::string::npos) {
+                const time_t realization_start_time = forcing->get_data_start_time();
+                const time_t realization_end_time = forcing->get_data_stop_time();
+                const long realization_dt_seconds = forcing->record_duration();
+
+                if (realization_dt_seconds <= 0) {
+                    throw std::runtime_error(
+                            "UEB forcing record duration is invalid for catchment '" + this->get_id() + "'.");
+                }
+
+                const double start_time_value = static_cast<double>(realization_start_time);
+                const double end_time_value = static_cast<double>(realization_end_time);
+                const double dt_seconds_value = static_cast<double>(realization_dt_seconds);
+
+                std::stringstream ss;
+                ss << "Applying UEB realization time config for catchment '" << this->get_id()
+                   << "': start_utime=" << realization_start_time
+                   << ", end_utime=" << realization_end_time
+                   << ", dt_seconds=" << realization_dt_seconds << std::endl;
+                LOG(ss.str(), LogLevel::INFO);
+
+                get_bmi_model()->SetValue("ngen_realization_start_time", (void *)&start_time_value);
+                get_bmi_model()->SetValue("ngen_realization_end_time", (void *)&end_time_value);
+                get_bmi_model()->SetValue("ngen_realization_dt", (void *)&dt_seconds_value);
+            }
+
 #if NGEN_WITH_PYTHON
             if (model_type_name.find("topoflow") != std::string::npos) {
                 auto py_bmi_model = std::dynamic_pointer_cast<models::bmi::Bmi_Py_Adapter>(get_bmi_model());
@@ -725,6 +751,7 @@ namespace realization {
                 output_var_indices.resize(names.size(), 0);
             }
         }
+
 
         /**
          * @brief Template function for copying iterator range into contiguous array.
