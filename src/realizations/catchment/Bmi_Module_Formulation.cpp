@@ -510,6 +510,34 @@ namespace realization {
             // now construct the adapter and init the model
             set_bmi_model(construct_model(properties));
 
+#if NGEN_WITH_BMI_FORTRAN
+            if (model_type_name.find("noah") != std::string::npos) {
+                const time_t realization_start_time = forcing->get_data_start_time();
+                const time_t realization_end_time = forcing->get_data_stop_time();
+                const long realization_dt_seconds = forcing->record_duration();
+
+                if (realization_dt_seconds <= 0) {
+                    throw std::runtime_error(
+                            "Noah-OWP forcing record duration is invalid for catchment '" + this->get_id() + "'.");
+                }
+
+                const double start_time_value = static_cast<double>(realization_start_time);
+                const double end_time_value = static_cast<double>(realization_end_time);
+                const double dt_seconds_value = static_cast<double>(realization_dt_seconds);
+
+                std::stringstream ss;
+                ss << "Applying Noah-OWP realization time config for catchment '" << this->get_id()
+                   << "': start_utime=" << realization_start_time
+                   << ", end_utime=" << realization_end_time
+                   << ", dt_seconds=" << realization_dt_seconds << std::endl;
+                LOG(ss.str(), LogLevel::INFO);
+
+                get_bmi_model()->SetValue("ngen_realization_start_time", (void *)&start_time_value);
+                get_bmi_model()->SetValue("ngen_realization_end_time", (void *)&end_time_value);
+                get_bmi_model()->SetValue("ngen_realization_dt", (void *)&dt_seconds_value);
+            }
+#endif
+
 #if NGEN_WITH_PYTHON
             if (model_type_name.find("topoflow") != std::string::npos) {
                 auto py_bmi_model = std::dynamic_pointer_cast<models::bmi::Bmi_Py_Adapter>(get_bmi_model());
