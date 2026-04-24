@@ -546,3 +546,8 @@ void NgenSimulation:: log_completed_payload_msg()
     }
     reset_payload_attributes(); //reset all Payload variables after simulation runs
 }
+
+void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank, int mpi_num_procs)
+{
+   this->nc_writer_ = std::make_unique<NetCDFCreator>(manager,nc_output_file_name,*sim_time_, mpi_rank, mpi_num_procs_);
+}
