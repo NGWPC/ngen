@@ -68,6 +68,13 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
                 r_c->get_output_line_for_timestep(output_time_index)+"\n";
             r_c->write_output(output);
+
+            //capture all the output values for this timestep to write to netcdf in non-MPI run.
+            #if NGEN_WITH_NETCDF
+            #if !NGEN_WITH_MPI
+                catchment_output_values[id] = r_c->get_output_line_for_timestep(output_time_index);
+            #endif //NGEN_WITH_MPI
+            #endif //NGEN_WITH_NETCDF
         }
         //TODO put this somewhere else.  For now, just trying to ensure we get m^3/s into nexus output
         double area_sq_km;
@@ -173,4 +180,7 @@ void ngen::Layer::load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot
         auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(r);
         r_c->load_hot_start(snapshot_loader);
     }
+}
+std::map<std::string, std::string> ngen::Layer::get_catchment_output_data_for_timestep(){
+    return catchment_output_values;
 }

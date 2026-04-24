@@ -124,6 +124,7 @@ namespace ngen
         virtual void save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
         virtual void load_checkpoint(std::shared_ptr<State_Snapshot_Loader> snapshot_loader);
         virtual void load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot_loader);
+        std::map<std::string, std::string> get_catchment_output_data_for_timestep();
 
         std::string unit_name() const;
         virtual std::vector<std::string> required_checkpoint_units() const;
@@ -141,14 +142,9 @@ namespace ngen
         long output_time_index;   
 
         // Serialization template will be defined and instantiated in the .cpp file
-        friend class boost::serialization::access;
         template <class Archive>
         void serialize(Archive& ar, const unsigned int version) {
             ar & this->output_time_index;
             ar & this->simulation_time;
         }
-
-    };
-}
-
 #endif

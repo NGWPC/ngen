@@ -11,6 +11,10 @@
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
 
+#if NGEN_WITH_NETCDF
+#include <NetCDFCreator.hpp>
+#endif
+
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
 #endif
@@ -706,7 +710,13 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                                                        std::move(nexus_indexes),
                                                        mpi_rank,
                                                        mpi_num_procs);
-
+    #if NGEN_WITH_NETCDF
+    #if NGEN_WITH_MPI
+        LOG("Under MPI mode, a NetCDF file for catchment output values is not created due to limitations in NetCDFCxx4 library.", LogLevel::INFO);
+    #else
+        simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs); //create a NetCDF file only for Non-MPI run.
+    #endif //NGEN_WITH_MPI
+    #endif //NGEN_WITH_NETCDF
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
     LOG("[TIMING]: Init: " + std::to_string(time_elapsed_init.count()), LogLevel::INFO);

@@ -212,6 +212,15 @@ namespace realization {
             return REQUIRED_PARAMETERS;
         }
 
+        /**
+         * Get the units for the output variables organized as a vector of strings.
+         *
+         * @return The units for the output variables organized as a vector.
+         */
+        const std::vector<std::string> &get_output_variable_units() const {
+            return output_variable_units;
+        }
+
         virtual bool is_bmi_input_variable(const std::string &var_name) const = 0;
 
         /**
@@ -270,6 +279,10 @@ namespace realization {
             output_header_fields = output_headers;
         }
 
+        void set_output_variable_units(const std::vector<std::string> &output_units) {
+            output_variable_units = output_units;
+        }
+
         /**
          * Set the names of variables in formulation output.
          *
@@ -296,6 +309,11 @@ namespace realization {
          * the BMI module output variables accessible to the instance.
          */
         std::vector<std::string> output_variable_names;
+        /**
+         * Output units corresponding to the variables output by the realization, as defined in
+         * `output_variables`.
+         */
+        std::vector<std::string> output_variable_units;
         /** The degree of precision in output values when converting to text. */
         int output_precision;
 

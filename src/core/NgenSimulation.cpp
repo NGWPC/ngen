@@ -54,7 +54,7 @@ NgenSimulation::NgenSimulation(
     std::unordered_map<std::string, int> nexus_indexes,
     int mpi_rank,
     int mpi_num_procs
-                               )
+    )
     : simulation_step_(0)
     , sim_time_(std::make_shared<Simulation_Time>(sim_time))
     , layers_(std::move(layers))
@@ -75,7 +75,6 @@ void NgenSimulation::run_catchments()
 {
     // Now loop some time, iterate catchments, do stuff for total number of output times
     auto num_times = get_num_output_times();
-
     for (; simulation_step_ < num_times; simulation_step_++) {
         // Make room for this output step's results
         catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
@@ -195,6 +194,16 @@ void NgenSimulation::advance_models_one_output_step()
                                      simulation_step_
                                      ); // assume update_models() calls time->advance_timestep()
 #endif // NGEN_WITH_NEXUSES
+
+                // After updating the layer, get the output data for that timestep and write to netcdf. This is currently
+                //set up only for a non-MPI run.
+                #if NGEN_WITH_NETCDF
+                #if !NGEN_WITH_MPI
+                    std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
+                    nc_writer_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
+                #endif //NGEN_WITH_MPI
+                #endif //NGEN_WITH_NETCDF
+                
                 prev_layer_time = layer_next_time;
             } else {
                 layer_min_next_time = prev_layer_time = layer->current_timestep_epoch_time();
@@ -492,4 +501,9 @@ void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
     ar & nexus_indexes_;
     ar & nexus_downstream_flows_;
 #endif //NGEN_WITH_NEXUSES
+}
+
+void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank, int mpi_num_procs)
+{
+   this->nc_writer_ = std::make_unique<NetCDFCreator>(manager,nc_output_file_name,*sim_time_, mpi_rank, mpi_num_procs_);
 }

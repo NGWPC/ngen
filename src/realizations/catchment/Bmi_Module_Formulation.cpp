@@ -692,6 +692,7 @@ namespace realization {
                     output_var_units[i] = get_provider_units_for_variable(names[i]);
                 }
             }
+            set_output_variable_units(output_var_units);
 
             //check if output variable indices (for vector variables) are specified in config. If not, default to zero (first index).
             if(output_var_indices.size() == 0){

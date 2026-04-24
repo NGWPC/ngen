@@ -4,7 +4,12 @@
 #include <NGenConfig.h>
 
 #include <Simulation_Time.hpp>
+#include <Formulation_Manager.hpp>
 #include <Layer.hpp>
+
+#if NGEN_WITH_NETCDF
+    #include <NetCDFCreator.hpp>
+#endif
 
 namespace hy_features
 {
@@ -93,6 +98,7 @@ public:
      * @param merge_all_ranks Whether to also get the units from other MPI ranks. This should only be `true` when calling blocking MPI processes is safe for the program.
      */
     std::vector<std::string> required_checkpoint_units(bool merge_all_ranks) const;
+    void create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank, int mpi_num_procs);
 
 private:
     void advance_models_one_output_step();
@@ -142,6 +148,10 @@ private:
     friend class boost::serialization::access;
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version);
+    void serialize(Archive& ar);
+
+    //Pointer to netcdfcreator to write simulation output per timestep.
+    std::unique_ptr<NetCDFCreator> nc_writer_;
 };
 
 #endif
