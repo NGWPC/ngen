@@ -3,7 +3,7 @@
 #if NGEN_WITH_NETCDF
 #include <NetCDFCreator.hpp>
 #include <netcdf>
-#include <Logger.hpp>
+#include "ewts_ngen/logger.hpp"
 
 #if NGEN_WITH_MPI
 #include <mpi.h>
