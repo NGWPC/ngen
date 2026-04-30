@@ -10,7 +10,7 @@
 #include <features/Features.hpp>
 #include <JSONGeometry.hpp>
 #include <JSONProperty.hpp>
-#include <Logger.hpp>
+#include "ewts_ngen/logger.hpp"
 
 class NetCDFCreatorTest : public ::testing::Test {
     protected:
