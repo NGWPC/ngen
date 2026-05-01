@@ -29,6 +29,13 @@ static std::string format_iso_like_utc_datetime(time_t epoch_time) {
     return oss.str();
 }
 
+static bool is_ngen_realization_time_input(const std::string& var_name) {
+    return var_name == "ngen_realization_start_time" ||
+           var_name == "ngen_realization_end_time" ||
+           var_name == "ngen_realization_dt";
+}
+
+
 namespace realization {
         void Bmi_Module_Formulation::create_formulation(boost::property_tree::ptree &config, geojson::PropertyMap *global) {
             geojson::PropertyMap options = this->interpret_parameters(config, global);
@@ -506,98 +513,53 @@ namespace realization {
                 }
             }
 
-            // Do this next, since after checking whether other input variables are present in the properties, we can
             // now construct the adapter and init the model
             set_bmi_model(construct_model(properties));
 
-#if NGEN_WITH_BMI_FORTRAN
-            if (model_type_name.find("noah") != std::string::npos) {
-                const time_t realization_start_time = forcing->get_data_start_time();
-                const time_t realization_end_time = forcing->get_data_stop_time();
-                const long realization_dt_seconds = forcing->record_duration();
+            {
+                auto bmi_model = get_bmi_model();
 
-                if (realization_dt_seconds <= 0) {
-                    throw std::runtime_error(
-                            "Noah-OWP forcing record duration is invalid for catchment '" + this->get_id() + "'.");
+                if (bmi_model != nullptr) {
+
+                    std::vector<std::string> input_vars = bmi_model->GetInputVarNames();
+
+                    const std::string start_var = "ngen_realization_start_time";
+                    const std::string end_var   = "ngen_realization_end_time";
+                    const std::string dt_var    = "ngen_realization_dt";
+
+                    bool has_start = std::find(input_vars.begin(), input_vars.end(), start_var) != input_vars.end();
+                    bool has_end   = std::find(input_vars.begin(), input_vars.end(), end_var) != input_vars.end();
+                    bool has_dt    = std::find(input_vars.begin(), input_vars.end(), dt_var) != input_vars.end();
+
+                    if (has_start && has_end && has_dt) {
+
+                        const time_t realization_start_time = forcing->get_data_start_time();
+                        const time_t realization_end_time   = forcing->get_data_stop_time();
+                        const long realization_dt_seconds   = forcing->record_duration();
+
+                        if (realization_dt_seconds <= 0) {
+                            throw std::runtime_error(
+                                "Forcing record duration is invalid for catchment '" + this->get_id() + "'."
+                            );
+                        }
+
+                        const double start_time_value = static_cast<double>(realization_start_time);
+                        const double end_time_value   = static_cast<double>(realization_end_time);
+                        const double dt_seconds_value = static_cast<double>(realization_dt_seconds);
+
+                        std::stringstream ss;
+                        ss << "Applying realization time config via BMI inputs for catchment '" << this->get_id()
+                           << "': start_utime=" << realization_start_time
+                           << ", end_utime=" << realization_end_time
+                           << ", dt_seconds=" << realization_dt_seconds << std::endl;
+                        LOG(ss.str(), LogLevel::INFO);
+
+                        bmi_model->SetValue(start_var, (void *)&start_time_value);
+                        bmi_model->SetValue(end_var,   (void *)&end_time_value);
+                        bmi_model->SetValue(dt_var,    (void *)&dt_seconds_value);
+                    }
                 }
-
-                const double start_time_value = static_cast<double>(realization_start_time);
-                const double end_time_value = static_cast<double>(realization_end_time);
-                const double dt_seconds_value = static_cast<double>(realization_dt_seconds);
-
-                std::stringstream ss;
-                ss << "Applying Noah-OWP realization time config for catchment '" << this->get_id()
-                   << "': start_utime=" << realization_start_time
-                   << ", end_utime=" << realization_end_time
-                   << ", dt_seconds=" << realization_dt_seconds << std::endl;
-                LOG(ss.str(), LogLevel::INFO);
-
-                get_bmi_model()->SetValue("ngen_realization_start_time", (void *)&start_time_value);
-                get_bmi_model()->SetValue("ngen_realization_end_time", (void *)&end_time_value);
-                get_bmi_model()->SetValue("ngen_realization_dt", (void *)&dt_seconds_value);
             }
-#endif
-
-            if (model_type_name.find("ueb") != std::string::npos) {
-                const time_t realization_start_time = forcing->get_data_start_time();
-                const time_t realization_end_time = forcing->get_data_stop_time();
-                const long realization_dt_seconds = forcing->record_duration();
-
-                if (realization_dt_seconds <= 0) {
-                    throw std::runtime_error(
-                            "UEB forcing record duration is invalid for catchment '" + this->get_id() + "'.");
-                }
-
-                const double start_time_value = static_cast<double>(realization_start_time);
-                const double end_time_value = static_cast<double>(realization_end_time);
-                const double dt_seconds_value = static_cast<double>(realization_dt_seconds);
-
-                std::stringstream ss;
-                ss << "Applying UEB realization time config for catchment '" << this->get_id()
-                   << "': start_utime=" << realization_start_time
-                   << ", end_utime=" << realization_end_time
-                   << ", dt_seconds=" << realization_dt_seconds << std::endl;
-                LOG(ss.str(), LogLevel::INFO);
-
-                get_bmi_model()->SetValue("ngen_realization_start_time", (void *)&start_time_value);
-                get_bmi_model()->SetValue("ngen_realization_end_time", (void *)&end_time_value);
-                get_bmi_model()->SetValue("ngen_realization_dt", (void *)&dt_seconds_value);
-            }
-
-#if NGEN_WITH_PYTHON
-            if (model_type_name.find("topoflow") != std::string::npos) {
-                auto py_bmi_model = std::dynamic_pointer_cast<models::bmi::Bmi_Py_Adapter>(get_bmi_model());
-                if (py_bmi_model == nullptr) {
-                    throw std::runtime_error(
-                            "TopoFlow-Glacier formulation did not construct a Python BMI adapter for catchment '" +
-                            this->get_id() + "'.");
-                }
-
-                const time_t realization_start_time = forcing->get_data_start_time();
-                const time_t realization_end_time = forcing->get_data_stop_time();
-                const long realization_dt_seconds = forcing->record_duration();
-
-                if (realization_dt_seconds <= 0) {
-                    throw std::runtime_error(
-                            "TopoFlow-Glacier forcing record duration is invalid for catchment '" + this->get_id() + "'.");
-                }
-
-                const std::string start_time_iso = format_iso_like_utc_datetime(realization_start_time);
-                const std::string end_time_iso = format_iso_like_utc_datetime(realization_end_time);
-
-                std::stringstream ss;
-                ss << "Applying TopoFlow-Glacier realization time config for catchment '" << this->get_id()
-                   << "': start='" << start_time_iso
-                   << "', end='" << end_time_iso
-                   << "', dt_seconds=" << realization_dt_seconds << std::endl;
-                LOG(ss.str(), LogLevel::INFO);
-
-                py_bmi_model->ApplyRealizationTimeConfig(
-                        start_time_iso,
-                        end_time_iso,
-                        static_cast<double>(realization_dt_seconds));
-            }
-#endif
 
             //Check if any parameter values need to be set on the BMI model,
             //and set them before it is run
@@ -1016,6 +978,9 @@ namespace realization {
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
 
             for (std::string & var_name : in_var_names) {
+		if (is_ngen_realization_time_input(var_name)) {
+                    continue;
+                }    
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
@@ -1103,6 +1068,9 @@ namespace realization {
             inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
+		if (is_ngen_realization_time_input(var_name)) {
+                    continue;
+                }  
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
