@@ -56,6 +56,28 @@ void NgenSimulation::run_catchments()
         }
     }
 }
+void NgenSimulation::run_coastal()
+{
+      auto coastal_conf = manager->get_coastal_config();
+
+      // create the factory registry
+      ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
+
+      // register all supported coastal models
+      #if NGEN_ENABLE_SCHISM
+      registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
+      #endif
+
+      registry.registerCreator(ModelType::SFINCS, std::make_unique<SfincsCreator>()); //
+
+      // retrieve the creator for the model selected in the config
+      std::unique_ptr<ModelCreator> coastal_creator = 
+	                                registry.getCreator(coastal_conf->getModelType());
+
+      // execute the selected coastal model (SCHISM or SFINCS)
+      coastal_creator->executeModel( *coastal_conf, 
+		                    *(manager->Simulation_Time_Object) );
+}
 
 void NgenSimulation::finalize() {
 #if NGEN_WITH_ROUTING

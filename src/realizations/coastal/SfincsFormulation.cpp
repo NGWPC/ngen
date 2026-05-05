@@ -291,16 +291,16 @@ void SfincsFormulation::set_inputs_()
     // Once you confirm SFINCS BMI input variable names, we can map met/offshore/channel providers.
 }
 
-std::string SfincsFormulation::get_provider_units_for_variable(const std::string& name) const
+const std::string SfincsFormulation::get_provider_units_for_variable(const std::string& name) const
 {
-    auto iter = available_forcing_units.find(name);
+    auto iter = available_var_units_.find(name);
 
-    if (iter != available_forcing_units.end()) {
+    if (iter != available_var_units_.end()) {
         return iter->second;
     }
 
     throw std::runtime_error(
         "SfincsFormulation: units requested for variable '" + name +
-        "' but not found in available_forcing_units."
+        "' but not found in available_var_units_."
     );
 }

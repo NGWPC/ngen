@@ -2,6 +2,7 @@
 
 #include <utilities/parallel_utils.h>
 #include <utilities/FileChecker.h>
+#include <utilities/python/HydrofabricSubsetter.hpp>
 #include <iostream>
 
 int mpi_rank = 0;

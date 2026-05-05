@@ -64,9 +64,7 @@ namespace parallel {
      * @return Whether all ranks coordinating status had a success/ready status value.
      * @see mpiSyncStatusAnd(bool, const std::string&)
      */
-    inline bool mpiSyncStatusAnd(bool status, int mpi_rank, int mpi_num_procs) {
-        return mpiSyncStatusAnd(status, mpi_rank, mpi_num_procs, "");
-    }
+    bool mpiSyncStatusAnd(bool status, int mpi_rank, int mpi_num_procs);
 
     /**
      * Check whether the parameter hydrofabric files have been subdivided into appropriate per partition files.
