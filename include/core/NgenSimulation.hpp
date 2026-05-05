@@ -55,6 +55,7 @@ public:
      */
     void run_catchments();
 
+    void run_coastal( std::shared_ptr<coastal_config_params> const& config );
     // Tear down of any items stored on the NgenSimulation object that could throw errors and, thus, should be kept separate from the deconstructor.
     void finalize();
 
