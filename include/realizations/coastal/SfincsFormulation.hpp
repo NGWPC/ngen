@@ -69,7 +69,7 @@ public:
     long record_duration() const override;
     std::size_t get_ts_index_for_time(const time_t& epoch_time) const override;
     data_type get_value(const selection_type& selector, data_access::ReSampleMethod m=data_access::SUM) override;
-    std::string get_provider_units_for_variable(const std::string& name) const override;
+    const std::string get_provider_units_for_variable(const std::string& name) const override;
 private:
     void create_formulation_();
     void destroy_formulation_();

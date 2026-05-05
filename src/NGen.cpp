@@ -43,9 +43,9 @@
 #include <pybind11/embed.h>
 #endif // NGEN_WITH_PYTHON
     
-#if NGEN_WITH_ROUTING
-#include "routing/Routing_Py_Adapter.hpp"
-#endif // NGEN_WITH_ROUTING
+//#if NGEN_WITH_ROUTING
+//#include "routing/Routing_Py_Adapter.hpp"
+//#endif // NGEN_WITH_ROUTING
 
 std::string catchmentDataFile = "";
 std::string nexusDataFile = "";
