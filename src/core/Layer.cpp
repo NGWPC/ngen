@@ -1,6 +1,7 @@
 #include <Layer.hpp>
 #include <Catchment_Formulation.hpp>
 #include <Bmi_Formulation.hpp>
+#include <string>
 
 #if NGEN_WITH_MPI
 #include "HY_Features_MPI.hpp"
@@ -16,9 +17,20 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
 {
     auto idx = simulation_time.next_timestep_index();
     auto step = simulation_time.get_output_interval_seconds();
-            
+
     //std::cout<<"Output Time Index: "<<output_time_index<<std::endl;
-    if(output_time_index%1000 == 0) std::cout<<"Running timestep " << output_time_index <<std::endl;
+
+#if NGEN_WITH_MPI
+    if (output_time_index%1000 == 0) {
+        int rank = 0;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        std::string msg = "[rank " + std::to_string(rank) + "] Running timestep " + std::to_string(output_time_index);
+        std::cout << msg << std::endl;
+    }
+#else
+    if (output_time_index%1000 == 0) std::cout << "Running timestep " << output_time_index << std::endl;
+#endif
+
     std::string current_timestamp = simulation_time.get_timestamp(output_time_index);
     for(const auto& id : processing_units) {
         int sub_time = output_time_index;
@@ -46,10 +58,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                         +" at feature id "+id;
             throw std::runtime_error(msg);
         }
-#if NGEN_WITH_ROUTING
-        int results_index = catchment_indexes[id];
-        catchment_outflows[results_index] += response;
-#endif // NGEN_WITH_ROUTING
         if (r_c->get_output_header_count() > 0) {
             // only write output if config specifies output values
             std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
@@ -57,16 +65,31 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             r_c->write_output(output);
         }
         //TODO put this somewhere else.  For now, just trying to ensure we get m^3/s into nexus output
-        double area;
+        double area_sq_km;
         try {
-            area = catchment_data->get_feature(id)->get_property("areasqkm").as_real_number();
+            area_sq_km = catchment_data->get_feature(id)->get_property("areasqkm").as_real_number();
         }
         catch(std::invalid_argument &e) {
-            area = catchment_data->get_feature(id)->get_property("area_sqkm").as_real_number();
+            area_sq_km = catchment_data->get_feature(id)->get_property("area_sqkm").as_real_number();
         }
-        double response_m_s = response * (area * 1000000);
+        double area_sq_m = area_sq_km * 1'000'000;
         //TODO put this somewhere else as well, for now, an implicit assumption is that a module's get_response returns
         //m/timestep
+#if NGEN_WITH_ROUTING
+        // t-route NHF takes in catchment results in (m^3/s)
+        // depth (m) x area (m^2) / dt (seconds)
+        int results_index = catchment_indexes[id];
+        catchment_outflows[results_index] += 
+            // response is meters per timestep (m/t)
+            response
+            // divide by timestep seconds to get to meters per second: (m/t) * (t/s) = (m/s)
+            / simulation_time.get_output_interval_seconds()
+            // multiply by square meters: (m/s) * (m^2) = (m^3/s)
+            * area_sq_m;
+#endif // NGEN_WITH_ROUTING
+        // NOTE: the conversion below loos like it's missing a conversion from per timestep to per second
+        // Maintaining the current code in case there's a step later that accounts for this
+        double response_m_s = response * area_sq_m;
         //since we are operating on a 1 hour (3600s) dt, we need to scale the output appropriately
         //so no response is m^2/hr...m^2/hr * 1hr/3600s = m^3/hr
         double response_m_h = response_m_s / 3600.0;
