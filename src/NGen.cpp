@@ -781,7 +781,8 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
 #if NGEN_WITH_COASTAL
     if (manager->get_using_coastal()) {
-        simulation->run_coastal();
+        auto coastal_conf = manager->get_coastal_config();
+        simulation->run_coastal( coastal_conf );
     }
 
     auto time_done_coastal                             = std::chrono::steady_clock::now();
