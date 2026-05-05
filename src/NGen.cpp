@@ -56,7 +56,7 @@ bool is_subdivided_hydrofabric_wanted = false;
 #include "core/Partition_Parser.hpp"
 #include <HY_Features_MPI.hpp>
 
-#include "core/Partition_One.hpp>"
+#include "core/Partition_One.hpp"
 
 std::string PARTITION_PATH = "";
 #endif // NGEN_WITH_MPI
