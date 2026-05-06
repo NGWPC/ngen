@@ -12,6 +12,17 @@
 #include "state_save_restore/State_Save_Restore.hpp"
 #include "parallel_utils.h"
 
+#if NGEN_WITH_COASTAL
+#include "realizations/coastal/ModelCreator.hpp"
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+#include "realizations/coastal/Coastal_Config_Params.hpp"
+#include "realizations/coastal/SfincsCreator.hpp"
+
+#if NGEN_ENABLE_SCHISM
+#include "realizations/coastal/SchismCreator.hpp"
+#endif
+#endif
+
 namespace {
     const auto NGEN_UNIT_NAME = "ngen";
     const auto TROUTE_UNIT_NAME = "troute";
@@ -56,28 +67,36 @@ void NgenSimulation::run_catchments()
         }
     }
 }
-void NgenSimulation::run_coastal( std::shared_ptr<coastal_config_params> const& config )
+
+#if NGEN_WITH_COASTAL
+void NgenSimulation::run_coastal(std::shared_ptr<coastal_config_params> const& config)
 {
-      //auto coastal_conf = manager->get_coastal_config();
+    if (!config) {
+        std::string msg = "NgenSimulation::run_coastal received null coastal config.";
+        LOG(msg, LogLevel::FATAL);
+        throw std::runtime_error(msg);
+    }
 
-      // create the factory registry
-      ModelCreatorRegistry &registry = ModelCreatorRegistry::getInstance();
+    ModelCreatorRegistry& registry = ModelCreatorRegistry::getInstance();
 
-      // register all supported coastal models
-      #if NGEN_ENABLE_SCHISM
-      registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
-      #endif
+#if NGEN_ENABLE_SCHISM
+    registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
+#endif
 
-      registry.registerCreator(ModelType::SFINCS, std::make_unique<SfincsCreator>()); //
+    registry.registerCreator(ModelType::SFINCS, std::make_unique<SfincsCreator>());
 
-      // retrieve the creator for the model selected in the config
-      std::unique_ptr<ModelCreator> coastal_creator = 
-	                                registry.getCreator(config->getModelType());
+    std::unique_ptr<ModelCreator> coastal_creator =
+        registry.getCreator(config->getModelType());
 
-      // execute the selected coastal model (SCHISM or SFINCS)
-      coastal_creator->executeModel( *config, 
-		                    *(manager->Simulation_Time_Object) );
+    if (!coastal_creator) {
+        std::string msg = "NgenSimulation::run_coastal failed to create coastal model creator.";
+        LOG(msg, LogLevel::FATAL);
+        throw std::runtime_error(msg);
+    }
+
+    coastal_creator->executeModel(*config, *sim_time_);
 }
+#endif
 
 void NgenSimulation::finalize() {
 #if NGEN_WITH_ROUTING
