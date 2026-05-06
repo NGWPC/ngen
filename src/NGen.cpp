@@ -379,6 +379,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
             if (parallel::is_hydrofabric_subdivided(mpi_rank, mpi_num_procs, catchmentDataFile, true) ||
                 parallel::subdivide_hydrofabric(mpi_rank, mpi_num_procs, catchmentDataFile, nexusDataFile,
                                                 PARTITION_PATH))
+
             {
                 catchmentDataFile += "." + std::to_string(mpi_rank);
                 nexusDataFile += "." + std::to_string(mpi_rank);
