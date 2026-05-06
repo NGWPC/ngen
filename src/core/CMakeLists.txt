@@ -1,6 +1,15 @@
 include(${PROJECT_SOURCE_DIR}/cmake/dynamic_sourced_library.cmake)
 dynamic_sourced_cxx_library(core "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# parallel_utils.cpp is built by src/utilities as NGen::parallel.
+# Do not also compile it into core, or the final ngen link gets duplicate symbols.
+get_target_property(_core_sources core SOURCES)
+if(_core_sources)
+    list(FILTER _core_sources EXCLUDE REGEX ".*/parallel_utils\\.cpp$")
+    list(FILTER _core_sources EXCLUDE REGEX ".*parallel_utils\\.cpp$")
+    set_target_properties(core PROPERTIES SOURCES "${_core_sources}")
+endif()
+
 add_library(NGen::core ALIAS core)
 target_link_libraries(core PUBLIC
                            NGen::config_header

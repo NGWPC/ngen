@@ -1,3 +1,5 @@
+#include <fstream>
+#include <string>
 #include <utilities/parallel_utils.h>
 
 #if NGEN_WITH_MPI
@@ -42,7 +44,7 @@ namespace parallel {
         return mpiSyncStatusAnd(status, mpi_rank, mpi_num_procs, "");
     }
 
-    bool is_hydrofabric_subdivided(const std::string &catchmentDataFile, int mpi_rank, int mpi_num_procs, bool printMsg) {
+    bool is_hydrofabric_subdivided(int mpi_rank, int mpi_num_procs, const std::string &catchmentDataFile, bool printMsg) {
         std::string name = catchmentDataFile + "." + std::to_string(mpi_rank);
         // Initialize isGood based on local state.  Here, local file is "good" when it already exists.
         // TODO: this isn't actually checking whether the files are right (just that they are present) so do we need to?
