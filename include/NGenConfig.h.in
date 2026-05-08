@@ -19,6 +19,7 @@
 #cmakedefine01 NGEN_WITH_ROUTING
 #cmakedefine01 NGEN_WITH_TESTS
 #cmakedefine01 NGEN_QUIET
+#cmakedefine01 NGEN_WITH_COASTAL
 
 #include <string>
 

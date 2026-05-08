@@ -55,6 +55,7 @@ option(NGEN_WITH_BMI_C       "Build with C BMI support"           ON)
 option(NGEN_WITH_PYTHON      "Build with embedded Python support" ON)
 option(NGEN_WITH_TESTS       "Build with unit tests"              ON)
 option(NGEN_QUIET            "Silence output"                     OFF)
+option(NGEN_WITH_COASTAL     "Build with coastal model support"   ON)
 
 # These options require dependency on some of the above options
 # Syntax: cmake_dependent_option(<option> "<help_text>" <value> <depends> <force>)
@@ -493,6 +494,7 @@ ngen_multiline_message(
 "    NGEN_WITH_BMI_C: ${NGEN_WITH_BMI_C}"
 "    NGEN_WITH_PYTHON: ${NGEN_WITH_PYTHON}"
 "    NGEN_WITH_ROUTING: ${NGEN_WITH_ROUTING}"
+"    NGEN_WITH_COASTAL: ${NGEN_WITH_COASTAL}"
 "    NGEN_WITH_TESTS: ${NGEN_WITH_TESTS}"
 "    NGEN_WITH_COVERAGE: ${NGEN_WITH_COVERAGE}"
 "    NGEN_QUIET: ${NGEN_QUIET}"
