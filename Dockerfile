@@ -201,7 +201,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
     mkdir --parents /usr/src/netcdf-fortran && \
     tar --extract --directory /usr/src/netcdf-fortran --strip-components=1 --file netcdf-fortran.tar.gz && \
     cd /usr/src/netcdf-fortran && \
-    cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF \
+    cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF -DNGEN_WITH_COASTAL=ON \
        -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
