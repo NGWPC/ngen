@@ -292,4 +292,13 @@ double SchismFormulation::get_time_step()
 {
     return bmi_->GetTimeStep();
 }
+const std::string SchismFormulation::get_provider_units_for_variable(const std::string& name) const
+{
+    return bmi_->GetVarUnits(name);
+
+    throw std::runtime_error(
+        "SchismFormulation: units requested for variable '" + name +
+        "' but not found in GetVarUnits(name)"
+    );
+}
 #endif // NGEN_WITH_BMI_FORTRAN && NGEN_WITH_MPI

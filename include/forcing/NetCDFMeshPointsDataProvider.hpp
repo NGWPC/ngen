@@ -44,6 +44,9 @@ namespace data_access
         /** Return the variables that are accessible by this data provider */
         boost::span<const std::string> get_available_variable_names() const override;
 
+        /** Return the unit for the requested variable that is accessible by this data provider */
+        const std::string get_provider_units_for_variable(const std::string& name) const override;
+
         /** Return the first valid time for which data from the requested variable can be requested */
         long get_data_start_time() const override;
 

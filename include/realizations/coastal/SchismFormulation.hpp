@@ -48,6 +48,7 @@ public:
     double get_time_step() override;
 
     void get_values(const selection_type& selector, boost::span<data_type> data) override;
+    const std::string get_provider_units_for_variable(const std::string& name) const override;
 
     // Visible only for testing use
     enum ForcingSelector { METEO, OFFSHORE, CHANNEL_FLOW };

@@ -17,10 +17,7 @@
 #include "realizations/coastal/ModelCreatorRegistry.hpp"
 #include "realizations/coastal/Coastal_Config_Params.hpp"
 #include "realizations/coastal/SfincsCreator.hpp"
-
-#if NGEN_ENABLE_SCHISM
 #include "realizations/coastal/SchismCreator.hpp"
-#endif
 #endif
 
 namespace {
@@ -79,9 +76,7 @@ void NgenSimulation::run_coastal(std::shared_ptr<coastal_config_params> const& c
 
     ModelCreatorRegistry& registry = ModelCreatorRegistry::getInstance();
 
-#if NGEN_ENABLE_SCHISM
     registry.registerCreator(ModelType::SCHISM, std::make_unique<SchismCreator>());
-#endif
 
     registry.registerCreator(ModelType::SFINCS, std::make_unique<SfincsCreator>());
 
