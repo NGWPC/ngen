@@ -5,7 +5,7 @@ if(NOT DEFINED PROJECT_NAME)
   project(ngen_coastal LANGUAGES C CXX)
 endif()
 
-option(NGEN_ENABLE_SCHISM "Enable SCHISM coastal model support" OFF)
+option(NGEN_ENABLE_SCHISM "Enable SCHISM coastal model support" ON)
 
 if (NGEN_ENABLE_SCHISM)
   add_compile_definitions(NGEN_ENABLE_SCHISM=1)

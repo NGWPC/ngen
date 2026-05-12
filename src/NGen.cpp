@@ -10,15 +10,11 @@
 #include "realizations/catchment/Formulation_Manager.hpp"
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
+
 #include "realizations/coastal/ModelCreatorRegistry.hpp"
-
-//#if NGEN_ENABLE_SCHISM
 #include "realizations/coastal/SchismCreator.hpp"
-//#endif
-
 #include "realizations/coastal/SfincsCreator.hpp"  
 #include "realizations/coastal/ModelCreatorRegistry.hpp"
-#include "realizations/coastal/SchismCreator.hpp"
 
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>

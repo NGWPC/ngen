@@ -67,6 +67,24 @@ boost::span<const std::string> NetCDFMeshPointsDataProvider<MeshPolicy>::get_ava
 }
 
 template <typename MeshPolicy>
+const std::string NetCDFMeshPointsDataProvider<MeshPolicy>::get_provider_units_for_variable(const std::string& name) const 
+{
+    std::string var_name = MeshPolicy::convertVarName( name );
+    auto const metadata = this->ncvar_cache.find( var_name);
+    if ( metadata != ncvar_cache.end() )
+    {
+      const std::string source_units = metadata->second.units;
+      return source_units;
+    }
+    else
+    {
+       throw std::runtime_error(
+        "NetCDFMeshPointsDataProvider: units requested for variable '" + name +
+        "' but not found variable '" + name + "' in ncvar_cache.");
+    }
+}
+
+template <typename MeshPolicy>
 long NetCDFMeshPointsDataProvider<MeshPolicy>::get_data_start_time() const
 {
     return std::chrono::system_clock::to_time_t(time_vals[0]);
