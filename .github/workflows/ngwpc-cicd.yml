@@ -81,6 +81,7 @@ jobs:
       clean_ref: ${{ steps.vars.outputs.clean_ref }}
       ngen_forcing_digest: ${{ steps.vars.outputs.ngen_forcing_digest }}
       ngen_forcing_revision: ${{ steps.vars.outputs.ngen_forcing_revision }}
+      ewts_cache_bust: ${{ steps.vars.outputs.ewts_cache_bust }}
     steps:
       - name: Compute image vars
         id: vars
@@ -143,6 +144,21 @@ jobs:
           NGEN_FORCING_DIGEST=$(echo "$NGEN_FORCING_INSPECT" | jq -r '.Digest // "unknown"')
           NGEN_FORCING_REVISION=$(echo "$NGEN_FORCING_INSPECT" | jq -r '.Labels["org.opencontainers.image.revision"] // "unknown"')
 
+          # Resolve EWTS ref for Docker cache busting
+          EWTS_ORG="${{ inputs.EWTS_ORG || github.repository_owner }}"
+          EWTS_REF="${{ inputs.EWTS_REF || 'development' }}"
+          
+          if [[ "${EWTS_REF}" =~ ^[0-9a-f]{7,40}$ ]]; then
+            EWTS_CACHE_BUST="${EWTS_REF}"
+          else
+            EWTS_CACHE_BUST="$(git ls-remote "https://github.com/${EWTS_ORG}/nwm-ewts.git" "${EWTS_REF}" | awk '{print $1}')"
+          fi
+          
+          if [ -z "${EWTS_CACHE_BUST}" ]; then
+            echo "ERROR: Could not resolve EWTS_REF=${EWTS_REF}"
+            exit 1
+          fi
+          
           # save outputs
           echo "org=${ORG}" >> "$GITHUB_OUTPUT"
           echo "image_base=${IMAGE_BASE}" >> "$GITHUB_OUTPUT"
@@ -153,6 +169,7 @@ jobs:
           echo "clean_ref=${CLEAN_REF}" >> "$GITHUB_OUTPUT"
           echo "ngen_forcing_digest=${NGEN_FORCING_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "ngen_forcing_revision=${NGEN_FORCING_REVISION}" >> "$GITHUB_OUTPUT"
+          echo "ewts_cache_bust=${EWTS_CACHE_BUST}" >> "$GITHUB_OUTPUT"
 
   # CodeQL scan
   codeql-scan:
@@ -311,6 +328,7 @@ jobs:
             BASE_IMAGE_REVISION=${{ needs.setup.outputs.ngen_forcing_revision }}
             EWTS_ORG=${{ inputs.EWTS_ORG || github.repository_owner }}
             EWTS_REF=${{ inputs.EWTS_REF || 'development' }}
+            EWTS_CACHE_BUST=${{ needs.setup.outputs.ewts_cache_bust }}
             IMAGE_SOURCE=https://github.com/${{ github.repository }}
             IMAGE_VENDOR=${{ github.repository_owner }}
             IMAGE_VERSION=${{ needs.setup.outputs.clean_ref }}
