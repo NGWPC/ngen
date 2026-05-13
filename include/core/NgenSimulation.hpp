@@ -19,6 +19,10 @@ class State_Snapshot_Loader;
 #include "bmi/Bmi_Py_Adapter.hpp"
 #endif // NGEN_WITH_ROUTING
 
+#if NGEN_WITH_COASTAL
+#include "realizations/coastal/Coastal_Config_Params.hpp"
+#endif
+
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -54,6 +58,10 @@ public:
      * by `run_routing()`
      */
     void run_catchments();
+
+#if NGEN_WITH_COASTAL
+    void run_coastal(std::shared_ptr<coastal_config_params> const& config);
+#endif
 
     // Tear down of any items stored on the NgenSimulation object that could throw errors and, thus, should be kept separate from the deconstructor.
     void finalize();

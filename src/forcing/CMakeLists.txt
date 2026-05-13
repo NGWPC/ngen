@@ -22,9 +22,15 @@ target_link_libraries(forcing PUBLIC
 target_link_libraries(forcing PUBLIC ewts::ewts_ngen_bridge)
 
 target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/NullForcingProvider.cpp")
+target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/MetMeshPolicy.cpp")
+target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/FlowMeshPolicy.cpp")
+target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/TidalMeshPolicy.cpp")
 
 if(NGEN_WITH_NETCDF)
-    target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/NetCDFPerFeatureDataProvider.cpp")
+    target_sources(forcing PRIVATE
+                           "${CMAKE_CURRENT_LIST_DIR}/NetCDFPerFeatureDataProvider.cpp"
+                           "${CMAKE_CURRENT_LIST_DIR}/NetCDFMeshPointsDataProvider.cpp"
+                  )
     target_link_libraries(forcing PUBLIC NetCDF)
 endif()
 

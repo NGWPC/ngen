@@ -11,6 +11,11 @@
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
 
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+#include "realizations/coastal/SchismCreator.hpp"
+#include "realizations/coastal/SfincsCreator.hpp"  
+#include "realizations/coastal/ModelCreatorRegistry.hpp"
+
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
 #endif
@@ -33,6 +38,17 @@
 #include "python/InterpreterUtil.hpp"
 #include <pybind11/embed.h>
 #endif // NGEN_WITH_PYTHON
+    
+//#if NGEN_WITH_ROUTING
+//#include "routing/Routing_Py_Adapter.hpp"
+//#endif // NGEN_WITH_ROUTING
+
+std::string catchmentDataFile = "";
+std::string nexusDataFile = "";
+std::string REALIZATION_CONFIG_PATH = "";
+bool is_subdivided_hydrofabric_wanted = false;
+
+#include "parallel_utils.h"
 
 #if NGEN_WITH_MPI
 
@@ -48,6 +64,7 @@
 
 #include "core/Partition_One.hpp"
 
+std::string PARTITION_PATH = "";
 #endif // NGEN_WITH_MPI
 
 #include <DomainLayer.hpp>
@@ -354,16 +371,12 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
         // Do some extra steps if we expect to load a subdivided hydrofabric
         if (is_subdivided_hydrofabric_wanted) {
-            // Ensure the hydrofabric is subdivided (either already or by doing it now), and then
-            // adjust these paths
-            if (parallel::is_hydrofabric_subdivided(catchmentDataFile, mpi_rank, mpi_num_procs, true) ||
-                parallel::subdivide_hydrofabric(
-                    mpi_rank,
-                    mpi_num_procs,
-                    catchmentDataFile,
-                    nexusDataFile,
-                    PARTITION_PATH
-                )) {
+            // Ensure the hydrofabric is subdivided (either already or by doing it now), and then adjust these paths
+            if (parallel::is_hydrofabric_subdivided(mpi_rank, mpi_num_procs, catchmentDataFile, true) ||
+                parallel::subdivide_hydrofabric(mpi_rank, mpi_num_procs, catchmentDataFile, nexusDataFile,
+                                                PARTITION_PATH))
+
+            {
                 catchmentDataFile += "." + std::to_string(mpi_rank);
                 nexusDataFile += "." + std::to_string(mpi_rank);
             }
@@ -758,7 +771,8 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
 #if NGEN_WITH_COASTAL
     if (manager->get_using_coastal()) {
-        simulation->run_coastal();
+        auto coastal_conf = manager->get_coastal_config();
+        simulation->run_coastal( coastal_conf );
     }
 
     auto time_done_coastal                             = std::chrono::steady_clock::now();
@@ -840,11 +854,13 @@ int main(int argc, char* argv[]) {
     }
     // explicitly destroy the interpreter before calling MPI_Finalize
     interp.reset();
+
 #if NGEN_WITH_MPI
     // ensure all interpreters are fully closed between MPI ranks before calling MPI_Finalize below
     // this is needed if any python atexit registered functions would interact with MPI
     MPI_Barrier(MPI_COMM_WORLD);
 #endif // NGEN_WITH_MPI
+
 #else
     result = run_ngen(argc, argv, mpi_num_procs, mpi_rank);
 #endif // NGEN_WITH_PYTHON
@@ -855,3 +871,4 @@ int main(int argc, char* argv[]) {
 
     return result;
 }
+

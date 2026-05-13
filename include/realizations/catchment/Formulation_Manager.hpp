@@ -27,6 +27,7 @@
 #include "realizations/config/config.hpp"
 #include "realizations/config/layer.hpp"
 #include "forcing/ForcingsEngineDataProvider.hpp"
+#include "realizations/config/coastal.hpp"
 
 namespace realization {
 
@@ -227,6 +228,22 @@ namespace realization {
 //                        LOG(ss.str(), LogLevel::DEBUG);
                     }
                 }
+
+                /**
+                 * Read coastal configurations from configuration file
+                 */
+                auto possible_coastal_configs = tree.get_child_optional("coastal");
+
+                if (possible_coastal_configs) {
+                    this->coastal_config = (config::Coastal( tree )).params;
+                    using_coastal = true;
+                    if ( ! this->coastal_config->isValid() ) {
+                        using_coastal = false;
+                        this->coastal_config = nullptr;
+                        std::cerr<< "WARNING: Formulation Manager found coastal configuration"
+                                 << ", but coastal configuration is not valid. No coastal modeling will occur." <<std::endl;
+                    }
+                }
             }
 
             void add_formulation(std::shared_ptr<Catchment_Formulation> formulation) {
@@ -289,6 +306,20 @@ namespace realization {
                     return this->routing_config->t_route_config_file_with_path;
                 else
                     return "";
+            }
+
+            /**
+             * @return Whether or not using coastal
+             */
+            bool get_using_coastal() {
+                return this->using_coastal;
+            }
+
+            /**
+             * @return coastal config parameters
+             */
+            std::shared_ptr<coastal_config_params> get_coastal_config() {
+                 return this->coastal_config;
             }
 
             /**
@@ -801,6 +832,9 @@ namespace realization {
             std::shared_ptr<routing_params> routing_config;
 
             bool using_routing = false;
+
+            std::shared_ptr<coastal_config_params> coastal_config;
+            bool using_coastal = false;
 
             ngen::LayerDataStorage layer_storage;
     };

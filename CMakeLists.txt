@@ -55,6 +55,7 @@ option(NGEN_WITH_BMI_C       "Build with C BMI support"           ON)
 option(NGEN_WITH_PYTHON      "Build with embedded Python support" ON)
 option(NGEN_WITH_TESTS       "Build with unit tests"              ON)
 option(NGEN_QUIET            "Silence output"                     OFF)
+option(NGEN_WITH_COASTAL     "Build with coastal model support"   ON)
 
 # These options require dependency on some of the above options
 # Syntax: cmake_dependent_option(<option> "<help_text>" <value> <depends> <force>)
@@ -81,11 +82,13 @@ cmake_dependent_option(NGEN_WITH_EXTERN_TOPMODEL         "Build with extern-dist
 cmake_dependent_option(NGEN_WITH_EXTERN_CFE              "Build with extern-distributed CFE"              ON "NGEN_WITH_BMI_C"       OFF)
 cmake_dependent_option(NGEN_WITH_EXTERN_PET              "Build with extern-distributed PET"              ON "NGEN_WITH_BMI_C"       OFF)
 cmake_dependent_option(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR "Build with extern-distributed Noah-OWP-Modular" ON "NGEN_WITH_BMI_FORTRAN" OFF)
+cmake_dependent_option(NGEN_WITH_EXTERN_SFINCS           "Build with extern-distributed SFINCS"           ON "NGEN_WITH_BMI_FORTRAN" OFF)
 
 # Allow enabling of all extern models dependent on NGen options given.
 option(NGEN_WITH_EXTERN_ALL OFF)
 if(NGEN_WITH_EXTERN_ALL)
     set(NGEN_WITH_EXTERN_SLOTH ON)
+    set(NGEN_WITH_EXTERN_SFINCS ON)
 
     # Ensure C support is enabled
     if(NGEN_WITH_BMI_C)
@@ -99,6 +102,7 @@ if(NGEN_WITH_EXTERN_ALL)
     # Ensure Fortran support is enabled
     if(NGEN_WITH_BMI_FORTRAN)
         set(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR ON)
+
     else()
         message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_BMI_FORTRAN set to ${NGEN_WITH_BMI_FORTRAN}")
     endif()
@@ -145,7 +149,6 @@ message(STATUS "Found EWTS: ${EWTS_PREFIX} (found version ${ewts_VERSION})")
 
 # NGen itself uses the NGen-specific EWTS logger/bridge
 target_link_libraries(ngen PRIVATE ewts::ewts_ngen_bridge)
-
 # Dependencies ================================================================
 
 # -----------------------------------------------------------------------------
@@ -292,6 +295,29 @@ if(NGEN_WITH_BMI_FORTRAN)
             IMPORTS    surfacebmi
         )
     endif()
+
+    if(NGEN_WITH_EXTERN_SFINCS)
+        include(ExternalProject)
+
+        if(NOT NETCDF_PREFIX AND DEFINED ENV{NETCDF_PREFIX})
+            set(NETCDF_PREFIX "$ENV{NETCDF_PREFIX}" CACHE PATH "Prefix for NetCDF used by SFINCS" FORCE)
+        endif()
+
+        ExternalProject_Add(sfincs_bmi_external
+            SOURCE_DIR "${NGEN_EXT_DIR}/SFINCS/source/src"
+            BINARY_DIR "${NGEN_EXT_DIR}/SFINCS/cmake_build"
+            CMAKE_ARGS
+                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
+                -DNETCDF_PREFIX=${NETCDF_PREFIX}
+                -DSFINCS_ENABLE_NETCDF=ON
+                -DSFINCS_ENABLE_OPENMP=ON
+                -DSFINCS_BUILD_TESTS=OFF
+            BUILD_BYPRODUCTS "${NGEN_EXT_DIR}/SFINCS/cmake_build/libsfincs_bmi.so"
+            INSTALL_COMMAND ""
+        )
+    endif()
 endif()
 
 # -----------------------------------------------------------------------------
@@ -343,12 +369,17 @@ if(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR)
     add_dependencies(ngen surfacebmi)
 endif()
 
+if(NGEN_WITH_EXTERN_SFINCS)
+    add_dependencies(ngen sfincs_bmi_external)
+endif()
+
 target_include_directories(ngen PUBLIC "${NGEN_INC_DIR}")
 
 add_subdirectory("src/core")
 add_subdirectory("src/geojson")
 add_subdirectory("src/bmi")
 add_subdirectory("src/realizations/catchment")
+add_subdirectory("src/realizations/coastal")
 add_subdirectory("src/forcing")
 add_subdirectory("src/state_save_restore")
 add_subdirectory("src/utilities")
@@ -366,6 +397,7 @@ target_link_libraries(ngen
         NGen::core_nexus
         NGen::geojson
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::forcing
         NGen::core_mediator
         NGen::logging
@@ -462,6 +494,7 @@ ngen_multiline_message(
 "    NGEN_WITH_BMI_C: ${NGEN_WITH_BMI_C}"
 "    NGEN_WITH_PYTHON: ${NGEN_WITH_PYTHON}"
 "    NGEN_WITH_ROUTING: ${NGEN_WITH_ROUTING}"
+"    NGEN_WITH_COASTAL: ${NGEN_WITH_COASTAL}"
 "    NGEN_WITH_TESTS: ${NGEN_WITH_TESTS}"
 "    NGEN_WITH_COVERAGE: ${NGEN_WITH_COVERAGE}"
 "    NGEN_QUIET: ${NGEN_QUIET}"
@@ -472,6 +505,7 @@ ngen_multiline_message(
 "    NGEN_WITH_EXTERN_CFE: ${NGEN_WITH_EXTERN_CFE}"
 "    NGEN_WITH_EXTERN_PET: ${NGEN_WITH_EXTERN_PET}"
 "    NGEN_WITH_EXTERN_NOAH_OWP_MODULAR: ${NGEN_WITH_EXTERN_NOAH_OWP_MODULAR}"
+"    NGEN_WITH_EXTERN_SFINCS: ${NGEN_WITH_EXTERN_SFINCS}"
 "Environment summary:"
 "  Boost:"
 "    Version: ${Boost_VERSION}"

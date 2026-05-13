@@ -67,3 +67,6 @@
 	path = extern/topoflow-glacier
 	url = https://github.com/NGWPC/topoflow-glacier.git
 	branch = development
+[submodule "extern/SFINCS"]
+	path = extern/SFINCS
+	url = git@github.com:NGWPC/SFINCS

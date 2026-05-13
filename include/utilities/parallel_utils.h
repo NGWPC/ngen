@@ -2,6 +2,10 @@
 #define NGEN_PARALLEL_UTILS_H
 
 #include <NGenConfig.h>
+
+// Define in the non-MPI case so that we don't need to conditionally compile `if (mpi_rank == 0)`
+extern int mpi_rank;
+
 #if NGEN_WITH_MPI
 
 #ifndef MPI_HF_SUB_CODE_GOOD
@@ -25,6 +29,8 @@
 #include <string>
 #include <set>
 #include <vector>
+
+extern int mpi_num_procs;
 
 namespace parallel {
 
@@ -79,7 +85,8 @@ namespace parallel {
      * @return Whether proprocessing has already been performed to divide the main hydrofabric into existing, individual
      *         sub-hydrofabric files for each partition/process.
      */
-    bool is_hydrofabric_subdivided(const std::string &catchmentDataFile, int mpi_rank, int mpi_num_procs, bool printMsg);
+    // bool is_hydrofabric_subdivided(const std::string &catchmentDataFile, int mpi_rank, int mpi_num_procs, bool printMsg);
+    bool is_hydrofabric_subdivided(int mpi_rank, int mpi_num_procs, std::string const& catchmentDataFile, bool printMsg);
 
     /**
      * Set each rank's host "id" value in a provided host array.
@@ -213,7 +220,8 @@ namespace parallel {
      * @return vector<string> of the broadcasted strings from mpi_rank == 0
      */
     std::vector<std::string> broadcast_strings(const std::vector<std::string>& strings, int mpi_rank, int mpi_num_procs);
-}
+} // namespace parallel
+
 #endif // NGEN_WITH_MPI
 
 #endif //NGEN_PARALLEL_UTILS_H
