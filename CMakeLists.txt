@@ -20,12 +20,13 @@ cmake_policy(SET CMP0074 NEW)
 # find_package() uses upper-case <PACKAGENAME>_ROOT variables in conjunction with CMP0074.
 # https://cmake.org/cmake/help/latest/policy/CMP0144.html
 if(POLICY CMP0144)
-    cmake_policy(SET CMP0144 NEW)
+cmake_policy(SET CMP0144 NEW)
 endif()
 
 # Project Variables ===========================================================
 set(NGEN_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}")
 set(NGEN_SRC_DIR  "${NGEN_ROOT_DIR}/src")
+set(NGEN_NCF_DIR  "${NGEN_ROOT_DIR}/src/netcdf")
 set(NGEN_INC_DIR  "${NGEN_ROOT_DIR}/include")
 set(NGEN_EXT_DIR  "${NGEN_ROOT_DIR}/extern")
 set(NGEN_MOD_DIR  "${NGEN_ROOT_DIR}/cmake")
@@ -87,28 +88,28 @@ cmake_dependent_option(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR "Build with extern-dist
 # Allow enabling of all extern models dependent on NGen options given.
 option(NGEN_WITH_EXTERN_ALL OFF)
 if(NGEN_WITH_EXTERN_ALL)
-    set(NGEN_WITH_EXTERN_SLOTH ON)
+set(NGEN_WITH_EXTERN_SLOTH ON)
 
-    # Ensure C support is enabled
-    if(NGEN_WITH_BMI_C)
-        set(NGEN_WITH_EXTERN_TOPMODEL ON)
-        set(NGEN_WITH_EXTERN_CFE ON)
-        set(NGEN_WITH_EXTERN_PET ON)
-    else()
-        message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_BMI_C set to ${NGEN_WITH_BMI_C}")
-    endif()
+# Ensure C support is enabled
+if(NGEN_WITH_BMI_C)
+set(NGEN_WITH_EXTERN_TOPMODEL ON)
+set(NGEN_WITH_EXTERN_CFE ON)
+set(NGEN_WITH_EXTERN_PET ON)
+   else()
+message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_BMI_C set to ${NGEN_WITH_BMI_C}")
+   endif()
 
-    # Ensure Fortran support is enabled
-    if(NGEN_WITH_BMI_FORTRAN)
-        set(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR ON)
-    else()
-        message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_BMI_FORTRAN set to ${NGEN_WITH_BMI_FORTRAN}")
-    endif()
+# Ensure Fortran support is enabled
+if(NGEN_WITH_BMI_FORTRAN)
+set(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR ON)
+   else()
+message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_BMI_FORTRAN set to ${NGEN_WITH_BMI_FORTRAN}")
+   endif()
 
-    # Ensure Python support is enabled
-    if(NOT NGEN_WITH_PYTHON)
-        message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_PYTHON set to ${NGEN_WITH_PYTHON}")
-    endif()
+# Ensure Python support is enabled
+if(NOT NGEN_WITH_PYTHON)
+message(FATAL_ERROR "NGEN_WITH_EXTERN_ALL set to ${NGEN_WITH_EXTERN_ALL}, but NGEN_WITH_PYTHON set to ${NGEN_WITH_PYTHON}")
+   endif()
 endif()
 
 # Project =====================================================================
@@ -121,6 +122,8 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 # Define project version and use via generated config header
 project(ngen VERSION 0.3.0)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 add_executable(ngen "${NGEN_SRC_DIR}/NGen.cpp")
 
@@ -170,40 +173,40 @@ endif()
 # -----------------------------------------------------------------------------
 # Check if NGen is the main project (e.g. development environment)
 if(PROJECT_NAME STREQUAL CMAKE_PROJECT_NAME)
-    set(NGEN_IS_MAIN_PROJECT ON)
+set(NGEN_IS_MAIN_PROJECT ON)
 else()
-    set(NGEN_IS_MAIN_PROJECT OFF)
+set(NGEN_IS_MAIN_PROJECT OFF)
 endif()
 
 # -----------------------------------------------------------------------------
 # If Coverage is enabled, include coverage module and
 # set compiler flags/linkage to accomodate coverage.
 if(NGEN_WITH_COVERAGE)
-    include(CodeCoverage)
-    append_coverage_compiler_flags()
+include(CodeCoverage)
+append_coverage_compiler_flags()
 endif()
 
 # -----------------------------------------------------------------------------
 # If MPI support is enabled, set the C++ compiler to "mpicxx"
 if(NGEN_WITH_MPI)
-    find_package(MPI REQUIRED)
+find_package(MPI REQUIRED)
 endif()
 
 # -----------------------------------------------------------------------------
 # TODO: Used for compatibility on Hera. Refactor this in the future.
 # https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compiler-setup/use-the-command-line/use-cmake-with-the-compiler.html
 if(INTEL_DPCPP)
-    find_package(IntelDPCPP REQUIRED)
+find_package(IntelDPCPP REQUIRED)
 endif()
 
 # -----------------------------------------------------------------------------
 # Account for different OS and how that impacts shared lib file names
 if(WIN32)
-    message(FATAL_ERROR "Windows platforms are not currently supported")
+message(FATAL_ERROR "Windows platforms are not currently supported")
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-    set(NGEN_SHARED_LIB_EXTENSION "dylib")
+set(NGEN_SHARED_LIB_EXTENSION "dylib")
 else()
-    set(NGEN_SHARED_LIB_EXTENSION "so")
+set(NGEN_SHARED_LIB_EXTENSION "so")
 endif()
 add_compile_definitions(NGEN_SHARED_LIB_EXTENSION)
 
@@ -216,116 +219,116 @@ find_package(Boost 1.86.0 REQUIRED COMPONENTS system filesystem serialization)
 
 # -----------------------------------------------------------------------------
 if(NGEN_WITH_SQLITE)
-    find_package(SQLite3 REQUIRED)
-    add_compile_definitions(NGEN_WITH_SQLITE3)
+find_package(SQLite3 REQUIRED)
+add_compile_definitions(NGEN_WITH_SQLITE3)
 endif()
 
 # -----------------------------------------------------------------------------
 if(NGEN_WITH_UDUNITS)
-    find_package(UDUNITS2 REQUIRED)
-    add_compile_definitions(NGEN_WITH_UDUNITS)
+find_package(UDUNITS2 REQUIRED)
+add_compile_definitions(NGEN_WITH_UDUNITS)
 endif()
 
 # -----------------------------------------------------------------------------
-if(NGEN_WITH_NETCDF)
-    find_package(NetCDF COMPONENTS CXX)
+# if(NGEN_WITH_NETCDF)
+# find_package(NetCDF COMPONENTS CXX)
 
-    if(NOT NetCDF_CXX_FOUND)
-        find_package(NetCDF REQUIRED)
-        message(INFO " Using internal copy of netcdf-cxx4")
-        add_external_subdirectory(
-            SOURCE "${NGEN_EXT_DIR}/netcdf-cxx4"
-            OUTPUT "${PROJECT_BINARY_DIR}/extern-libs/netcdf-cxx4"
-            GIT_UPDATE "${NGEN_EXT_DIR}/netcdf-cxx4/netcdf-cxx4"
-	    IMPORTS netcdf-cxx4
-        )
-        set(NetCDF_CXX_INCLUDE_DIR "${NGEN_EXT_DIR}/netcdf-cxx4/netcdf-cxx4/cxx4")
-        set(NetCDF_CXX_LIBRARY "${PROJECT_BINARY_DIR}/extern-libs/netcdf-cxx4/libnetcdf-cxx4.a")
-        target_link_libraries(NetCDF INTERFACE netcdf-cxx4)
-    endif()
-endif()
+# if(NOT NetCDF_CXX_FOUND)
+# find_package(NetCDF REQUIRED)
+# message(INFO " Using internal copy of netcdf-cxx4")
+# add_external_subdirectory(
+# SOURCE "${NGEN_EXT_DIR}/netcdf-cxx4"
+# OUTPUT "${PROJECT_BINARY_DIR}/extern-libs/netcdf-cxx4"
+# GIT_UPDATE "${NGEN_EXT_DIR}/netcdf-cxx4/netcdf-cxx4"
+# IMPORTS netcdf-cxx4
+# )
+# set(NetCDF_CXX_INCLUDE_DIR "${NGEN_EXT_DIR}/netcdf-cxx4/netcdf-cxx4/cxx4")
+# set(NetCDF_CXX_LIBRARY "${PROJECT_BINARY_DIR}/extern-libs/netcdf-cxx4/libnetcdf-cxx4.a")
+# target_link_libraries(NetCDF INTERFACE netcdf-cxx4)
+#    endif()
+# endif()
 
 if(NGEN_WITH_EXTERN_SLOTH)
-    # This is set because SLOTH will link to gtest by default,
-    # which causes a configure error.
-    set(PACKAGE_TESTS OFF CACHE BOOL "SLoTH testing")
-    add_external_subdirectory(
-        SOURCE     "${NGEN_EXT_DIR}/sloth"
-        OUTPUT     "${NGEN_EXT_DIR}/sloth/cmake_build"
-        GIT_UPDATE "${NGEN_EXT_DIR}/sloth"
-        IMPORTS    slothmodel
-    )
-    set_target_properties(slothmodel PROPERTIES CXX_VISIBILITY_PRESET default)
+# This is set because SLOTH will link to gtest by default,
+# which causes a configure error.
+set(PACKAGE_TESTS OFF CACHE BOOL "SLoTH testing")
+add_external_subdirectory(
+SOURCE     "${NGEN_EXT_DIR}/sloth"
+OUTPUT     "${NGEN_EXT_DIR}/sloth/cmake_build"
+GIT_UPDATE "${NGEN_EXT_DIR}/sloth"
+IMPORTS    slothmodel
+)
+set_target_properties(slothmodel PROPERTIES CXX_VISIBILITY_PRESET default)
 endif()
 
 # -----------------------------------------------------------------------------
 # Handle several steps for BMI C library logic and dependencies, at top level, if functionality is turned on
 if(NGEN_WITH_BMI_C)
-    if(NGEN_WITH_EXTERN_TOPMODEL)
-        add_external_subdirectory(
-            SOURCE     "${NGEN_EXT_DIR}/topmodel"
-            OUTPUT     "${NGEN_EXT_DIR}/topmodel/cmake_build"
-            GIT_UPDATE "${NGEN_EXT_DIR}/topmodel/topmodel"
-            IMPORTS    topmodelbmi
-        )
-    endif()
+if(NGEN_WITH_EXTERN_TOPMODEL)
+add_external_subdirectory(
+SOURCE     "${NGEN_EXT_DIR}/topmodel"
+OUTPUT     "${NGEN_EXT_DIR}/topmodel/cmake_build"
+GIT_UPDATE "${NGEN_EXT_DIR}/topmodel/topmodel"
+IMPORTS    topmodelbmi
+)
+   endif()
 
-    if(NGEN_WITH_EXTERN_CFE)
-        add_external_subdirectory(
-            SOURCE     "${NGEN_EXT_DIR}/cfe"
-            OUTPUT     "${NGEN_EXT_DIR}/cfe/cmake_build"
-            GIT_UPDATE "${NGEN_EXT_DIR}/cfe/cfe"
-            IMPORTS    cfebmi     
-        )
-    endif()
+if(NGEN_WITH_EXTERN_CFE)
+add_external_subdirectory(
+SOURCE     "${NGEN_EXT_DIR}/cfe"
+OUTPUT     "${NGEN_EXT_DIR}/cfe/cmake_build"
+GIT_UPDATE "${NGEN_EXT_DIR}/cfe/cfe"
+IMPORTS    cfebmi     
+)
+   endif()
 
-    if(NGEN_WITH_EXTERN_PET)
-        add_external_subdirectory(
-            SOURCE "${NGEN_EXT_DIR}/evapotranspiration/evapotranspiration"
-            OUTPUT "${NGEN_EXT_DIR}/evapotranspiration/evapotranspiration/cmake_build"
-            GIT_UPDATE "${NGEN_EXT_DIR}/evapotranspiration/evapotranspiration"
-            IMPORTS petbmi
-        )
-    endif()
+if(NGEN_WITH_EXTERN_PET)
+add_external_subdirectory(
+SOURCE "${NGEN_EXT_DIR}/evapotranspiration/evapotranspiration"
+OUTPUT "${NGEN_EXT_DIR}/evapotranspiration/evapotranspiration/cmake_build"
+GIT_UPDATE "${NGEN_EXT_DIR}/evapotranspiration/evapotranspiration"
+IMPORTS petbmi
+)
+   endif()
 endif()
 
 # -----------------------------------------------------------------------------
 # Configure whether Fortran BMI functionality is active
 if(NGEN_WITH_BMI_FORTRAN)
-    add_external_subdirectory(
-        SOURCE  "${NGEN_EXT_DIR}/iso_c_fortran_bmi"
-        OUTPUT  "${NGEN_EXT_DIR}/iso_c_fortran_bmi/cmake_build"
-        IMPORTS iso_c_bmi
-    )
+add_external_subdirectory(
+SOURCE  "${NGEN_EXT_DIR}/iso_c_fortran_bmi"
+OUTPUT  "${NGEN_EXT_DIR}/iso_c_fortran_bmi/cmake_build"
+IMPORTS iso_c_bmi
+)
 
-    if(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR)
-        add_external_subdirectory(
-            SOURCE     "${NGEN_EXT_DIR}/noah-owp-modular"
-            OUTPUT     "${NGEN_EXT_DIR}/noah-owp-modular/cmake_build"
-            GIT_UPDATE "${NGEN_EXT_DIR}/noah-owp-modular/noah-owp-modular"
-            IMPORTS    surfacebmi
-        )
-    endif()
+if(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR)
+add_external_subdirectory(
+SOURCE     "${NGEN_EXT_DIR}/noah-owp-modular"
+OUTPUT     "${NGEN_EXT_DIR}/noah-owp-modular/cmake_build"
+GIT_UPDATE "${NGEN_EXT_DIR}/noah-owp-modular/noah-owp-modular"
+IMPORTS    surfacebmi
+)
+   endif()
 endif()
 
 # -----------------------------------------------------------------------------
 if(NGEN_WITH_PYTHON)
-    find_package(Python 3.6.8 REQUIRED COMPONENTS Interpreter Development NumPy)
-    if(${Python_NumPy_VERSION} VERSION_GREATER_EQUAL 2)
-        message(FATAL_ERROR "Found numpy version \"${Python_NumPy_VERSION}\"; numpy>=2.0.0 is not currently supported")
-    endif()
-    set(PYTHON_EXECUTABLE ${Python_EXECUTABLE}) # Case-sensitive difference
-    add_subdirectory(extern/pybind11 pybind11)
+find_package(Python 3.6.8 REQUIRED COMPONENTS Interpreter Development NumPy)
+if(${Python_NumPy_VERSION} VERSION_GREATER_EQUAL 2)
+message(FATAL_ERROR "Found numpy version \"${Python_NumPy_VERSION}\"; numpy>=2.0.0 is not currently supported")
+   endif()
+set(PYTHON_EXECUTABLE ${Python_EXECUTABLE}) # Case-sensitive difference
+add_subdirectory(extern/pybind11 pybind11)
 endif()
 
 # -----------------------------------------------------------------------------
 if(NGEN_QUIET)
-    set(UDUNITS_QUIET true)
-    add_compile_definitions(NGEN_QUIET)
+set(UDUNITS_QUIET true)
+add_compile_definitions(NGEN_QUIET)
 endif()
 
 if(UDUNITS_QUIET)
-    add_compile_definitions(UDUNITS_QUIET)
+add_compile_definitions(UDUNITS_QUIET)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -338,23 +341,23 @@ add_library(NGen::config_header ALIAS ngen_config_header)
 target_include_directories(ngen_config_header INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 if(NGEN_WITH_EXTERN_SLOTH)
-    add_dependencies(ngen slothmodel)
+add_dependencies(ngen slothmodel)
 endif()
 
 if(NGEN_WITH_EXTERN_TOPMODEL)
-    add_dependencies(ngen topmodelbmi)
+add_dependencies(ngen topmodelbmi)
 endif()
 
 if(NGEN_WITH_EXTERN_CFE)
-    add_dependencies(ngen cfebmi)
+add_dependencies(ngen cfebmi)
 endif()
 
 if(NGEN_WITH_EXTERN_PET)
-    add_dependencies(ngen petbmi)
+add_dependencies(ngen petbmi)
 endif()
 
 if(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR)
-    add_dependencies(ngen surfacebmi)
+add_dependencies(ngen surfacebmi)
 endif()
 
 target_include_directories(ngen PUBLIC "${NGEN_INC_DIR}")
@@ -373,36 +376,36 @@ add_subdirectory("src/utilities/python")
 add_subdirectory("src/utilities/bmi")
 
 target_link_libraries(ngen
-    PUBLIC
-        NGen::config_header
-        NGen::core
-        NGen::core_catchment
-        NGen::core_nexus
-        NGen::geojson
-        NGen::realizations_catchment
-        NGen::forcing
-        NGen::core_mediator
-        NGen::logging
-        NGen::parallel
-        NGen::state_save_restore
-        NGen::bmi_protocols
+PUBLIC
+NGen::config_header
+NGen::core
+NGen::core_catchment
+NGen::core_nexus
+NGen::geojson
+NGen::realizations_catchment
+NGen::forcing
+NGen::core_mediator
+NGen::logging
+NGen::parallel
+NGen::state_save_restore
+NGen::bmi_protocols
 )
 
 if(NGEN_WITH_SQLITE)
-    add_subdirectory("src/geopackage")
-    target_link_libraries(ngen PUBLIC NGen::geopackage)
+add_subdirectory("src/geopackage")
+target_link_libraries(ngen PUBLIC NGen::geopackage)
 endif()
 
 if(NGEN_WITH_ROUTING)
-    add_subdirectory("src/routing")
-    target_link_libraries(ngen PUBLIC NGen::routing)
+add_subdirectory("src/routing")
+target_link_libraries(ngen PUBLIC NGen::routing)
 endif()
 
 add_executable(partitionGenerator src/partitionGenerator.cpp)
 target_link_libraries(partitionGenerator PUBLIC NGen::logging)
 target_include_directories(partitionGenerator PUBLIC "${PROJECT_BINARY_DIR}/include")
 if(NGEN_WITH_SQLITE)
-    target_include_directories(partitionGenerator PUBLIC AFTER "${NGEN_INC_DIR}/geopackage")
+target_include_directories(partitionGenerator PUBLIC AFTER "${NGEN_INC_DIR}/geopackage")
 endif()
 
 if(USE_EWTS)
@@ -411,14 +414,14 @@ endif()
 
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)
 if(NGEN_WITH_SQLITE)
-    target_link_libraries(partitionGenerator PUBLIC NGen::geopackage)
+target_link_libraries(partitionGenerator PUBLIC NGen::geopackage)
 endif()
 
 # For automated testing with Google Test
 if(NGEN_WITH_TESTS)
-    include(CTest) # calls enable_testing()
-    include(GoogleTest)
-    add_subdirectory(test)
+include(CTest) # calls enable_testing()
+include(GoogleTest)
+add_subdirectory(test)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -429,27 +432,27 @@ endif()
 macro(ngen_multiline_message)
 set(messages "${ARGN}")
 foreach(msg IN LISTS messages)
-    set(_CONF "${NGEN_CONF_SUMMARY}")
-    string(APPEND _CONF "${msg}\n")
-    set(NGEN_CONF_SUMMARY "${_CONF}")
+set(_CONF "${NGEN_CONF_SUMMARY}")
+string(APPEND _CONF "${msg}\n")
+set(NGEN_CONF_SUMMARY "${_CONF}")
 
-    message(STATUS "${msg}")
+message(STATUS "${msg}")
 endforeach()
 endmacro()
 
 # Syntax: ngen_dependent_multiline_message(<variable> "<message 1>" "<message 2>" ...)
 macro(ngen_dependent_multiline_message VARIABLE)
 if(${VARIABLE})
-    ngen_multiline_message(${ARGN})
+ngen_multiline_message(${ARGN})
 endif()
 endmacro()
 
 # This is used purely for configuration output,
 # and does not affect the virtual environment used.
 if(DEFINED ENV{VIRTUAL_ENV})
-    set(NGEN_CONFIGURED_VENV "$ENV{VIRTUAL_ENV}")
+set(NGEN_CONFIGURED_VENV "$ENV{VIRTUAL_ENV}")
 else()
-    set(NGEN_CONFIGURED_VENV "<none>")
+set(NGEN_CONFIGURED_VENV "<none>")
 endif()
 
 # MPI CXX libraries output both C and CXX libs

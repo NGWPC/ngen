@@ -1,24 +1,31 @@
 #ifndef NGENSIMULATION_HPP
 #define NGENSIMULATION_HPP
 
-#include <NGenConfig.h>
+#if NGEN_WITH_MPI
+   #include <mpi.h>
+#endif
 
+#include <NGenConfig.h>
 #include <Simulation_Time.hpp>
 #include <Formulation_Manager.hpp>
 #include <Layer.hpp>
 
 #if NGEN_WITH_NETCDF
-    #include <NetCDFCreator.hpp>
+    #include "netcdf/NetCDFManager.hpp"
 #endif
+
 
 namespace hy_features
 {
     class HY_Features;
     class HY_Features_MPI;
 }
-
 class State_Snapshot_Saver;
 class State_Snapshot_Loader;
+
+// #if NGEN_WITH_NETCDF
+//     class NetCDFManager;
+// #endif
 
 #if NGEN_WITH_ROUTING
 #include "bmi/Bmi_Py_Adapter.hpp"
@@ -151,7 +158,14 @@ private:
     void serialize(Archive& ar);
 
     //Pointer to netcdfcreator to write simulation output per timestep.
-    std::unique_ptr<NetCDFCreator> nc_writer_;
+    //std::unique_ptr<NetCDFCreator> nc_writer_;
+#if NGEN_WITH_MPI
+        MPI_Comm mpi_comm_;
+#endif
+
+#if NGEN_WITH_NETCDF
+    std::unique_ptr<NetCDFManager> nc_manager_;
+#endif
 };
 
 #endif

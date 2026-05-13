@@ -12,7 +12,7 @@
 #include <HY_Features.hpp>
 
 #if NGEN_WITH_NETCDF
-#include <NetCDFCreator.hpp>
+#include <NetCDFManager.hpp>
 #endif
 
 #if NGEN_WITH_SQLITE3
@@ -504,7 +504,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     } else {
         catchment_collection = geojson::read(catchmentDataFile, catchment_subset_ids);
     }
-
+    std::cout << catchment_collection << std::endl;
     for (auto& feature : *catchment_collection) {
         // feature->set_id(feature->get_property("id").as_string());
         feature_collection->add_feature(feature);

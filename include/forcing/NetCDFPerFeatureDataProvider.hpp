@@ -7,7 +7,7 @@
 
 #include "GenericDataProvider.hpp"
 #include "DataProviderSelectors.hpp"
-
+//#include <netcdf/NetCDFManager.hpp>
 #include <string>
 #include <algorithm>
 #include <map>
@@ -25,10 +25,10 @@
 
 #include "AorcForcing.hpp"
 
-namespace netCDF {
-    class NcVar;
-    class NcFile;
-}
+// Forward declarations
+class NetCDFManager;
+class NetCDFFile;
+class NetCDFVar;
 
 namespace data_access
 {
@@ -132,15 +132,15 @@ namespace data_access
         utils::StreamHandler log_stream;
         std::string file_path;
 
-        std::shared_ptr<netCDF::NcFile> nc_file;
+        std::shared_ptr<NetCDFManager> nc_manager;
 
-        std::map<std::string,netCDF::NcVar> ncvar_cache;
+        std::map<std::string,std::shared_ptr<NetCDFVar>> ncvar_cache;
         std::map<std::string,std::string> units_cache;
         boost::compute::detail::lru_cache<std::string, std::shared_ptr<std::vector<double>>> value_cache;
         size_t cache_slice_t_size = 1;
         size_t cache_slice_c_size = 1;
 
-        const netCDF::NcVar& get_ncvar(const std::string& name);
+        std::shared_ptr<NetCDFVar> get_ncvar(const std::string& name) const;
 
         const std::string& get_ncvar_units(const std::string& name) const;
 
