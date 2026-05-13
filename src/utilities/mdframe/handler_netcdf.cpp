@@ -4,7 +4,10 @@
 
 #if NGEN_WITH_NETCDF
 
-#include <netcdf>
+//#include <netcdf>
+#include "netcdf/NetCDFManager.hpp"
+#include "netcdf/NetCDFFile.hpp"
+#include "netcdf/NetCDFVar.hpp"
 
 namespace ngen {
 
@@ -31,6 +34,15 @@ struct mdarray_netcdf_putvar : public boost::static_visitor<void>
 
 void mdframe::to_netcdf(const std::string& path) const
 {
+    nc_manager = new NetCDFManager();
+    nc_manager.createFile(path);
+
+    std::unordered_map<std::string, int dim_id> dimmap;
+    for (const auto& dim : this->m_dimensions)
+        dimmap[dim.name()] = nc_manager.add_dimension(dim.name(), dim.size());
+
+    std::unordered_map<std::string, NetCDFVar > varmap;
+
     netCDF::NcFile output{path, netCDF::NcFile::replace};
 
     std::unordered_map<std::string, netCDF::NcDim> dimmap;
