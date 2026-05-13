@@ -23,6 +23,10 @@ namespace hy_features
 class State_Snapshot_Saver;
 class State_Snapshot_Loader;
 
+// #if NGEN_WITH_NETCDF
+//     class NetCDFManager;
+// #endif
+
 #if NGEN_WITH_ROUTING
 #include "bmi/Bmi_Py_Adapter.hpp"
 #endif // NGEN_WITH_ROUTING
