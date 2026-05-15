@@ -450,12 +450,10 @@ namespace realization {
             return bmi_model_start_time_forcing_offset_s;
         }
 
-
         void Bmi_Module_Formulation::inner_create_formulation(geojson::PropertyMap properties, bool needs_param_validation) {
             if (needs_param_validation) {
                 validate_parameters(properties);
             }
-
             // Required parameters first
             set_bmi_init_config(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG).as_string());
             set_bmi_main_output_var(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MAIN_OUT_VAR).as_string());
@@ -496,6 +494,7 @@ namespace realization {
                 }
             }
 
+	    // Do this next, since after checking whether other input variables are present in the properties, we can
             // now construct the adapter and init the model
             set_bmi_model(construct_model(properties));
 
@@ -514,14 +513,14 @@ namespace realization {
                 std::vector<geojson::JSONProperty> out_vars_json_list = out_var_it->second.as_list();
                 //Check if the first item is an object type or string type.
                 //string type: old format; object type: new format
-                if (out_vars_json_list.size() > 0) {
+                if (out_vars_json_list.size() > 0){
                     std::string item_type = get_propertytype_name(out_vars_json_list[0].get_type());
-                    if (item_type == "String") {
+                    if (item_type == "String"){
                         set_realization_file_format(true);
                     }
                 }
                 std::vector<std::string> out_vars(out_vars_json_list.size());
-                if (is_realization_legacy_format()) {
+                if (is_realization_legacy_format()){
                     for (int i = 0; i < out_vars_json_list.size(); ++i) {
                         out_vars[i] = out_vars_json_list[i].as_string();
                     }
@@ -529,17 +528,17 @@ namespace realization {
                     if (out_vars.size() == 1 && out_vars[0].empty())
                         out_vars.pop_back();
                 }
-                else {
+                else{
                     out_headers.resize(out_vars_json_list.size()); //assumption: number of vars = number of headers
                     output_var_units.resize(out_vars_json_list.size()); //assumption: number of vars = number of units
-                    output_var_indices.resize(out_vars_json_list.size(), 0);
+                    output_var_indices.resize(out_vars_json_list.size(), 0); 
                     for (int i = 0; i < out_vars_json_list.size(); ++i) {
                         out_vars[i] = out_vars_json_list[i].at("name").as_string();
-                        if (out_vars_json_list[i].has_key("header")) {
+                        if(out_vars_json_list[i].has_key("header")){
                             //indicates that a valid header is provided
                             out_headers[i] = out_vars_json_list[i].at("header").as_string();
                         }
-                        else {
+                        else{
                             //indicates that header is not provided. The error actually returns a string.
                             //in such cases, we assign variable name to the header.
                             out_headers[i] = out_vars[i];
@@ -547,15 +546,15 @@ namespace realization {
                             ss << "Header not provided for '" << out_vars[i] << "'. Using the variable name as header." << std::endl;
                             LOG(ss.str(), LogLevel::INFO); ss.str("");
                         }
-                        if (out_vars_json_list[i].has_key("units")) {
+                        if(out_vars_json_list[i].has_key("units")) {
                             //indicates that a valid unit is provided
                             output_var_units[i] = out_vars_json_list[i].at("units").as_string();
                         }
-                        else {
-                            LOG("Units not provided for '" + out_vars[i] + "' in the realization file.", LogLevel::WARNING);
-                            output_var_units[i] = ""; //add an empty entry and populate it with BMI native units later.
+                        else{
+                           LOG("Units not provided for '" + out_vars[i] + "' in the realization file.", LogLevel::WARNING);
+                           output_var_units[i] = ""; //add an empty entry and populate it with BMI native units later.
                         }
-                        if (out_vars_json_list[i].has_key("index")) {
+                        if(out_vars_json_list[i].has_key("index")){
                             //indicates that a valid index is provided
                             output_var_indices[i] = stoi(out_vars_json_list[i].at("index").as_string());
                         }
@@ -563,7 +562,8 @@ namespace realization {
                     //check if the units can be parsed correctly and write a warning message
                     std::stringstream ss;
                     for (const std::string& out_unit : output_var_units) {
-                        if (!UnitsHelper::can_parse(out_unit)) {
+                        if (!UnitsHelper::can_parse(out_unit))
+			{
                             ss << "Unable to parse '" << out_unit << "' in units value." << std::endl;
                             LOG(ss.str(), LogLevel::WARNING); ss.str("");
                         }
@@ -586,7 +586,7 @@ namespace realization {
 
             // Output header fields, if present
             auto out_headers_it = properties.find(BMI_REALIZATION_CFG_PARAM_OPT__OUT_HEADER_FIELDS);
-            if (is_realization_legacy_format()) {
+            if(is_realization_legacy_format()){
                 if (out_headers_it != properties.end() && get_output_variable_names().size() > 0) {
                     std::vector<geojson::JSONProperty> out_headers_json_list = out_var_it->second.as_list();
                     std::vector<std::string> out_headers(out_headers_json_list.size());
@@ -599,9 +599,9 @@ namespace realization {
                     set_output_header_fields(get_output_variable_names());
                 }
             }
-            else {
+            else{
                 if (out_headers_it != properties.end()) {
-                    //indicates that the new json format has legacy headers format in the realization.
+                    //indicates that the new json format has legacy headers format in the realization. 
                     //put out a message that this is ignored.
                     LOG("Deprecated output_header_fields item found in realization file ignored.", LogLevel::WARNING);
                 }
@@ -623,7 +623,7 @@ namespace realization {
                 for (const std::string &output_var_name : get_bmi_model()->GetOutputVarNames()) {
                     available_forcings.push_back(output_var_name);
                     available_forcing_units[output_var_name] = get_bmi_model()->GetVarUnits(output_var_name);
-                    if (bmi_var_names_map.find(output_var_name) != bmi_var_names_map.end()) {
+                    if (bmi_var_names_map.find(output_var_name) != bmi_var_names_map.end()){
                         available_forcings.push_back(bmi_var_names_map[output_var_name]);
                         available_forcing_units[bmi_var_names_map[output_var_name]] = get_bmi_model()->GetVarUnits(output_var_name); //units come from the model output variable.
                     }
@@ -636,23 +636,21 @@ namespace realization {
             //check if units have not been specified. If not, default to native units.
             std::string blank_string = "";
             auto &names = get_output_variable_names();
-            if (output_var_units.size() == 0) {
+            if(output_var_units.size() == 0){
                 output_var_units.resize(names.size(), blank_string);
             }
 
             for (int i = 0; i < names.size(); ++i) {
-                if (output_var_units[i] == blank_string) {
+                if (output_var_units[i] == blank_string){
                     output_var_units[i] = get_provider_units_for_variable(names[i]);
                 }
             }
 
             //check if output variable indices (for vector variables) are specified in config. If not, default to zero (first index).
-            if (output_var_indices.size() == 0) {
+            if(output_var_indices.size() == 0){
                 output_var_indices.resize(names.size(), 0);
             }
         }
-
-
         /**
          * @brief Template function for copying iterator range into contiguous array.
          *
@@ -911,7 +909,7 @@ namespace realization {
                 "': no logic for converting value to variable's type.");
         }
 
-        void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
+    void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
 
@@ -932,23 +930,31 @@ namespace realization {
                     provider = forcing.get();
                 }
 
+		// TODO: probably need to actually allow this by default and warn, but have config option to activate
+                //  this type of behavior
+                // TODO: account for arrays later
                 int nbytes = get_bmi_model()->GetVarNbytes(var_name);
                 int varItemSize = get_bmi_model()->GetVarItemsize(var_name);
                 int numItems = nbytes / varItemSize;
                 assert(nbytes % varItemSize == 0);
 
                 std::shared_ptr<void> value_ptr;
+		// Finally, use the value obtained to set the model input
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
 
+		// Minimal change: normalize requested units (treat ""/none as dimensionless "1")
                 std::string consumer_units = get_bmi_model()->GetVarUnits(var_name);
                 if (consumer_units.empty() || consumer_units == "none")
                     consumer_units = "1";
 
                 if (numItems != 1) {
+		    //more than a single value needed for var_name
                     auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
                                                consumer_units, 0));
-
+		    //need to marshal data types to the receiver as well
+                    //this could be done a little more elegantly if the provider interface were
+                    //"type aware", but for now, this will do (but requires yet another copy)
                     if (values.size() == 1) {
                         #ifndef NGEN_QUIET
                         std::stringstream ss;
@@ -956,22 +962,22 @@ namespace realization {
                         LOG(ss.str(), LogLevel::SEVERE); ss.str("");
                         #endif
                         values.resize(numItems, values[0]);
-                    }
-                    else if (values.size() != numItems) {
+                    } else if (values.size() != numItems) {
                         throw std::runtime_error("Mismatch in item count for variable '" + var_name + "': model expects " +
                             std::to_string(numItems) + ", provider returned " + std::to_string(values.size()) +
                             " items\n");
+
                     }
 
                     value_ptr = get_values_as_type(type, values.begin(), values.end());
                 }
                 else {
                     try {
+			//scalar value
                         double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
                                                                                      consumer_units, 0));
                         value_ptr = get_value_as_type(type, value);
-                    }
-                    catch (data_access::unit_conversion_exception &uce) {
+                    } catch (data_access::unit_conversion_exception &uce) {
                         data_access::unit_error_log_key key{get_id(), var_map_alias, uce.provider_model_name, uce.provider_bmi_var_name, uce.what()};
                         auto ret = data_access::unit_errors_reported.insert(key);
                         bool new_error = ret.second;
@@ -989,11 +995,10 @@ namespace realization {
                         value_ptr = get_value_as_type(type, uce.unconverted_values[0]);
                     }
                 }
-
                 get_bmi_model()->SetValue(var_name, value_ptr.get());
             }
         }
-	
+
         void Bmi_Module_Formulation::append_model_inputs_to_stream(const double &model_init_time, time_step_t t_delta, std::stringstream &inputs) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
@@ -1016,22 +1021,28 @@ namespace realization {
                     provider = forcing.get();
                 }
 
+		// TODO: probably need to actually allow this by default and warn, but have config option to activate
+                //  this type of behavior
+                // TODO: account for arrays later
                 int nbytes = get_bmi_model()->GetVarNbytes(var_name);
                 int varItemSize = get_bmi_model()->GetVarItemsize(var_name);
                 int numItems = nbytes / varItemSize;
 
+		// Finally, use the value obtained to set the model input
                 std::shared_ptr<void> value_ptr;
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
-
+                
                 inputs << "\n" << var_map_alias << " = ";
                 if (numItems != 1) {
+                    //more than a single value needed for var_name			
                     auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
-                                               get_bmi_model()->GetVarUnits(var_name), 0));
+                                                   get_bmi_model()->GetVarUnits(var_name), 0));
                     value_ptr = get_values_as_type(type, values.begin(), values.end());
+		    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
                     this->append_inputs(type, value_ptr, numItems, inputs);
-                }
-                else {
+                } else {
+		    //scalar value
                     double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
                                                get_bmi_model()->GetVarUnits(var_name), 0));
                     this->append_input(type, value, inputs);
