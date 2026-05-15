@@ -195,10 +195,6 @@ namespace models {
                 get_grid_coordinates("get_grid_z", grid, 2, z);       
             }
 
-	    void ApplyRealizationTimeConfig(const std::string& start_time_iso,
-                                const std::string& end_time_iso,
-                                double dt_seconds);
-
             double GetStartTime() override;
 
             std::string GetTimeUnits() override;

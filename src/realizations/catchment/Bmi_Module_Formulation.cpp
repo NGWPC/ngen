@@ -18,23 +18,11 @@
 
 std::stringstream bmiform_ss;
 
-static std::string format_iso_like_utc_datetime(time_t epoch_time) {
-    std::tm* t = std::gmtime(&epoch_time);
-    if (t == nullptr) {
-        throw std::runtime_error("Unable to convert epoch time to UTC calendar time.");
-    }
-
-    std::ostringstream oss;
-    oss << std::put_time(t, "%Y-%m-%d %H:%M:%S");
-    return oss.str();
-}
-
 static bool is_ngen_realization_time_input(const std::string& var_name) {
     return var_name == "ngen_realization_start_time" ||
            var_name == "ngen_realization_end_time" ||
            var_name == "ngen_realization_dt";
 }
-
 
 namespace realization {
         void Bmi_Module_Formulation::create_formulation(boost::property_tree::ptree &config, geojson::PropertyMap *global) {
@@ -516,51 +504,6 @@ namespace realization {
             // now construct the adapter and init the model
             set_bmi_model(construct_model(properties));
 
-            {
-                auto bmi_model = get_bmi_model();
-
-                if (bmi_model != nullptr) {
-
-                    std::vector<std::string> input_vars = bmi_model->GetInputVarNames();
-
-                    const std::string start_var = "ngen_realization_start_time";
-                    const std::string end_var   = "ngen_realization_end_time";
-                    const std::string dt_var    = "ngen_realization_dt";
-
-                    bool has_start = std::find(input_vars.begin(), input_vars.end(), start_var) != input_vars.end();
-                    bool has_end   = std::find(input_vars.begin(), input_vars.end(), end_var) != input_vars.end();
-                    bool has_dt    = std::find(input_vars.begin(), input_vars.end(), dt_var) != input_vars.end();
-
-                    if (has_start && has_end && has_dt) {
-
-                        const time_t realization_start_time = forcing->get_data_start_time();
-                        const time_t realization_end_time   = forcing->get_data_stop_time();
-                        const long realization_dt_seconds   = forcing->record_duration();
-
-                        if (realization_dt_seconds <= 0) {
-                            throw std::runtime_error(
-                                "Forcing record duration is invalid for catchment '" + this->get_id() + "'."
-                            );
-                        }
-
-                        const double start_time_value = static_cast<double>(realization_start_time);
-                        const double end_time_value   = static_cast<double>(realization_end_time);
-                        const double dt_seconds_value = static_cast<double>(realization_dt_seconds);
-
-                        std::stringstream ss;
-                        ss << "Applying realization time config via BMI inputs for catchment '" << this->get_id()
-                           << "': start_utime=" << realization_start_time
-                           << ", end_utime=" << realization_end_time
-                           << ", dt_seconds=" << realization_dt_seconds << std::endl;
-                        LOG(ss.str(), LogLevel::INFO);
-
-                        bmi_model->SetValue(start_var, (void *)&start_time_value);
-                        bmi_model->SetValue(end_var,   (void *)&end_time_value);
-                        bmi_model->SetValue(dt_var,    (void *)&dt_seconds_value);
-                    }
-                }
-            }
-
             //Check if any parameter values need to be set on the BMI model,
             //and set them before it is run
             set_initial_bmi_parameters(properties);
@@ -973,14 +916,15 @@ namespace realization {
                 "': no logic for converting value to variable's type.");
         }
 
-	void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
+        void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
 
             for (std::string & var_name : in_var_names) {
-		if (is_ngen_realization_time_input(var_name)) {
+                if (is_ngen_realization_time_input(var_name)) {
                     continue;
-                }    
+                }
+
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
@@ -993,54 +937,46 @@ namespace realization {
                     provider = forcing.get();
                 }
 
-                // TODO: probably need to actually allow this by default and warn, but have config option to activate
-                //  this type of behavior
-                // TODO: account for arrays later
                 int nbytes = get_bmi_model()->GetVarNbytes(var_name);
                 int varItemSize = get_bmi_model()->GetVarItemsize(var_name);
                 int numItems = nbytes / varItemSize;
                 assert(nbytes % varItemSize == 0);
 
                 std::shared_ptr<void> value_ptr;
-                // Finally, use the value obtained to set the model input
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
 
-                // Minimal change: normalize requested units (treat ""/none as dimensionless "1")
                 std::string consumer_units = get_bmi_model()->GetVarUnits(var_name);
                 if (consumer_units.empty() || consumer_units == "none")
                     consumer_units = "1";
 
                 if (numItems != 1) {
-                    //more than a single value needed for var_name
-                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
-                                                   consumer_units, 0));
-                    //need to marshal data types to the receiver as well
-                    //this could be done a little more elegantly if the provider interface were
-                    //"type aware", but for now, this will do (but requires yet another copy)
-                    if(values.size() == 1){
-                        //FIXME this isn't generic broadcasting, but works for scalar implementations
+                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
+                                               consumer_units, 0));
+
+                    if (values.size() == 1) {
                         #ifndef NGEN_QUIET
                         std::stringstream ss;
-                        ss << "WARN: broadcasting variable '" << var_name << "' from scalar to expected array\n";;
+                        ss << "WARN: broadcasting variable '" << var_name << "' from scalar to expected array\n";
                         LOG(ss.str(), LogLevel::SEVERE); ss.str("");
                         #endif
                         values.resize(numItems, values[0]);
-                    } else if (values.size() != numItems) {
+                    }
+                    else if (values.size() != numItems) {
                         throw std::runtime_error("Mismatch in item count for variable '" + var_name + "': model expects " +
                             std::to_string(numItems) + ", provider returned " + std::to_string(values.size()) +
                             " items\n");
-
                     }
-                    value_ptr = get_values_as_type( type, values.begin(), values.end() );
 
-                } else {
+                    value_ptr = get_values_as_type(type, values.begin(), values.end());
+                }
+                else {
                     try {
-                        //scalar value
-                        double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
+                        double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
                                                                                      consumer_units, 0));
                         value_ptr = get_value_as_type(type, value);
-                    } catch (data_access::unit_conversion_exception &uce) {
+                    }
+                    catch (data_access::unit_conversion_exception &uce) {
                         data_access::unit_error_log_key key{get_id(), var_map_alias, uce.provider_model_name, uce.provider_bmi_var_name, uce.what()};
                         auto ret = data_access::unit_errors_reported.insert(key);
                         bool new_error = ret.second;
@@ -1058,19 +994,21 @@ namespace realization {
                         value_ptr = get_value_as_type(type, uce.unconverted_values[0]);
                     }
                 }
+
                 get_bmi_model()->SetValue(var_name, value_ptr.get());
             }
         }
-
+	
         void Bmi_Module_Formulation::append_model_inputs_to_stream(const double &model_init_time, time_step_t t_delta, std::stringstream &inputs) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
             inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
-		if (is_ngen_realization_time_input(var_name)) {
+                if (is_ngen_realization_time_input(var_name)) {
                     continue;
-                }  
+                }
+
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
@@ -1083,31 +1021,24 @@ namespace realization {
                     provider = forcing.get();
                 }
 
-                // TODO: probably need to actually allow this by default and warn, but have config option to activate
-                //  this type of behavior
-                // TODO: account for arrays later
                 int nbytes = get_bmi_model()->GetVarNbytes(var_name);
                 int varItemSize = get_bmi_model()->GetVarItemsize(var_name);
                 int numItems = nbytes / varItemSize;
 
                 std::shared_ptr<void> value_ptr;
-                // Finally, use the value obtained to set the model input
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
-                
+
                 inputs << "\n" << var_map_alias << " = ";
                 if (numItems != 1) {
-                    //more than a single value needed for var_name
-                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
-                                                   get_bmi_model()->GetVarUnits(var_name), 0));
-                    value_ptr = get_values_as_type( type, values.begin(), values.end() );
-                    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
+                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
+                                               get_bmi_model()->GetVarUnits(var_name), 0));
+                    value_ptr = get_values_as_type(type, values.begin(), values.end());
                     this->append_inputs(type, value_ptr, numItems, inputs);
-
-                } else {
-                    //scalar value
-                    double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
-                                                   get_bmi_model()->GetVarUnits(var_name), 0));
+                }
+                else {
+                    double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
+                                               get_bmi_model()->GetVarUnits(var_name), 0));
                     this->append_input(type, value, inputs);
                 }
             }
