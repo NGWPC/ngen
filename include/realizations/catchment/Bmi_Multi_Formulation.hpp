@@ -625,24 +625,23 @@ namespace realization {
             std::shared_ptr<data_access::GenericDataProvider> wfp = std::make_shared<data_access::WrappedDataProvider>(this);
             std::shared_ptr<T> mod = std::make_shared<T>(identifier, wfp, output);
 
-	    // Since this is a nested formulation, support usage of the '{{id}}' syntax for init config file paths.
+            // Since this is a nested formulation, support usage of the '{{id}}' syntax for init config file paths.
             Catchment_Formulation::config_pattern_substitution(properties, BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG,
                                                                "{{id}}", Catchment_Formulation::config_pattern_id_replacement(id));
 
-	    // Call create_formulation to perform the rest of the typical initialization steps for the formulation.
+            // Call create_formulation to perform the rest of the typical initialization steps for the formulation.
             mod->create_formulation(properties);
 
-	    // Set this up for placing in the module_variable_maps member variable
+            // Set this up for placing in the module_variable_maps member variable
             std::shared_ptr<std::map<std::string, std::string>> var_aliases;
             var_aliases = std::make_shared<std::map<std::string, std::string>>(std::map<std::string, std::string>());
             for (const std::string &var_name : mod->get_bmi_input_variables()) {
-                if (is_ngen_realization_time_input(var_name)) {
+		if (is_ngen_realization_time_input(var_name)) {
                     continue;
                 }
-
                 std::string framework_alias = mod->get_config_mapped_variable_name(var_name);
                 (*var_aliases)[framework_alias] = var_name;
-
+                // If framework_name is not yet in collection from which we have available data sources ...
                 if (availableData.count(framework_alias) != 1) {
                     setup_nested_deferred_provider(var_name, framework_alias, mod, mod_index);
                 }
@@ -652,7 +651,7 @@ namespace realization {
                 }
             }
 
-	    // Also add the output variable aliases
+            // Also add the output variable aliases
             for (const std::string &var_name : mod->get_bmi_output_variables()) {
                 std::string framework_alias = mod->get_config_mapped_variable_name(var_name);
                 (*var_aliases)[framework_alias] = var_name;

@@ -13,12 +13,6 @@
 
 std::stringstream bmiform_ss;
 
-static bool is_ngen_realization_time_input(const std::string& var_name) {
-    return var_name == "ngen_realization_start_time" ||
-           var_name == "ngen_realization_end_time" ||
-           var_name == "ngen_realization_dt";
-}
-
 namespace realization {
         void Bmi_Module_Formulation::create_formulation(boost::property_tree::ptree &config, geojson::PropertyMap *global) {
             geojson::PropertyMap options = this->interpret_parameters(config, global);
@@ -450,6 +444,56 @@ namespace realization {
             return bmi_model_start_time_forcing_offset_s;
         }
 
+        void Bmi_Module_Formulation::set_realization_time_inputs() {
+            auto model = get_bmi_model();
+            if (model == nullptr) {
+                return;
+            }
+
+            std::vector<std::string> input_vars = model->GetInputVarNames();
+
+            const bool has_start =
+                std::find(input_vars.begin(), input_vars.end(), "ngen_realization_start_time") != input_vars.end();
+            const bool has_end =
+                std::find(input_vars.begin(), input_vars.end(), "ngen_realization_end_time") != input_vars.end();
+            const bool has_dt =
+                std::find(input_vars.begin(), input_vars.end(), "ngen_realization_dt") != input_vars.end();
+
+            if (!has_start && !has_end && !has_dt) {
+                return;
+            }
+
+            const double start_time_value = static_cast<double>(forcing->get_data_start_time());
+            const double end_time_value = static_cast<double>(forcing->get_data_stop_time());
+            const double dt_value = static_cast<double>(forcing->record_duration());
+
+            if (dt_value <= 0.0) {
+                throw std::runtime_error(
+                    "Invalid realization record duration while setting BMI realization time inputs for catchment '" +
+                    this->get_id() + "'."
+                );
+            }
+
+            if (has_start) {
+                model->SetValue("ngen_realization_start_time", (void *)&start_time_value);
+            }
+
+            if (has_end) {
+                model->SetValue("ngen_realization_end_time", (void *)&end_time_value);
+            }
+
+            if (has_dt) {
+                model->SetValue("ngen_realization_dt", (void *)&dt_value);
+            }
+
+            std::stringstream ss;
+            ss << "Applied realization time inputs via BMI SetValue for catchment '" << this->get_id()
+               << "': start_utime=" << static_cast<long>(start_time_value)
+               << ", end_utime=" << static_cast<long>(end_time_value)
+               << ", dt_seconds=" << static_cast<long>(dt_value);
+            LOG(ss.str(), LogLevel::INFO);
+        }
+
         void Bmi_Module_Formulation::inner_create_formulation(geojson::PropertyMap properties, bool needs_param_validation) {
             if (needs_param_validation) {
                 validate_parameters(properties);
@@ -459,7 +503,7 @@ namespace realization {
             set_bmi_main_output_var(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MAIN_OUT_VAR).as_string());
             set_model_type_name(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string());
 
-            const std::string model_type_name =
+	    const std::string model_type_name =
                 boost::algorithm::to_lower_copy(
                     properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string()
                 );
@@ -494,13 +538,16 @@ namespace realization {
                 }
             }
 
-	    // Do this next, since after checking whether other input variables are present in the properties, we can
+            // Do this next, since after checking whether other input variables are present in the properties, we can
             // now construct the adapter and init the model
             set_bmi_model(construct_model(properties));
 
             //Check if any parameter values need to be set on the BMI model,
             //and set them before it is run
             set_initial_bmi_parameters(properties);
+
+	    // Pass realization timing to BMI modules that explicitly advertise these inputs.
+            set_realization_time_inputs();
 
             // Make sure that this is able to interpret model time and convert to real time, since BMI model time is
             // usually starting at 0 and just counting up
@@ -546,12 +593,12 @@ namespace realization {
                             ss << "Header not provided for '" << out_vars[i] << "'. Using the variable name as header." << std::endl;
                             LOG(ss.str(), LogLevel::INFO); ss.str("");
                         }
-                        if(out_vars_json_list[i].has_key("units")) {
+                        if(out_vars_json_list[i].has_key("units")){
                             //indicates that a valid unit is provided
                             output_var_units[i] = out_vars_json_list[i].at("units").as_string();
                         }
                         else{
-                           LOG("Units not provided for '" + out_vars[i] + "' in the realization file.", LogLevel::WARNING);
+                           LOG("Units not provided for '" + out_vars[i] + "' in the realization file.",LogLevel::WARNING);
                            output_var_units[i] = ""; //add an empty entry and populate it with BMI native units later.
                         }
                         if(out_vars_json_list[i].has_key("index")){
@@ -563,7 +610,7 @@ namespace realization {
                     std::stringstream ss;
                     for (const std::string& out_unit : output_var_units) {
                         if (!UnitsHelper::can_parse(out_unit))
-			{
+                        {
                             ss << "Unable to parse '" << out_unit << "' in units value." << std::endl;
                             LOG(ss.str(), LogLevel::WARNING); ss.str("");
                         }
@@ -909,15 +956,14 @@ namespace realization {
                 "': no logic for converting value to variable's type.");
         }
 
-    void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
+	void Bmi_Module_Formulation::set_model_inputs_prior_to_update(const double &model_init_time, time_step_t t_delta) {
             std::vector<std::string> in_var_names = get_bmi_model()->GetInputVarNames();
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
 
             for (std::string & var_name : in_var_names) {
-                if (is_ngen_realization_time_input(var_name)) {
+		if (is_ngen_realization_time_input(var_name)) {
                     continue;
                 }
-
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
@@ -930,7 +976,7 @@ namespace realization {
                     provider = forcing.get();
                 }
 
-		// TODO: probably need to actually allow this by default and warn, but have config option to activate
+                // TODO: probably need to actually allow this by default and warn, but have config option to activate
                 //  this type of behavior
                 // TODO: account for arrays later
                 int nbytes = get_bmi_model()->GetVarNbytes(var_name);
@@ -939,26 +985,27 @@ namespace realization {
                 assert(nbytes % varItemSize == 0);
 
                 std::shared_ptr<void> value_ptr;
-		// Finally, use the value obtained to set the model input
+                // Finally, use the value obtained to set the model input
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
 
-		// Minimal change: normalize requested units (treat ""/none as dimensionless "1")
+                // Minimal change: normalize requested units (treat ""/none as dimensionless "1")
                 std::string consumer_units = get_bmi_model()->GetVarUnits(var_name);
                 if (consumer_units.empty() || consumer_units == "none")
                     consumer_units = "1";
 
                 if (numItems != 1) {
-		    //more than a single value needed for var_name
-                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
-                                               consumer_units, 0));
-		    //need to marshal data types to the receiver as well
+                    //more than a single value needed for var_name
+                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
+                                                   consumer_units, 0));
+                    //need to marshal data types to the receiver as well
                     //this could be done a little more elegantly if the provider interface were
                     //"type aware", but for now, this will do (but requires yet another copy)
-                    if (values.size() == 1) {
+                    if(values.size() == 1){
+                        //FIXME this isn't generic broadcasting, but works for scalar implementations
                         #ifndef NGEN_QUIET
                         std::stringstream ss;
-                        ss << "WARN: broadcasting variable '" << var_name << "' from scalar to expected array\n";
+                        ss << "WARN: broadcasting variable '" << var_name << "' from scalar to expected array\n";;
                         LOG(ss.str(), LogLevel::SEVERE); ss.str("");
                         #endif
                         values.resize(numItems, values[0]);
@@ -968,13 +1015,12 @@ namespace realization {
                             " items\n");
 
                     }
+                    value_ptr = get_values_as_type( type, values.begin(), values.end() );
 
-                    value_ptr = get_values_as_type(type, values.begin(), values.end());
-                }
-                else {
+                } else {
                     try {
-			//scalar value
-                        double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
+                        //scalar value
+                        double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                                                      consumer_units, 0));
                         value_ptr = get_value_as_type(type, value);
                     } catch (data_access::unit_conversion_exception &uce) {
@@ -1005,10 +1051,9 @@ namespace realization {
             inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
-                if (is_ngen_realization_time_input(var_name)) {
+		if (is_ngen_realization_time_input(var_name)) {
                     continue;
                 }
-
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
@@ -1021,30 +1066,31 @@ namespace realization {
                     provider = forcing.get();
                 }
 
-		// TODO: probably need to actually allow this by default and warn, but have config option to activate
+                // TODO: probably need to actually allow this by default and warn, but have config option to activate
                 //  this type of behavior
                 // TODO: account for arrays later
                 int nbytes = get_bmi_model()->GetVarNbytes(var_name);
                 int varItemSize = get_bmi_model()->GetVarItemsize(var_name);
                 int numItems = nbytes / varItemSize;
 
-		// Finally, use the value obtained to set the model input
                 std::shared_ptr<void> value_ptr;
+                // Finally, use the value obtained to set the model input
                 std::string type = get_bmi_model()->get_analogous_cxx_type(get_bmi_model()->GetVarType(var_name),
                                                                            varItemSize);
                 
                 inputs << "\n" << var_map_alias << " = ";
                 if (numItems != 1) {
-                    //more than a single value needed for var_name			
-                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
+                    //more than a single value needed for var_name
+                    auto values = provider->get_values(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
                                                    get_bmi_model()->GetVarUnits(var_name), 0));
-                    value_ptr = get_values_as_type(type, values.begin(), values.end());
-		    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
+                    value_ptr = get_values_as_type( type, values.begin(), values.end() );
+                    // array like input: precipitation_mm_per_h = [0.2, 0.8, 1.8]
                     this->append_inputs(type, value_ptr, numItems, inputs);
+
                 } else {
-		    //scalar value
-                    double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(), var_map_alias, model_epoch_time, t_delta,
-                                               get_bmi_model()->GetVarUnits(var_name), 0));
+                    //scalar value
+                    double value = provider->get_value(CatchmentAggrDataSelector(this->get_catchment_id(),var_map_alias, model_epoch_time, t_delta,
+                                                   get_bmi_model()->GetVarUnits(var_name), 0));
                     this->append_input(type, value, inputs);
                 }
             }

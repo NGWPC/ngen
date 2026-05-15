@@ -325,7 +325,6 @@ namespace realization {
         }
 
     protected:
-
         /**
          * @brief Get correct BMI variable name, which may be the output or something mapped to this output.
          *
@@ -409,6 +408,11 @@ namespace realization {
          * 
          */
         void set_initial_bmi_parameters(geojson::PropertyMap properties);
+
+        /**
+         * If supported by the BMI module, pass realization timing metadata through legal BMI SetValue calls.
+         */
+        void set_realization_time_inputs();
 
         /**
          * Test whether backing model has fixed time step size.
