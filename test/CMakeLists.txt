@@ -63,6 +63,7 @@ add_executable(test_all)
 target_link_libraries(test_all PRIVATE gtest gtest_main)
 set_target_properties(test_all PROPERTIES FOLDER test)
 target_include_directories(test_all PRIVATE ${CMAKE_CURRENT_LIST_DIR}/bmi)
+set(NGEN_GTEST_DISCOVERY_TIMEOUT 60 CACHE STRING "Seconds to allow GoogleTest executables to list tests during discovery")
 
 # =============================================================================
 
@@ -121,6 +122,7 @@ function(ngen_add_test TESTNAME)
         gtest_discover_tests(
             ${TESTNAME}
             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+            DISCOVERY_TIMEOUT ${NGEN_GTEST_DISCOVERY_TIMEOUT}
             PROPERTIES
                 VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
         )
@@ -151,13 +153,14 @@ endfunction()
 # )
 
 add_executable(test_coastal coastal/SchismFormulation_Test.cpp)
-target_link_libraries(test_coastal
-        NGen::core
-        NGen::realizations_catchment
+target_link_libraries(test_coastal PRIVATE
         NGen::realizations_coastal
+        NGen::core
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
+        NGen::realizations_catchment
+        "$<TARGET_FILE:geojson>"
         gtest
         )
 
@@ -194,6 +197,7 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -301,6 +305,7 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::geojson
+        NGen::realizations_catchment
     # REQUIRES
     #   NGEN_WITH_MPI
 )
@@ -314,6 +319,7 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::geojson
+        NGen::realizations_catchment
         NGen::geopackage
     REQUIRES
         NGEN_WITH_SQLITE
@@ -328,6 +334,7 @@ ngen_add_test(
         NGen::core
         NGen::geojson
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
     REQUIRES
@@ -380,6 +387,7 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -442,6 +450,7 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -475,6 +484,7 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::geojson
+        NGen::realizations_catchment
 )
 
 ########################## NgenSimulation Class Tests
@@ -485,6 +495,9 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::geojson
+        NGen::realizations_catchment
+        NGen::realizations_coastal
+        NGen::forcing
         NGen::logging
         NGen::core_mediator
         NGen::ngen_bmi
@@ -537,6 +550,7 @@ ngen_add_test(
         NGen::forcing
         NGen::geojson
         NGen::realizations_catchment
+        NGen::realizations_coastal
         NGen::mdarray
         NGen::mdframe
         NGen::logging
@@ -548,6 +562,7 @@ ngen_add_test(
 gtest_discover_tests(
     test_all
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    DISCOVERY_TIMEOUT ${NGEN_GTEST_DISCOVERY_TIMEOUT}
     PROPERTIES
         VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
 )

@@ -135,6 +135,10 @@ protected:
 
     static void SetUpTestSuite();
 
+#if NGEN_WITH_PYTHON
+    static void TearDownTestSuite();
+#endif
+
     void TearDown() override;
 
     ngen::test::Bmi_Testing_Util testUtil;
@@ -469,19 +473,28 @@ private:
 
 
 };
-//Make sure the interpreter is instansiated and lives throught the test class
+// Keep the interpreter alive only while tests are running. GoogleTest discovery
+// executes static initializers, so importing Python modules here can break builds.
 #if NGEN_WITH_PYTHON
-std::shared_ptr<InterpreterUtil> Bmi_Multi_Formulation_Test::interpreter = InterpreterUtil::getInstance();
+std::shared_ptr<InterpreterUtil> Bmi_Multi_Formulation_Test::interpreter = nullptr;
 #endif
 
 void Bmi_Multi_Formulation_Test::SetUpTestSuite() {
     #if NGEN_WITH_PYTHON
+    interpreter = InterpreterUtil::getInstance();
+
     std::string module_directory = "./extern/";
 
     // Add the extern dir with our test lib to Python system path
     InterpreterUtil::addToPyPath(module_directory);
     #endif // NGEN_WITH_PYTHON
 }
+
+#if NGEN_WITH_PYTHON
+void Bmi_Multi_Formulation_Test::TearDownTestSuite() {
+    interpreter.reset();
+}
+#endif
 
 void Bmi_Multi_Formulation_Test::TearDown() {
     testing::Test::TearDown();

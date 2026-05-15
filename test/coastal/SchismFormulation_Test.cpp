@@ -8,9 +8,9 @@
 #include <NetCDFMeshPointsDataProvider.hpp>
 #include "forcing/MetMeshPolicy.hpp"
 
-const static std::string library_path = "/contrib/Zhengtao.Cui/home/ngwpc/schism/build/lib/libschism_bmi.so";
-const static std::string init_config_path = "/contrib/Zhengtao.Cui/home/ngwpc/ngen_coastal/data/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input";
-const static std::string met_forcing_netcdf_path = "/efs/coastal_testdata/hrrr_scratch/NextGen_Forcings_Engine_MESH_output_202402201200.nc";
+const static std::string library_path = "../../extern/schism/build/lib/libschism_bmi.so";
+const static std::string init_config_path = "../../data/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input";
+const static std::string met_forcing_netcdf_path = "../../data/SCHISM_Lake_Champlain_BMI_Driver_Test/NextGen_Forcings_Engine_MESH_output_202402201200.nc";
 
 #if 0
 struct Schism_Formulation_IT : public ::testing::Test
@@ -55,6 +55,7 @@ struct MockProvider : data_access::DataProvider<double, MeshPointsSelector>
     // Implementation of DataProvider
     std::vector<std::string> variables;
     boost::span<const std::string> get_available_variable_names() const override { return variables; }
+    const std::string get_provider_units_for_variable(const std::string& name) const override {return std::string("");}
 
     long get_data_start_time() const override { return 0; }
     long get_data_stop_time() const override { return 0; }
@@ -90,6 +91,7 @@ void test_netcdf_met_provider(
 
 int main(int argc, char **argv)
 {
+    int mpi_rank;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 

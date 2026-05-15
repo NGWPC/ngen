@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <cassert>
+#include <filesystem> // C++17
 #include "realizations/coastal/SchismCreator.hpp"
 #include "realizations/coastal/SchismFormulation.hpp"
 #include "forcing/NetCDFMeshPointsDataProvider.hpp"
@@ -22,12 +23,10 @@ std::unique_ptr<CoastalFormulation>
       std::string offshore_boundary_file = param_tree.get<std::string>( "offshore_boundary_netcdf_path" );
       std::string flow_boundary_file = param_tree.get<std::string>( "streamflow_boundary_netcdf_path" );
       std::string working_dir = param_tree.get<std::string>( "working_dir" );
+      std::filesystem::path cwd = std::filesystem::current_path();
+      std::cout << "Current working directory: " << cwd << std::endl;
 
       std::string init_config = working_dir + "/namelist.input";
-
-      if ( chdir( working_dir.c_str() ) != 0 ) {
-          std::cout << "Fatal: Failed changing current working dir to " << working_dir << std::endl;
-      }
 
       this->writeInitConfig( config, sim_time );
 
@@ -62,6 +61,10 @@ std::unique_ptr<CoastalFormulation>
 
       SchismFormulation::check_forcing_provider( *netcdf_offshore_provider, 
                                                          SchismFormulation::OFFSHORE );
+
+//      if ( chdir( working_dir.c_str() ) != 0 ) {
+//          std::cout << "Fatal: Failed changing current working dir to " << working_dir << std::endl;
+//      }
 
       return std::make_unique<SchismFormulation>( model_id,
                                             library_file,

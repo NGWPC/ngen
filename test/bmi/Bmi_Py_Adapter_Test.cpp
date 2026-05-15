@@ -115,9 +115,10 @@ protected:
     int expected_var_nbytes = 8; //type double
 
 };
-//Make sure the interpreter is instansiated and lives throught the test class
-std::shared_ptr<InterpreterUtil> Bmi_Py_Adapter_Test::interpreter = InterpreterUtil::getInstance();
-py::object Bmi_Py_Adapter_Test::Path = InterpreterUtil::getPyModule(std::vector<std::string> {"pathlib", "Path"});
+// Keep the interpreter alive only while tests are running. GoogleTest discovery
+// executes static initializers, so importing Python modules here can break builds.
+std::shared_ptr<InterpreterUtil> Bmi_Py_Adapter_Test::interpreter = nullptr;
+py::object Bmi_Py_Adapter_Test::Path;
 
 void Bmi_Py_Adapter_Test::SetUp() {
     example_scenario template_ex_struct;
@@ -146,13 +147,17 @@ void Bmi_Py_Adapter_Test::TearDown() {
 }
 
 void Bmi_Py_Adapter_Test::SetUpTestSuite() {
+    interpreter = InterpreterUtil::getInstance();
+    Path = InterpreterUtil::getPyModule(std::vector<std::string> {"pathlib", "Path"});
+
     // Add the extern dir with our test lib to Python system path
     std::string module_directory = "./extern/";
     InterpreterUtil::addToPyPath(module_directory);
 }
 
 void Bmi_Py_Adapter_Test::TearDownTestSuite() {
-
+    Path = py::object();
+    interpreter.reset();
 }
 
 /**

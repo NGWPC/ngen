@@ -7,38 +7,38 @@
 	url = https://github.com/pybind/pybind11
 [submodule "extern/t-route"]
 	path = extern/t-route
-	url = https://github.com/NGWPC/t-route.git
+	url = git@github.com:NGWPC/t-route
 	branch = development
 [submodule "extern/cfe/cfe"]
 	path = extern/cfe/cfe
-	url = https://github.com/NGWPC/cfe.git
+	url = git@github.com:NGWPC/cfe.git
 	branch = development
 [submodule "extern/topmodel/topmodel"]
 	path = extern/topmodel/topmodel
-	url = https://github.com/NGWPC/topmodel.git
+	url = git@github.com:NGWPC/topmodel
 	branch = development
 [submodule "extern/noah-owp-modular/noah-owp-modular"]
 	path = extern/noah-owp-modular/noah-owp-modular
-	url = https://github.com/NGWPC/noah-owp-modular
+	url = git@github.com:NGWPC/noah-owp-modular
 	branch = development
 [submodule "extern/bmi-cxx"]
 	path = extern/bmi-cxx
 	url = https://github.com/NGWPC/bmi-cxx.git
 [submodule "extern/evapotranspiration/evapotranspiration"]
 	path = extern/evapotranspiration/evapotranspiration
-	url = https://github.com/NGWPC/evapotranspiration.git
+	url = git@github.com:NGWPC/evapotranspiration
 	branch = development
 [submodule "extern/SoilFreezeThaw/SoilFreezeThaw"]
 	path = extern/SoilFreezeThaw/SoilFreezeThaw
-	url = https://github.com/NGWPC/SoilFreezeThaw
+	url = git@github.com:NGWPC/SoilFreezeThaw
 	branch = development
 [submodule "extern/SoilMoistureProfiles/SoilMoistureProfiles"]
 	path = extern/SoilMoistureProfiles/SoilMoistureProfiles
-	url = https://github.com/NGWPC/SoilMoistureProfiles
+	url = git@github.com:NGWPC/SoilMoistureProfiles
 	branch = development
 [submodule "extern/sloth"]
 	path = extern/sloth
-	url = https://github.com/NGWPC/SLoTH
+	url = git@github.com:NGWPC/sloth
 	branch = development
 [submodule "extern/netcdf-cxx4"]
 	path = extern/netcdf-cxx4/netcdf-cxx4
@@ -49,11 +49,11 @@
 	branch = development
 [submodule "extern/snow17"]
 	path = extern/snow17
-	url = https://github.com/NGWPC/snow17.git
+	url = git@github.com:NGWPC/snow17
 	branch = development
 [submodule "extern/sac-sma/sac-sma"]
 	path = extern/sac-sma/sac-sma
-	url = https://github.com/NGWPC/sac-sma.git
+	url = git@github.com:NGWPC/sac-sma
 	branch = development
 [submodule "extern/ueb-bmi"]
 	path = extern/ueb-bmi
@@ -61,8 +61,8 @@
 	branch = development
 [submodule "extern/lstm"]
 	path = extern/lstm
-	url = https://github.com/NGWPC/lstm.git
-        branch = development
+	url = git@github.com:NGWPC/lstm
+	branch = development
 [submodule "extern/topoflow-glacier"]
 	path = extern/topoflow-glacier
 	url = https://github.com/NGWPC/topoflow-glacier.git
@@ -70,3 +70,6 @@
 [submodule "extern/SFINCS"]
 	path = extern/SFINCS
 	url = git@github.com:NGWPC/SFINCS
+[submodule "extern/schism"]
+	path = extern/schism
+	url = git@github.com:NGWPC/schism.git
