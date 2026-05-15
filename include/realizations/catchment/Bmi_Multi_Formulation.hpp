@@ -640,7 +640,7 @@ namespace realization {
             var_aliases = std::make_shared<std::map<std::string, std::string>>(std::map<std::string, std::string>());
 
             for (const std::string &var_name : mod->get_bmi_input_variables()) {
-                if (var_name == "ngen_current_time") {
+                if (is_ngen_realization_time_input(var_name)) {
                     continue;
                 }
 
