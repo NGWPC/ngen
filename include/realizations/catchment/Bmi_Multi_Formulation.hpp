@@ -24,13 +24,6 @@ class Bmi_Multi_Formulation_Test;
 class Bmi_Cpp_Multi_Array_Test;
 
 namespace realization {
-
-    static bool is_ngen_realization_time_input(const std::string& var_name) {
-        return var_name == "ngen_realization_start_time" ||
-               var_name == "ngen_realization_end_time" ||
-               var_name == "ngen_realization_dt";
-    }
-
     /**
      * Abstraction of a formulation with multiple backing model object that implements the BMI.
      */

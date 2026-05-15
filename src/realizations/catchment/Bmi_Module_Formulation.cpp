@@ -11,11 +11,6 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 
-#if NGEN_WITH_PYTHON
-#include "bmi/Bmi_Py_Adapter.hpp"
-#endif
-
-
 std::stringstream bmiform_ss;
 
 static bool is_ngen_realization_time_input(const std::string& var_name) {
