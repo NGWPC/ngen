@@ -135,4 +135,7 @@ data/forcing/huc01_demo/
 # HUC01 Demo Testing Hydrofabric
 data/hydrofabric/huc01_demo/
 
+data/SCHISM_Hawaii
+data/SCHISM_Lake_Champlain_BMI_Driver_Test/NextGen_Forcings_Engine_MESH_output_202402201200.nc
+
 /*git_info.json

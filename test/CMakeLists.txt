@@ -197,10 +197,7 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-<<<<<<< HEAD
         NGen::realizations_coastal
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -308,10 +305,7 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::geojson
-<<<<<<< HEAD
         NGen::realizations_catchment
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
     # REQUIRES
     #   NGEN_WITH_MPI
 )
@@ -325,10 +319,7 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::geojson
-<<<<<<< HEAD
         NGen::realizations_catchment
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::geopackage
     REQUIRES
         NGEN_WITH_SQLITE
@@ -343,10 +334,7 @@ ngen_add_test(
         NGen::core
         NGen::geojson
         NGen::realizations_catchment
-<<<<<<< HEAD
         NGen::realizations_coastal
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::core_mediator
         NGen::forcing
     REQUIRES
@@ -399,10 +387,7 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::realizations_catchment
-<<<<<<< HEAD
         NGen::realizations_coastal
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -465,10 +450,7 @@ ngen_add_test(
         gmock
         NGen::core
         NGen::realizations_catchment
-<<<<<<< HEAD
         NGen::realizations_coastal
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::core_mediator
         NGen::forcing
         NGen::ngen_bmi
@@ -502,10 +484,7 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::geojson
-<<<<<<< HEAD
         NGen::realizations_catchment
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
 )
 
 ########################## NgenSimulation Class Tests
@@ -516,12 +495,9 @@ ngen_add_test(
     LIBRARIES
         NGen::core
         NGen::geojson
-<<<<<<< HEAD
         NGen::realizations_catchment
         NGen::realizations_coastal
         NGen::forcing
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::logging
         NGen::core_mediator
         NGen::ngen_bmi
@@ -574,10 +550,7 @@ ngen_add_test(
         NGen::forcing
         NGen::geojson
         NGen::realizations_catchment
-<<<<<<< HEAD
         NGen::realizations_coastal
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
         NGen::mdarray
         NGen::mdframe
         NGen::logging
@@ -589,10 +562,7 @@ ngen_add_test(
 gtest_discover_tests(
     test_all
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-<<<<<<< HEAD
     DISCOVERY_TIMEOUT ${NGEN_GTEST_DISCOVERY_TIMEOUT}
-=======
->>>>>>> 1ec3e2a50b3526ff0f2605acd6877a80b8706f8d
     PROPERTIES
         VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
 )
