@@ -429,6 +429,7 @@ target_link_libraries(partitionGenerator PUBLIC
         NGen::geojson
         NGen::realizations_catchment
         )
+
 if(NGEN_WITH_SQLITE)
     target_link_libraries(partitionGenerator PUBLIC NGen::geopackage)
 endif()
