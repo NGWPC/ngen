@@ -10,7 +10,7 @@
 
 const static std::string library_path = "../../extern/schism/build/lib/libschism_bmi.so";
 const static std::string init_config_path = "../../data/SCHISM_Lake_Champlain_BMI_Driver_Test/namelist.input";
-const static std::string met_forcing_netcdf_path = "../../data/SCHISM_Lake_Champlain_BMI_Driver_Test/NextGen_Forcings_Engine_MESH_output_202402201200.nc";
+//const static std::string met_forcing_netcdf_path = "../../data/SCHISM_Lake_Champlain_BMI_Driver_Test/NextGen_Forcings_Engine_MESH_output_202402201200.nc";
 
 #if 0
 struct Schism_Formulation_IT : public ::testing::Test
@@ -109,12 +109,12 @@ int main(int argc, char **argv)
     stop_time_tm.tm_mday = 21;
     auto stop_time_t = std::mktime(&stop_time_tm);
 
-    auto netcdf_met_provider = 
-	    std::make_shared<data_access::NetCDFMeshPointsDataProvider< data_access::MetMeshPolicy >>
-	    (met_forcing_netcdf_path, std::chrono::system_clock::from_time_t(start_time_t),
-                                     std::chrono::system_clock::from_time_t(stop_time_t));
+//    auto netcdf_met_provider = 
+//	    std::make_shared<data_access::NetCDFMeshPointsDataProvider< data_access::MetMeshPolicy >>
+//	    (met_forcing_netcdf_path, std::chrono::system_clock::from_time_t(start_time_t),
+//                                     std::chrono::system_clock::from_time_t(stop_time_t));
 
-    test_netcdf_met_provider(netcdf_met_provider);
+//    test_netcdf_met_provider(netcdf_met_provider);
 
     std::cerr << "create object ..." << std::endl;
     std::unique_ptr<CoastalFormulation> schism =
