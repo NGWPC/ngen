@@ -3,36 +3,30 @@
 
 //#include <NGenConfig.h>
 
-#if NGEN_WITH_MPI
-    #include <mpi.h>
-    #define _PARALLEL4
-#endif
-
-
 #if NGEN_WITH_NETCDF
 #include <string>
 #include <vector>
 #include <memory>
 #include <map>
+#if NGEN_WITH_MPI
+#include <mpi.h>
+#define _PARALLEL4
+#include <netcdf_par.h>
+#else
 #include <netcdf.h>
+#endif
 #include "NetCDFVar.hpp"
 
 class NetCDFFile {
 public:
-#if NGEN_WITH_MPI
-    NetCDFFile(const std::string& filename, bool write_only, MPI_Comm comm);
-#endif
 
-    // Serial constructor for write only
-    NetCDFFile(const std::string& filename, bool write_only);
-
-    // Serial read-only mode for NetCDFPerFeatureDataProvider
-    NetCDFFile(const std::string &filename);
+    NetCDFFile(const std::string& filename, bool write_only, bool is_mpi);
 
     ~NetCDFFile();
     void load_variables(); 
     std::vector<std::string> list_variables() const;
     std::shared_ptr<NetCDFVar> get_ncvar(const std::string& name) const;
+    int get_ncid() const { return ncid_; }
 
     // Dimension handling
     int add_dimension(const std::string& name, size_t len);
@@ -65,25 +59,16 @@ public:
     //Add attribute to a variable
     void write_attribute_to_ncvar(const std::string& name, const std::string& attName, const std::string& attValue);
 
-    
-
-    // // Write all variables in parallel
-    // template<typename T>
-    // void writeAllVariables(const std::vector<std::vector<T>>& all_data);
-
-    // // MPI-safe write (each rank writes its portion)
-    // template<typename T>
-    // void writeAllVariablesDistributed(const std::vector<std::vector<T>>& all_data);
-
     void close_file();
 
-    int get_ncid() const { return ncid_; }
+    void end_def_mode();
 
 private:
     std::string nc_file_name_;
     bool read_only_;
     int ncid_;
     int next_varid_ = 0;
+    bool is_mpi_;
     std::vector<std::shared_ptr<NetCDFVar>> variables_;
     std::map<std::string, int> dims_;
     std::map<std::string, std::shared_ptr<NetCDFVar>> variables_map_;
@@ -96,7 +81,7 @@ private:
     bool parallel_;
 
     // Helper to get variable index by name
-    std::shared_ptr<NetCDFVar> get_ncvar_by_name(const std::string& name);
+    std::shared_ptr<NetCDFVar> get_ncvar_by_name(const std::string& name) const;
 };
 #endif // NGEN_WITH_NETCDF
 #endif // NETCDFFILE_HPP

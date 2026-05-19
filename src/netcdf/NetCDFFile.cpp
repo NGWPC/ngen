@@ -4,43 +4,47 @@
 
 #if NGEN_WITH_NETCDF
 #include "NetCDFFile.hpp"
+#include "ewts_ngen/logger.hpp"
 #include <netcdf.h>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
 #include <NGenConfig.h>
 
-#if NGEN_WITH_MPI
-NetCDFFile::NetCDFFile(const std::string& filename, bool write_only, MPI_Comm comm)
-    : nc_file_name_(filename), comm_(comm)
+
+NetCDFFile::NetCDFFile(const std::string& filename, bool write_only, bool is_mpi)
+    : nc_file_name_(filename), is_mpi_(is_mpi)
 {
     int retval;
     int mode = NC_NETCDF4;
-    if (write_only) mode |= NC_CLOBBER;
-
-    if ((retval = nc_create_par(filename.c_str(), mode, comm_, MPI_INFO_NULL, &ncid_)))
-        throw std::runtime_error("Error creating NetCDF file: " + std::string(nc_strerror(retval)));
-}
-#else
-NetCDFFile::NetCDFFile(const std::string& full_filename, bool write_only)
-{
-    int retval;
-    int mode = NC_NETCDF4;
-    if (write_only) mode |= NC_CLOBBER;
-    if ((retval = nc_create(full_filename.c_str(), mode, &ncid_)))
-        throw std::runtime_error("Error creating NetCDF file: " + std::string(nc_strerror(retval)));
-    
-}
-#endif
-
-NetCDFFile::NetCDFFile(const std::string &filename)
-{
-    nc_file_name_ = filename;
-    read_only_ = true;
 #if NGEN_WITH_MPI
-    comm_ = MPI_COMM_NULL;
+    if(is_mpi_){
+        if(write_only){
+            retval = nc_create_par(nc_file_name_.c_str(), NC_NETCDF4 | NC_MPIIO | NC_CLOBBER,
+                MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
+        }
+        else{
+            retval = nc_open_par(nc_file_name_.c_str(), NC_WRITE | NC_MPIIO,
+                MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
+        }
+    }
+    else
 #endif
-    load_variables();
+    {
+        if(write_only){
+            LOG("Attempting to create NetCDF file", LogLevel::DEBUG);
+            retval = nc_create(nc_file_name_.c_str(), NC_NETCDF4 | NC_CLOBBER, &ncid_);
+        }
+        else{
+            read_only_ = true;
+            LOG("Attempting to open NetCDF file", LogLevel::DEBUG);            
+            retval = nc_open(nc_file_name_.c_str(), NC_NOWRITE, &ncid_);
+        }
+    }
+
+    if(retval){
+        throw std::runtime_error("Failed creating/opening NetCDF file: " + std::string(nc_strerror(retval)));
+    }
 }
 
 // Add a new dimension
@@ -57,7 +61,7 @@ void NetCDFFile::add_variable(const std::string& name, nc_type type, const std::
     int retval = nc_def_var(ncid_, name.c_str(), type, dims.size(), dims.data(), &varid);
     if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
     // set fill value and missing value for NC_DOUBLE
-    if (type = NC_DOUBLE) {
+    if (type == NC_DOUBLE) {
         double fill_missing_val = -1.0;
         nc_def_var_fill(ncid_, varid, 0, &fill_missing_val); 
         nc_put_att_double(ncid_, varid, "missing_value", NC_DOUBLE, 1, &fill_missing_val);
@@ -69,17 +73,17 @@ void NetCDFFile::add_variable(const std::string& name, nc_type type, const std::
 // Get dimension length by name
 size_t NetCDFFile::get_dim_size(const std::string& name) const {
     auto it = dims_.find(name);
-    if(it == dims_.end()) throw std::runtime_error("Dimension not found: " + name);
+    if(it == dims_.end()) return -1;
 
     size_t len;
     int retval = nc_inq_dimlen(ncid_, it->second, &len);
-    if(retval) throw std::runtime_error("Error getting dimension length for " + name + ": " + nc_strerror(retval));
+    if(retval != NC_NOERR) return -1;
     return len;
 }
 
 int NetCDFFile::get_dim_id(const std::string& name) const {
     auto it = dims_.find(name);
-    if(it == dims_.end()) throw std::runtime_error("Dimension not found: " + name);
+    if(it == dims_.end()) return -1;
     return it->second;
 }
 
@@ -88,12 +92,13 @@ void NetCDFFile::add_ncvar(std::shared_ptr<NetCDFVar> var) {
     variables_map_[var->get_name()] = var;
 }
 
- void NetCDFFile::write_catchment_output_data(const std::string& name, std::vector<size_t> start,
+void NetCDFFile::write_catchment_output_data(const std::string& name, std::vector<size_t> start,
                         std::vector<size_t> count, const double& data)
 {
     auto var = get_ncvar_by_name(name);
     if (!var) throw std::runtime_error("Variable not found: " + name);
     int retval = nc_put_vara_double(ncid_, var->get_varid(), start.data(), count.data(), &data);
+    LOG("Added value for catchments", LogLevel::INFO);
     if (retval != NC_NOERR) {
         throw std::runtime_error("Error writing value: " + std::string(nc_strerror(retval)));
     }
@@ -127,198 +132,122 @@ void NetCDFFile::write_variable_data(const std::string& name, const std::vector<
 
     #if NGEN_WITH_MPI
         if (comm_ != MPI_COMM_NULL) {
-            int retval = nc_var_par_access(ncid_, var->getVarId(), NC_COLLECTIVE);
+            int retval = nc_var_par_access(ncid_, var->get_varid(), NC_COLLECTIVE);
             if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
         }
     #endif
 
     int retval = NC_NOERR;
     retval = write_data_to_ncvar(ncid_, var->get_varid(), start, count, data);
-
     if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
+
+    // We need to construct a map of variable value and the index in the nc file.
+    // this will be used while writing the output values.
+    // We need this only for the coordinates variables like catchments.
+    nc_type data_type;
+    retval = nc_inq_vartype(ncid_, var->get_varid(), &data_type);
+    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
+
+    if (data_type == NC_STRING) {
+        var->build_variables_index(data.size());
+    }
 }
 
 void NetCDFFile::write_attribute_to_ncvar(const std::string& name, const std::string& attName, const std::string& attValue) {
     auto var = get_ncvar_by_name(name);
     if (!var) throw std::runtime_error("Variable not found: " + name);
-    var->add_attribute(attName, attValue);
+    double value;
+    size_t pos;
+    bool is_numeric = true;
+    try {
+        value = std::stod(attValue, &pos);
+    }
+    catch (...) {
+        is_numeric = false;
+    }
+    if (pos == attValue.size()){ //needed to ensure that the entire string is a numeric value.
+        var->add_attribute(attName, value);
+    }
+    else{
+        var->add_attribute(attName, attValue);
+    }
 }
 
-// template<typename T>
-// void NcFile::writeAllVariables(const std::vector<std::vector<T>>& all_data) {
-//     if (all_data.size() != variables_.size())
-//         throw std::runtime_error("Mismatch between variables and data");
+std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar(const std::string& name) const
+{
+    return get_ncvar_by_name(name);
+}
 
-//     for (size_t v = 0; v < variables_.size(); ++v) {
-//         auto var = variables_[v];
-//         const auto& data = all_data[v];
+void NetCDFFile::end_def_mode()
+{
+    int retval = nc_enddef(ncid_);
+    if(retval != NC_NOERR)
+        throw std::runtime_error(std::string("Error switching to NetCDF data mode: ") + nc_strerror(retval));
+}
 
-//     #if NGEN_WITH_MPI
-//             if (comm_ != MPI_COMM_NULL && num_procs_ > 1) {
-//                 int retval = nc_var_par_access(ncid_, var->getVarId(), NC_COLLECTIVE);
-//                 if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-//             }
-//     #endif
-
-//         int retval = NC_NOERR;
-//         if constexpr (std::is_same_v<T, double>) {
-//             retval = nc_put_var_double(ncid_, var->getVarId(), data.data());
-//         } else if constexpr (std::is_same_v<T, int>) {
-//             retval = nc_put_var_int(ncid_, var->getVarId(), data.data());
-//         } else {
-//             static_assert(sizeof(T) == 0, "Unsupported data type");
-//         }
-
-//         if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-//     }
-// }
-
-// template<typename T>
-// void NetCDFFile::writeAllVariablesDistributed(const std::vector<std::vector<T>>& all_data) {
-//     if (all_data.size() != variables_.size())
-//         throw std::runtime_error("Mismatch between variables and data");
-
-//     for (size_t v = 0; v < variables_.size(); ++v) {
-//         auto var = variables_[v];
-//         const auto& data = all_data[v];
-
-//         // Compute first-dimension chunking
-//         size_t first_dim_size = var->getDims()[0];
-//         size_t start0, count0;
-//         computeStartCount(first_dim_size, start0, count0);
-
-//         std::vector<size_t> start(var->getDims().size(), 0);
-//         std::vector<size_t> count = var->getDims();
-//         start[0] = start0;
-//         count[0] = count0;
-
-// #if NGEN_WITH_MPI
-//         if (comm_ != MPI_COMM_NULL && num_procs_ > 1) {
-//             int retval = nc_var_par_access(ncid_, var->getVarId(), NC_COLLECTIVE);
-//             if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-//         }
-// #endif
-
-//         int retval = NC_NOERR;
-//         if constexpr (std::is_same_v<T, double>) {
-//             retval = nc_put_vara_double(ncid_, var->getVarId(), start.data(), count.data(), 
-//                                         &data[start0 * (data.size()/first_dim_size)]);
-//         } else if constexpr (std::is_same_v<T, int>) {
-//             retval = nc_put_vara_int(ncid_, var->getVarId(), start.data(), count.data(), 
-//                                      &data[start0 * (data.size()/first_dim_size)]);
-//         } else {
-//             static_assert(sizeof(T) == 0, "Unsupported data type");
-//         }
-
-//         if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-//     }
-// }
-
-std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar_by_name(const std::string& name) {
+std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar_by_name(const std::string& name) const {
     auto it = variables_map_.find(name);
     if (it != variables_map_.end()) return it->second;
     return nullptr;
 }
 
-// void NetCDFFile::computeStartCount(size_t total_size, size_t& start, size_t& count) {
-// #if NGEN_WITH_MPI
-//     if (comm_ == MPI_COMM_NULL || num_procs_ == 1) {
-//         start = 0;
-//         count = total_size;
-//     } else {
-//         size_t chunk = total_size / num_procs_;
-//         start = rank_ * chunk;
-//         count = (rank_ == num_procs_ - 1) ? (total_size - start) : chunk;
-//     }
-// #else
-//     start = 0;
-//     count = total_size;
-// #endif
-// }
-
 void NetCDFFile::load_variables()
 {
     int retval;
+    int mode = read_only_ ? NC_NOWRITE : NC_WRITE;
 
-#if NGEN_WITH_MPI
-    if(comm_ != MPI_COMM_NULL) {
-        if((retval = nc_open_par(ncFileName.c_str(), NC_NOWRITE, comm_, MPI_INFO_NULL, &ncid_))) {
-            throw std::runtime_error("Cannot open NetCDF (MPI): " + std::string(nc_strerror(retval)));
-        }
-    } else
-#endif
-    {
-        if((retval = nc_open(nc_file_name_.c_str(), NC_NOWRITE, &ncid_))) {
-            throw std::runtime_error("Cannot open NetCDF: " + std::string(nc_strerror(retval)));
+    if (retval != NC_NOERR) {
+        throw std::runtime_error(std::string("Failed to open NetCDF file: ") + nc_strerror(retval));
+    }
+
+    // Load dimensions
+    int num_dims;
+    retval = nc_inq_ndims(ncid_, &num_dims);
+    if (retval != NC_NOERR)
+        throw std::runtime_error(std::string("Number of Dimensions: ") + nc_strerror(retval));
+
+    for (int i = 0; i < num_dims; ++i) {
+        char dim_name[NC_MAX_NAME + 1];
+        size_t dim_len;
+        retval = nc_inq_dim(ncid_, i, dim_name, &dim_len);
+        if (retval == NC_NOERR) {
+            dims_[dim_name] = i;
         }
     }
 
+    // Load variables
     int num_variables;
-    if((retval = nc_inq_nvars(ncid_, &num_variables))) {
-        nc_close(ncid_);
-        throw std::runtime_error("Cannot get number of variables: " + std::string(nc_strerror(retval)));
-    }
+    retval = nc_inq_nvars(ncid_, &num_variables);
+    if (retval != NC_NOERR)
+        throw std::runtime_error(std::string("Number of Variables: ") + nc_strerror(retval));
 
-    variables_.clear();
+    for (int i = 0; i < num_variables; ++i) {
+        char var_name[NC_MAX_NAME + 1];
+        retval = nc_inq_varname(ncid_, i, var_name);
+        if (retval != NC_NOERR) continue;
 
-    for(int varid = 0; varid < num_variables; ++varid) {
-        char name[NC_MAX_NAME + 1];
         nc_type type;
-        int num_dims, dim_ids[NC_MAX_VAR_DIMS], num_attributes;
+        int num_dims_var;
+        int dim_ids[NC_MAX_DIMS];
 
-        if((retval = nc_inq_var(ncid_, varid, name, &type, &num_dims, dim_ids, &num_attributes))) {
-            std::cerr << "Warning: could not get var info for varid " << varid
-                      << ": " << nc_strerror(retval) << std::endl;
-            continue;
-        }
+        retval = nc_inq_var(ncid_, i, nullptr, &type, &num_dims_var, dim_ids, nullptr);
+        if (retval != NC_NOERR) continue;
 
-        std::vector<int> dims(num_dims);
+        // Collect dim names
         std::vector<std::string> dim_names;
-        for(int d=0; d<num_dims; ++d) {
-            size_t len;
+        std::vector<int> dim_ids_var;
+        for (int d = 0; d < num_dims_var; ++d) {
+            dim_ids_var.push_back(dim_ids[d]);
             char dim_name[NC_MAX_NAME + 1];
-            if((retval = nc_inq_dim(ncid_, dim_ids[d], dim_name, &len))) {
-                std::cerr << "Warning: could not get dim length for dimid " << dim_ids[d]
-                          << ": " << nc_strerror(retval) << std::endl;
-                len = 0;
-            }
-            dims[d] = len;
+            nc_inq_dim(ncid_, dim_ids[d], dim_name, nullptr);
             dim_names.push_back(dim_name);
         }
 
-        auto var = std::make_shared<NetCDFVar>(name, type, dims, dim_names, varid, ncid_);
-
-        // load attributes
-        for(int attid=0; attid<num_attributes; ++attid) {
-            char attname[NC_MAX_NAME + 1];
-
-            if((retval = nc_inq_attname(ncid_, varid, attid, attname))) continue;
-
-            nc_type att_type;
-            size_t att_len;
-            if((retval = nc_inq_att(ncid_, varid, attname, &att_type, &att_len))) continue;
-
-            if(att_type == NC_CHAR) {
-                
-                nc_inq_attlen(ncid_, varid, attname, &att_len);
-                std::vector<char> buffer(att_len + 1, '\0');
-                nc_get_att_text(ncid_, varid, attname, buffer.data());
-                var->add_attribute(attname, std::string(buffer.data(), att_len));
-            } else if(att_type == NC_INT) {
-                int val;
-                nc_get_att_int(ncid_, varid, attname, &val);
-                var->add_attribute(attname, val);
-            } else if(att_type == NC_DOUBLE) {
-                double val;
-                nc_get_att_double(ncid_, varid, attname, &val);
-                var->add_attribute(attname, val);
-            }
-            // extend for other types if needed (float, long, etc.)
-        }
-
-        variables_.push_back(var);
+        // Create shared_ptr NcVar
+        auto nc_var = std::make_shared<NetCDFVar>(var_name, type,dim_ids_var, dim_names, i, ncid_);
+        variables_.push_back(nc_var);
+        variables_map_[var_name] = nc_var;
     }
-    nc_close(ncid_);
 }
 
 std::vector<std::string> NetCDFFile::list_variables() const
@@ -328,14 +257,6 @@ std::vector<std::string> NetCDFFile::list_variables() const
         names.push_back(var->get_name());
     }
     return names;
-}
-
-std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar(const std::string& name) const
-{
-    for(const auto& var : variables_) {
-        if(var->get_name() == name) return var;
-    }
-    return nullptr;
 }
 
 void NetCDFFile::close_file() {

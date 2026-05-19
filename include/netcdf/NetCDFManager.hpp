@@ -2,12 +2,13 @@
 #define NETCDFMANAGER_HPP
 
 //#include <NGenConfig.h>
+
+
+#if NGEN_WITH_NETCDF
 #if NGEN_WITH_MPI
     #include <mpi.h>
     #define _PARALLEL4
 #endif
-
-#if NGEN_WITH_NETCDF
 #include "NetCDFFile.hpp"
 #include "NetCDFVar.hpp"
 #include <vector>
@@ -42,12 +43,18 @@ public:
     NetCDFManager();
 
     // File operations
-    void create_file(const std::string& filename);
+    int create_file(const std::string& filename);
     void open_file();
     void close_file();
 
+    //set up netcdf dimensions and variables
+    void define_catchment_netcdf_components();
+
     // List variable names
     std::vector<std::string> list_variables() const;
+
+    //Get NetCDFFile handle
+    NetCDFFile* get_file_handle() {return nc_file_.get();}
 
     // Access NetCDFVar by name
     std::shared_ptr<NetCDFVar> get_ncvar_by_name(const std::string& name) const;
@@ -64,7 +71,7 @@ public:
     // Add a variable
     void add_variable(const std::string& var_name, nc_type type, const std::vector<int>& dims, const std::vector<std::string>& dim_names);
 
-    // Add a variable to the file (for writing)
+    // Add variables to the file (for writing)
     void add_output_variable_data_from_formulation();
 
     // Add catchment output data to the file (for writing)
@@ -82,27 +89,38 @@ public:
     // Get the time range assigned to this rank
     void get_local_time_range(size_t& start, size_t& count) const;
 
+    size_t get_chunk_start() const {return chunk_start_; }
+
+    size_t get_chunk_count() const {return chunk_count_; }
+
+    void prepare_data_chunks(std::map<std::string, std::string> catchment_output_vals);
+
+    void write_timestep_data_to_netcdf(size_t time_index);
 
     ~NetCDFManager();
+
 private:
-    int rank_;
-    int num_procs_;
     bool read_only_;
-    std::string filename_;
-    std::shared_ptr<NetCDFFile> nc_file_;
+    std::string nc_filename_;
+    std::unique_ptr<NetCDFFile> nc_file_;
     std::vector<NetCDFVar> vars_;
     std::shared_ptr<realization::Formulation_Manager> manager_;
     std::shared_ptr<Simulation_Time> sim_time_;
+    size_t chunk_start_ = 0;
+    size_t chunk_count_ = 0;
     size_t num_entities_;
     size_t num_timesteps_;
     std::vector<std::string> catchments_;
     std::map<std::string, std::shared_ptr<NetCDFVar>> variables_map_;
-    std::vector<std::string> nc_output_variables;
+    std::vector<std::string> nc_output_variables_;
+    std::vector<std::vector<double>> data_chunks_;
 
 #if NGEN_WITH_MPI
     MPI_Comm comm_;
 #endif
-    bool is_mpi_;
+    int rank_ = 0;
+    int num_procs_ = 1;
+    bool is_mpi_ = false;
 };
 #endif // NGEN_WITH_NETCDF
 #endif // NETCDFMANAGER_HPP

@@ -1,5 +1,6 @@
 #if NGEN_WITH_NETCDF
 #include "NetCDFVar.hpp"
+#include "ewts_ngen/logger.hpp"
 #include <netcdf.h>
 #include <stdexcept>
 #include <numeric>
@@ -135,15 +136,56 @@ std::vector<double> NetCDFVar::get_time_values() const
     return time_values;
 }
 
+int NetCDFVar::get_int_value_at_index(const std::vector<size_t>& index) const {
+    int value = -1;
+    if (index.empty()) {
+        return value;
+    }
+    int retval = nc_get_var1_int(ncid_, varid_, index.data(), &value);
+    if (retval != NC_NOERR) {
+        throw std::runtime_error(nc_strerror(retval));
+    }
+    return value;
+}
+
+double NetCDFVar::get_dbl_value_at_index(const std::vector<size_t>& index) const {
+    double value = -1;
+    if (index.empty()) {
+        return value;
+    }
+    int retval = nc_get_var1_double(ncid_, varid_, index.data(), &value);
+    if (retval != NC_NOERR) {
+        throw std::runtime_error(nc_strerror(retval));
+    }
+    return value;
+}
+
+std::string NetCDFVar::get_str_value_at_index(const std::vector<size_t>& index) const {
+    char* value = nullptr;
+    std::string str_value;
+    int retval = nc_get_var1_string(ncid_, varid_, index.data(), &value);
+    if (retval == NC_NOERR && value != nullptr) {
+        str_value = std::string(value);
+        nc_free_string(1, &value);  // free allocated string
+    }
+    return str_value;
+}
+
 void NetCDFVar::add_attribute(const std::string& att_name, const std::string& att_value) {
+    int retval = nc_put_att_text(ncid_, varid_, att_name.c_str(), att_value.size(), att_value.c_str());
+    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
     attributes_str_[att_name] = att_value;
 }
 
 void NetCDFVar::add_attribute(const std::string& att_name, int att_value) {
+    int retval = nc_put_att_int(ncid_, varid_, att_name.c_str(), NC_INT, 1, &att_value);
+    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
     attributes_int_[att_name] = att_value;
 }
 
 void NetCDFVar::add_attribute(const std::string& att_name, double att_value) {
+    int retval = nc_put_att_double(ncid_, varid_, att_name.c_str(), NC_DOUBLE, 1, &att_value);
+    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
     attributes_double_[att_name] = att_value;
 }
 
@@ -175,12 +217,51 @@ double NetCDFVar::get_double_attribute(const std::string& att_name) const {
     throw std::runtime_error("Double attribute not found: " + att_name);
 }
 
+size_t NetCDFVar::get_variable_index(const std::string& name) const
+{
+    auto it = variable_index_.find(name);
+    if (it == variable_index_.end()) {
+        throw std::runtime_error(std::string("Variable not found in NetCDF: ") + name);
+    }
+    return it->second;
+}
+
+void NetCDFVar::build_variables_index(size_t num_items)
+{
+    std::vector<char*> data(num_items);
+    nc_get_var_string(ncid_, varid_, data.data());
+    LOG("Number of catchments: " + std::to_string(num_items), LogLevel::INFO);
+    for (size_t index = 0; index < num_items; ++index) {
+        std::string key = data[index]; //required to prevent heap corruption while freeing memory later
+        variable_index_[key] = index;
+    }
+    nc_free_string(dims_[0], data.data());
+}
+
 void NetCDFVar::read_slice(const std::vector<size_t>& start, const std::vector<size_t>& count, double* data) const
 {
     int retval = NC_NOERR;
     retval = nc_get_vara_double(ncid_, varid_, start.data(), count.data(), data);
     if (retval != NC_NOERR) {
         throw std::runtime_error(std::string("NetCDF read error: ") + nc_strerror(retval));
+    }
+}
+
+void NetCDFVar::write_timesliced_data(size_t timestep, size_t slice_start, size_t slice_count, const double* data)
+{
+    std::vector<size_t> start = {timestep, slice_start};
+    std::vector<size_t> count = {1, slice_count};
+    int retval;
+    
+#if NGEN_WITH_MPI
+    retval = nc_var_par_access(ncid_, varid_, NC_COLLECTIVE);
+    if(retval!= NC_NOERR) {
+        throw std::runtime_error(std::string("Failed to set up parallel access: ") + nc_strerror(retval));
+    }
+#endif
+    retval = nc_put_vara_double(ncid_, varid_, start.data(), count.data(), data);
+    if (retval != NC_NOERR) {
+        throw std::runtime_error("Error writing value in NetCDF: " + std::string(nc_strerror(retval)));
     }
 }
 #endif // NGEN_WITH_NETCDF

@@ -190,6 +190,8 @@ endif()
 # If MPI support is enabled, set the C++ compiler to "mpicxx"
 if(NGEN_WITH_MPI)
 find_package(MPI REQUIRED)
+set(CMAKE_C_COMPILER   ${MPI_C_COMPILER}   CACHE FILEPATH "" FORCE)
+set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER} CACHE FILEPATH "" FORCE)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -230,24 +232,6 @@ add_compile_definitions(NGEN_WITH_UDUNITS)
 endif()
 
 # -----------------------------------------------------------------------------
-# if(NGEN_WITH_NETCDF)
-# find_package(NetCDF COMPONENTS CXX)
-
-# if(NOT NetCDF_CXX_FOUND)
-# find_package(NetCDF REQUIRED)
-# message(INFO " Using internal copy of netcdf-cxx4")
-# add_external_subdirectory(
-# SOURCE "${NGEN_EXT_DIR}/netcdf-cxx4"
-# OUTPUT "${PROJECT_BINARY_DIR}/extern-libs/netcdf-cxx4"
-# GIT_UPDATE "${NGEN_EXT_DIR}/netcdf-cxx4/netcdf-cxx4"
-# IMPORTS netcdf-cxx4
-# )
-# set(NetCDF_CXX_INCLUDE_DIR "${NGEN_EXT_DIR}/netcdf-cxx4/netcdf-cxx4/cxx4")
-# set(NetCDF_CXX_LIBRARY "${PROJECT_BINARY_DIR}/extern-libs/netcdf-cxx4/libnetcdf-cxx4.a")
-# target_link_libraries(NetCDF INTERFACE netcdf-cxx4)
-#    endif()
-# endif()
-
 if(NGEN_WITH_EXTERN_SLOTH)
 # This is set because SLOTH will link to gtest by default,
 # which causes a configure error.
@@ -410,6 +394,69 @@ endif()
 
 if(USE_EWTS)
     target_link_libraries(partitionGenerator PUBLIC NGen::ewts)
+if(NGEN_WITH_NETCDF)
+    if(NGEN_WITH_MPI)
+      set(HDF5_INSTALL "$ENV{HOME}/MyInstalls/hdf5_mpi_parallel" CACHE PATH "Path to Parallel HDF5 installation")
+      set(NETCDF_INSTALL "$ENV{HOME}/MyInstalls/netcdf_mpi_parallel" CACHE PATH "Path to Parallel NetCDF installation")
+      set(NETCDF_LIB_DIR "$ENV{HOME}/MyInstalls/netcdf_mpi_parallel/lib")
+      set(HDF5_LIB_DIR   "$ENV{HOME}/MyInstalls/hdf5_mpi_parallel/lib")
+    else()
+      set(HDF5_INSTALL "$ENV{HOME}/MyInstalls/hdf5_serial" CACHE PATH "Path to Serial HDF5 installation")
+      set(NETCDF_INSTALL "$ENV{HOME}/MyInstalls/netcdf_serial" CACHE PATH "Path to Serial NetCDF installation")
+      set(NETCDF_LIB_DIR "$ENV{HOME}/MyInstalls/netcdf_serial/lib")
+      set(HDF5_LIB_DIR   "$ENV{HOME}/MyInstalls/hdf5_serial/lib")
+    endif()
+    set(WRAPPER_SOURCES
+        ${NGEN_SRC_DIR}/netcdf/NetCDFManager.cpp
+        ${NGEN_SRC_DIR}/netcdf/NetCDFFile.cpp
+        ${NGEN_SRC_DIR}/netcdf/NetCDFVar.cpp
+    )
+    add_library(NetCDFManager STATIC ${WRAPPER_SOURCES})
+    set_target_properties(NetCDFManager PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+    target_include_directories(NetCDFManager PUBLIC
+        ${EWTS_PREFIX}/include
+        ${NGEN_INC_DIR}
+        ${NGEN_INC_DIR}/netcdf
+        ${NGEN_INC_DIR}/core
+        ${NGEN_INC_DIR}/core/catchment
+        ${NGEN_INC_DIR}/realizations/catchment
+        ${NGEN_INC_DIR}/simulation_time
+        ${NGEN_INC_DIR}/utilities
+        ${NGEN_INC_DIR}/geojson
+        ${NGEN_INC_DIR}/forcing
+        ${NGEN_INC_DIR}/core/mediator
+        ${Python_INCLUDE_DIRS}
+        ${pybind11_INCLUDE_DIR}
+        ${NETCDF_INSTALL}/include
+        ${HDF5_INSTALL}/include
+        $<$<BOOL:${NGEN_WITH_MPI}>:${MPI_CXX_INCLUDE_DIRS}>
+    )
+    target_link_libraries(NetCDFManager PUBLIC NGen::config_header)
+    # the order for the custom netcdf and hdf5 libraries is important.
+    target_link_libraries(NetCDFManager PRIVATE
+        ${NETCDF_INSTALL}/lib/libnetcdf.so
+        ${HDF5_INSTALL}/lib/libhdf5_hl.so
+        ${HDF5_INSTALL}/lib/libhdf5.so
+        $<$<BOOL:${NGEN_WITH_MPI}>:MPI::MPI_CXX>
+    )
+    target_compile_definitions(NetCDFManager PUBLIC NGEN_WITH_NETCDF)
+    if(NGEN_WITH_MPI)
+      target_compile_definitions(NetCDFManager PUBLIC NGEN_WITH_MPI)
+    endif()
+    target_link_libraries(ngen PRIVATE NetCDFManager)
+    # set target properties to the actual path so that it is propagated during runtime.
+    set_target_properties(ngen PROPERTIES
+        BUILD_WITH_INSTALL_RPATH FALSE
+        SKIP_BUILD_RPATH         FALSE
+        BUILD_RPATH              "${NETCDF_LIB_DIR};${HDF5_LIB_DIR}"
+    )
+    # The compiler automatically converts classic RPATH entries into modern RUNPATH entries.
+    # By adding the -Wl,--disable-new-dtags flag
+    # we force the system to use traditional RPATH rules instead of RUNPATH.
+    target_link_options(ngen PRIVATE 
+        "-Wl,-rpath,${NETCDF_LIB_DIR}:${HDF5_LIB_DIR}"
+        "-Wl,--disable-new-dtags"
+    )
 endif()
 
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)

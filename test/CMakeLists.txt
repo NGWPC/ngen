@@ -61,7 +61,7 @@ endif()
 
 add_executable(test_all)
 target_link_libraries(test_all PRIVATE gtest gtest_main)
-target_link_libraries(test_all PRIVATE NetCDFCreator)
+target_link_libraries(test_all PRIVATE NetCDFManager)
 set_target_properties(test_all PROPERTIES FOLDER test)
 target_include_directories(test_all PRIVATE ${CMAKE_CURRENT_LIST_DIR}/bmi)
 
@@ -484,24 +484,24 @@ ngen_add_test(
 )
 
 ########################## NetCDFCreator Class Tests
-ngen_add_test(
-    test_netcdf_creator
-    OBJECTS
-        core/NetCDFCreatorTest.cpp
-    LIBRARIES
-        NGen::core
-        NGen::geopackage
-        NGen::geojson
-        NGen::logging
-        NGen::core_catchment
-        NGen::core_mediator
-        NGen::realizations_catchment
-        NGen::forcing
-        NGen::ngen_bmi
-        NetCDFCreator
-    REQUIRES
-        NGEN_WITH_NETCDF
-)
+# ngen_add_test(
+#     test_netcdf_creator
+#     OBJECTS
+#         core/NetCDFCreatorTest.cpp
+#     LIBRARIES
+#         NGen::core
+#         NGen::geopackage
+#         NGen::geojson
+#         NGen::logging
+#         NGen::core_catchment
+#         NGen::core_mediator
+#         NGen::realizations_catchment
+#         NGen::forcing
+#         NGen::ngen_bmi
+#         NetCDFCreator
+#     REQUIRES
+#         NGEN_WITH_NETCDF
+# )
 
 ########################## Primary Combined Unit Test Target
 ngen_add_test(
