@@ -10,6 +10,7 @@
 #include <map>
 #include <unordered_map>
 #include <netcdf.h>
+#endif
 
 #if NGEN_WITH_MPI
 #include <mpi.h>

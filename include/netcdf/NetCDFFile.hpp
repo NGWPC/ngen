@@ -8,6 +8,11 @@
 #include <vector>
 #include <memory>
 #include <map>
+#if NGEN_WITH_MPI
+#include <mpi.h>
+#define _PARALLEL4
+#include <netcdf_par.h>
+#else
 #include <netcdf.h>
 #if NGEN_WITH_MPI
 #include <mpi.h>

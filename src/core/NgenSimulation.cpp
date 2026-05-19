@@ -549,9 +549,7 @@ void NgenSimulation:: log_completed_payload_msg()
 
 void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank, int mpi_num_procs)
 {
-    //this->nc_writer_ = std::make_unique<NetCDFCreator>(manager,nc_output_file_name,*sim_time_, mpi_rank, mpi_num_procs);
 #if NGEN_WITH_NETCDF
     this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank, mpi_num_procs);
 #endif
-    //nc_manager_ = std::make_unique<NetCDFManager>(nc_output_file_name, mpi_rank, mpi_num_procs);
 }
