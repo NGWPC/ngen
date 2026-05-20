@@ -81,6 +81,7 @@ jobs:
       clean_ref: ${{ steps.vars.outputs.clean_ref }}
       ngen_forcing_digest: ${{ steps.vars.outputs.ngen_forcing_digest }}
       ngen_forcing_revision: ${{ steps.vars.outputs.ngen_forcing_revision }}
+      ewts_revision: ${{ steps.vars.outputs.ewts_revision }}
     steps:
       - name: Compute image vars
         id: vars
@@ -139,20 +140,37 @@ jobs:
           # base image (ngen-forcing) metadata for ngen Dockerfile labels
           NGEN_FORCING_IMAGE_TAG="${{ inputs.NGEN_FORCING_IMAGE_TAG || 'latest' }}"
           NGEN_FORCING_IMAGE="ghcr.io/${ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG}"
-          NGEN_FORCING_INSPECT=$(skopeo inspect "docker://${NGEN_FORCING_IMAGE}" 2>/dev/null || echo '{}')
+          NGEN_FORCING_INSPECT=$(skopeo inspect --override-os linux --override-arch amd64 "docker://${NGEN_FORCING_IMAGE}" 2>/dev/null || echo '{}')
           NGEN_FORCING_DIGEST=$(echo "$NGEN_FORCING_INSPECT" | jq -r '.Digest // "unknown"')
           NGEN_FORCING_REVISION=$(echo "$NGEN_FORCING_INSPECT" | jq -r '.Labels["org.opencontainers.image.revision"] // "unknown"')
 
+          # resolve each source repo's ref (branch/tag/SHA) to its commit SHA for revision labels
+          resolve_sha() {
+            local url="$1" ref="$2" out sha
+            # a full 40-char SHA can't be looked up via ls-remote; use it directly
+            if [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then echo "$ref"; return; fi
+            out=$(git ls-remote "$url" "$ref" "refs/tags/${ref}^{}" 2>/dev/null)
+            # prefer the dereferenced commit (^{}) for annotated tags; else first match
+            sha=$(echo "$out" | grep '\^{}$' | head -n1 | cut -f1)
+            [ -z "$sha" ] && sha=$(echo "$out" | head -n1 | cut -f1)
+            echo "${sha:-unknown}"
+          }
+
+          EWTS_REVISION=$(resolve_sha "https://github.com/${{ inputs.EWTS_ORG || github.repository_owner }}/nwm-ewts.git" "${{ inputs.EWTS_REF || 'development' }}")
+
           # save outputs
-          echo "org=${ORG}" >> "$GITHUB_OUTPUT"
-          echo "image_base=${IMAGE_BASE}" >> "$GITHUB_OUTPUT"
-          echo "test_image_tag=${TEST_TAG}" >> "$GITHUB_OUTPUT"
-          echo "alias_tag=${ALIAS}" >> "$GITHUB_OUTPUT"
-          echo "commit_sha=${REAL_SHA}" >> "$GITHUB_OUTPUT"
-          echo "commit_sha_short=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "clean_ref=${CLEAN_REF}" >> "$GITHUB_OUTPUT"
-          echo "ngen_forcing_digest=${NGEN_FORCING_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "ngen_forcing_revision=${NGEN_FORCING_REVISION}" >> "$GITHUB_OUTPUT"
+          cat >> "$GITHUB_OUTPUT" <<EOF
+          org=${ORG}
+          image_base=${IMAGE_BASE}
+          test_image_tag=${TEST_TAG}
+          alias_tag=${ALIAS}
+          commit_sha=${REAL_SHA}
+          commit_sha_short=${SHORT_SHA}
+          clean_ref=${CLEAN_REF}
+          ngen_forcing_digest=${NGEN_FORCING_DIGEST}
+          ngen_forcing_revision=${NGEN_FORCING_REVISION}
+          ewts_revision=${EWTS_REVISION}
+          EOF
 
   # CodeQL scan
   codeql-scan:
@@ -311,6 +329,7 @@ jobs:
             BASE_IMAGE_REVISION=${{ needs.setup.outputs.ngen_forcing_revision }}
             EWTS_ORG=${{ inputs.EWTS_ORG || github.repository_owner }}
             EWTS_REF=${{ inputs.EWTS_REF || 'development' }}
+            EWTS_REVISION=${{ needs.setup.outputs.ewts_revision }}
             IMAGE_SOURCE=https://github.com/${{ github.repository }}
             IMAGE_VENDOR=${{ github.repository_owner }}
             IMAGE_VERSION=${{ needs.setup.outputs.clean_ref }}
@@ -427,7 +446,7 @@ jobs:
     name: trigger-downstream (${{ matrix.repo }})
     if: |
       success() && (
-        (github.event_name == 'push' && github.ref_name == 'development') ||
+        (github.event_name == 'push' && (github.ref_name == 'development' || github.ref_name == 'ngwpc-candidate' || github.ref_name == 'ngwpc-release')) ||
         (github.event_name == 'workflow_dispatch' && inputs.TRIGGER_DOWNSTREAM)
       )
     runs-on: ubuntu-latest
@@ -439,9 +458,9 @@ jobs:
       matrix:
         include:
           - repo: nwm-cal-mgr
-            ref: ${{ inputs.NWM_CAL_MGR_REF || 'development' }}
+            ref: ${{ inputs.NWM_CAL_MGR_REF || github.ref_name }}
           - repo: nwm-fcst-mgr
-            ref: ${{ inputs.NWM_FCST_MGR_REF || 'development' }}
+            ref: ${{ inputs.NWM_FCST_MGR_REF || github.ref_name }}
     steps:
       - name: Generate GitHub App token
         id: app-token
