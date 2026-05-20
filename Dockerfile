@@ -41,17 +41,21 @@ ARG IMAGE_SOURCE="unknown"
 ARG IMAGE_VENDOR="unknown"
 ARG IMAGE_VERSION="unknown"
 ARG IMAGE_REVISION="unknown"
+ARG EWTS_REVISION="unknown"
 
-# OCI Standard Labels
+# Image Labels: OCI-spec annotations followed by custom source-repo metadata.
 LABEL org.opencontainers.image.base.name="${NGEN_FORCING_IMAGE}" \
     org.opencontainers.image.base.digest="${BASE_IMAGE_DIGEST}" \
-    io.${IMAGE_NAMESPACE}.image.base.revision="${BASE_IMAGE_REVISION}" \
     org.opencontainers.image.source="${IMAGE_SOURCE}" \
     org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
     org.opencontainers.image.version="${IMAGE_VERSION}" \
     org.opencontainers.image.revision="${IMAGE_REVISION}" \
     org.opencontainers.image.title="Next Generation Water Modeling Engine and Framework Prototype" \
-    org.opencontainers.image.description="Docker image for the NGEN application"
+    org.opencontainers.image.description="Docker image for the NGEN application" \
+    io.${IMAGE_NAMESPACE}.image.base.revision="${BASE_IMAGE_REVISION}" \
+    io.${IMAGE_NAMESPACE}.ewts.org="${EWTS_ORG}" \
+    io.${IMAGE_NAMESPACE}.ewts.ref="${EWTS_REF}" \
+    io.${IMAGE_NAMESPACE}.ewts.revision="${EWTS_REVISION}"
 
 # cannot remove LANG even though https://bugs.python.org/issue19846 is fixed
 # last attempted removal of LANG broke many users:
