@@ -79,6 +79,7 @@ jobs:
       test_image_tag: ${{ steps.vars.outputs.test_image_tag }}
       alias_tag: ${{ steps.vars.outputs.alias_tag }}
       clean_ref: ${{ steps.vars.outputs.clean_ref }}
+      default_ref: ${{ steps.vars.outputs.default_ref }}
       ngen_forcing_digest: ${{ steps.vars.outputs.ngen_forcing_digest }}
       ngen_forcing_revision: ${{ steps.vars.outputs.ngen_forcing_revision }}
       ewts_revision: ${{ steps.vars.outputs.ewts_revision }}
@@ -112,6 +113,18 @@ jobs:
           # clean ref name and short commit sha
           CLEAN_REF=$(echo "$REAL_REF" | tr '[:upper:]' '[:lower:]' | sed 's/\//-/g')
           SHORT_SHA="${REAL_SHA:0:7}"
+
+          # default source-repo ref: follow the release-line branch we're building from
+          # (development / ngwpc-candidate / ngwpc-release); tags and other branches fall
+          # back to development. Override per source repo via the *_REF dispatch inputs.
+          case "${GITHUB_REF_TYPE}:${GITHUB_REF_NAME}" in
+            branch:development|branch:ngwpc-candidate|branch:ngwpc-release)
+              DEFAULT_REF="$GITHUB_REF_NAME" ;;
+            *)
+              DEFAULT_REF="development" ;;
+          esac
+          # use an explicit *_REF input if provided, else DEFAULT_REF
+          ref_or_default() { [ -n "$1" ] && echo "$1" || echo "$DEFAULT_REF"; }
 
           # logic for the tags:
           # test_image_tag (commit short sha): used for the initial build and test
@@ -156,7 +169,7 @@ jobs:
             echo "${sha:-unknown}"
           }
 
-          EWTS_REVISION=$(resolve_sha "https://github.com/${{ inputs.EWTS_ORG || github.repository_owner }}/nwm-ewts.git" "${{ inputs.EWTS_REF || 'development' }}")
+          EWTS_REVISION=$(resolve_sha "https://github.com/${{ inputs.EWTS_ORG || github.repository_owner }}/nwm-ewts.git" "$(ref_or_default "${{ inputs.EWTS_REF }}")")
 
           # save outputs
           cat >> "$GITHUB_OUTPUT" <<EOF
@@ -167,6 +180,7 @@ jobs:
           commit_sha=${REAL_SHA}
           commit_sha_short=${SHORT_SHA}
           clean_ref=${CLEAN_REF}
+          default_ref=${DEFAULT_REF}
           ngen_forcing_digest=${NGEN_FORCING_DIGEST}
           ngen_forcing_revision=${NGEN_FORCING_REVISION}
           ewts_revision=${EWTS_REVISION}
@@ -238,7 +252,7 @@ jobs:
         run: |
           set -euo pipefail
           EWTS_ORG="${{ inputs.EWTS_ORG || github.repository_owner }}"
-          EWTS_REF="${{ inputs.EWTS_REF || 'development' }}"
+          EWTS_REF="${{ inputs.EWTS_REF || needs.setup.outputs.default_ref }}"
           EWTS_PREFIX=/opt/ewts
 
           git clone --depth 1 -b "${EWTS_REF}" \
@@ -319,7 +333,6 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          # file: Dockerfile.test # comment out when done testing
           push: true
           tags: ${{ needs.setup.outputs.image_base }}:${{ needs.setup.outputs.test_image_tag }}
           build-args: |
@@ -328,7 +341,7 @@ jobs:
             BASE_IMAGE_DIGEST=${{ needs.setup.outputs.ngen_forcing_digest }}
             BASE_IMAGE_REVISION=${{ needs.setup.outputs.ngen_forcing_revision }}
             EWTS_ORG=${{ inputs.EWTS_ORG || github.repository_owner }}
-            EWTS_REF=${{ inputs.EWTS_REF || 'development' }}
+            EWTS_REF=${{ inputs.EWTS_REF || needs.setup.outputs.default_ref }}
             EWTS_REVISION=${{ needs.setup.outputs.ewts_revision }}
             IMAGE_SOURCE=https://github.com/${{ github.repository }}
             IMAGE_VENDOR=${{ github.repository_owner }}
@@ -458,9 +471,9 @@ jobs:
       matrix:
         include:
           - repo: nwm-cal-mgr
-            ref: ${{ inputs.NWM_CAL_MGR_REF || github.ref_name }}
+            ref: ${{ inputs.NWM_CAL_MGR_REF || needs.setup.outputs.default_ref }}
           - repo: nwm-fcst-mgr
-            ref: ${{ inputs.NWM_FCST_MGR_REF || github.ref_name }}
+            ref: ${{ inputs.NWM_FCST_MGR_REF || needs.setup.outputs.default_ref }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -473,9 +486,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           EWTS_ORG: ${{ inputs.EWTS_ORG || github.repository_owner }}
-          EWTS_REF: ${{ inputs.EWTS_REF || 'development' }}
+          EWTS_REF: ${{ inputs.EWTS_REF || needs.setup.outputs.default_ref }}
           MSW_MGR_ORG: ${{ inputs.MSW_MGR_ORG || github.repository_owner }}
-          MSW_MGR_REF: ${{ inputs.MSW_MGR_REF || 'development' }}
+          MSW_MGR_REF: ${{ inputs.MSW_MGR_REF || needs.setup.outputs.default_ref }}
           GHCR_ORG: ${{ inputs.GHCR_ORG || needs.setup.outputs.org }}
           NGEN_IMAGE_TAG: ${{ needs.setup.outputs.alias_tag }}
         run: |
