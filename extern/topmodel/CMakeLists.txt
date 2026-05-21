@@ -40,7 +40,7 @@ target_link_libraries(topmodelbmi PRIVATE ewts::ewts_c)
 
 # Built with ngen bridge
 target_link_libraries(topmodelbmi PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(topmodelbmi PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+target_compile_definitions(topmodelbmi PRIVATE USE_EWTS)
 
 # Code requires minimum of C99 standard to compile
 set_target_properties(topmodelbmi PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)

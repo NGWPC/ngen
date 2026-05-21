@@ -89,15 +89,23 @@ set_target_properties(sacbmi PROPERTIES VERSION ${PROJECT_VERSION})
 #TODO is this needed for fortran?
 #set_target_properties(sacbmi PROPERTIES PUBLIC_HEADER ${BMI_SOURCE})
 
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
+option(USE_EWTS "Build SACSMA with EWTS logging" ON)
+message("-- SACSMA CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- SACSMA compiled with EWTS logging")
 
-# Always use EWTS runtime logger for Fortran
-target_link_libraries(sacbmi PRIVATE ewts::ewts_fortran)
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
 
-# Built with ngen bridge
-target_link_libraries(sacbmi PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(sacbmi PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+    # Always use EWTS runtime logger for Fortran
+    target_link_libraries(sacbmi PRIVATE ewts::ewts_fortran)
+
+    # Built with ngen bridge
+    target_link_libraries(sacbmi PRIVATE ewts::ewts_ngen_bridge)
+    target_compile_definitions(sacbmi PRIVATE SACSMA_USE_EWTS)
+else()
+    message("-- SACSMA compiled with stdout fallback logging")
+endif()
 
 include(GNUInstallDirs)
 

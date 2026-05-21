@@ -54,7 +54,7 @@ if(NGEN_IS_MAIN_PROJECT)
 
     # Built with ngen bridge
     target_link_libraries(surfacebmi PRIVATE ewts::ewts_ngen_bridge)
-    target_compile_definitions(surfacebmi PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+    target_compile_definitions(surfacebmi PRIVATE USE_EWTS)
 else()
     find_path(NETCDF_MODULE_DIR netcdf.mod
         PATHS "${NETCDF_ROOT}/include"

@@ -14,6 +14,7 @@ ARG IMAGE_NAMESPACE=ngwpc
 # External repository sources (org and ref/branch overrides)
 ARG EWTS_ORG=${GH_ORG}
 ARG EWTS_REF=development
+ARG USE_EWTS=ON
 ############################################################################
 
 # Image selection
@@ -32,6 +33,7 @@ ARG GHCR_ORG
 ARG IMAGE_NAMESPACE
 ARG EWTS_ORG
 ARG EWTS_REF
+ARG USE_EWTS
 
 # OCI Metadata Arguments
 ARG NGEN_FORCING_IMAGE
@@ -406,6 +408,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
         export CMAKE_Fortran_FLAGS="-fPIC" && \
         cmake -B cmake_build -S . \
           -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+          -DUSE_EWTS="${USE_EWTS}" \
           -DNGEN_WITH_MPI=ON \
           -DNGEN_WITH_NETCDF=ON \
           -DNGEN_WITH_SQLITE=ON \
@@ -457,10 +460,16 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
     cmake --build extern/snow17/cmake_build/ && \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
+ARG SACSMA_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     set -eux && \
+    echo "SACSMA cache bust: ${SACSMA_CACHE_BUST}" && \
+    echo "USE_EWTS=${USE_EWTS}" && \
+    rm -rf extern/sac-sma/cmake_build && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS}" \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/sac-sma/cmake_build/ && \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
@@ -478,22 +487,24 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
     cmake --build extern/SoilFreezeThaw/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
+ARG UEB_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
     set -eux && \
+    echo "UEB cache bust: ${UEB_CACHE_BUST}" && \
+    echo "USE_EWTS=${USE_EWTS}" && \
+    rm -rf extern/ueb-bmi/cmake_build && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ \
-      -DUEB_SUPPRESS_OUTPUTS=ON -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ -DBOOST_ROOT=/opt/boost && \
+      -DUEB_SUPPRESS_OUTPUTS=ON \
+      -DUSE_EWTS="${USE_EWTS}" \
+      -DCMAKE_PREFIX_PATH="${EWTS_PREFIX}" \
+      -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/ueb-bmi/cmake_build/ && \
     find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
 
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     set -eux; \
     cd extern/lstm; \
-    pip install .
-
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    set -eux; \
-    cd extern/topoflow-glacier; \
     pip install .
 
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
