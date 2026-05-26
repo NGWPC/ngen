@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <string>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include "bmi.hpp"
 #include "AbstractCLibBmiAdapter.hpp"

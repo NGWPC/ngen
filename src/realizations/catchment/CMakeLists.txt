@@ -13,6 +13,7 @@ find_package(Boost 1.79.0 REQUIRED COMPONENTS serialization)
 target_link_libraries(realizations_catchment PRIVATE Boost::serialization)
 
 target_include_directories(realizations_catchment PUBLIC
+        ${NGEN_INC_DIR}
         ${PROJECT_SOURCE_DIR}/include/core
         ${PROJECT_SOURCE_DIR}/include/core/catchment
         ${PROJECT_SOURCE_DIR}/include/realizations/catchment
@@ -33,6 +34,7 @@ target_link_libraries(realizations_catchment PUBLIC
         NGen::bmi_protocols
         )
 
-target_link_libraries(realizations_catchment PUBLIC ewts::ewts_ngen_bridge)
-
+if(USE_EWTS)
+    target_link_libraries(realizations_catchment PUBLIC NGen::ewts)
+endif()
 

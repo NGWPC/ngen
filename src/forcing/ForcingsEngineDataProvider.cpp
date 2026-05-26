@@ -4,7 +4,7 @@
 #include <ctime> // timegm
 #include <iomanip> // std::get_time
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace data_access {
 namespace detail {

@@ -31,7 +31,9 @@ target_link_libraries(ngen_bmi_protocols
     NGen::logging
 )
 
-target_link_libraries(ngen_bmi_protocols PUBLIC ewts::ewts_ngen_bridge)
+if(USE_EWTS)
+    target_link_libraries(ngen_bmi_protocols PUBLIC NGen::ewts)
+endif()
 
 target_sources(ngen_bmi_protocols
   PRIVATE

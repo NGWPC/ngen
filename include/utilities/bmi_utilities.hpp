@@ -1,6 +1,6 @@
 #ifndef NGEN_BMI_UTILITIES_HPP
 #define NGEN_BMI_UTILITIES_HPP
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <string>
 #include <vector>

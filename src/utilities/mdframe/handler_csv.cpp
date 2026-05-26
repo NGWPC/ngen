@@ -1,5 +1,5 @@
 #include <fstream>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include "mdframe/mdframe.hpp"
 
 #include <boost/core/span.hpp>

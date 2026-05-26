@@ -1,5 +1,5 @@
 #include "NullForcingProvider.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <stdexcept>
 #include <limits>

@@ -1,6 +1,6 @@
 #ifndef GEOJSON_FEATURE_H
 #define GEOJSON_FEATURE_H
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include "JSONGeometry.hpp"
 #include "JSONProperty.hpp"

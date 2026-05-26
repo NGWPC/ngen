@@ -5,7 +5,7 @@
 #include <exception>
 #include <utility>
 #include <iostream>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include "bmi/Bmi_Py_Adapter.hpp"
 

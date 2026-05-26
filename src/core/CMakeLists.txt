@@ -11,11 +11,12 @@ target_link_libraries(core PRIVATE
                            NGen::parallel
                            )
 
-target_link_libraries(core PUBLIC
-                           ewts::ewts_ngen_bridge
-                           )
+if(USE_EWTS)
+    target_link_libraries(core PUBLIC NGen::ewts)
+endif()
 
 target_include_directories(core PUBLIC
+        ${NGEN_INC_DIR}
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/include/simulation_time
         ${PROJECT_SOURCE_DIR}/include/core

@@ -1,7 +1,7 @@
 #include <HY_Features.hpp>
 #include <HY_PointHydroNexus.hpp>
 #include <Formulation_Manager.hpp>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 using namespace hy_features;
 

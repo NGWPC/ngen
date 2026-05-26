@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 using namespace std;
 std::stringstream netcdf_ss;

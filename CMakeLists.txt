@@ -55,6 +55,7 @@ option(NGEN_WITH_BMI_C       "Build with C BMI support"           ON)
 option(NGEN_WITH_PYTHON      "Build with embedded Python support" ON)
 option(NGEN_WITH_TESTS       "Build with unit tests"              ON)
 option(NGEN_QUIET            "Silence output"                     OFF)
+option(USE_EWTS              "Build with EWTS logging support"    ON)
 
 # These options require dependency on some of the above options
 # Syntax: cmake_dependent_option(<option> "<help_text>" <value> <depends> <force>)
@@ -122,29 +123,46 @@ project(ngen VERSION 0.3.0)
 
 add_executable(ngen "${NGEN_SRC_DIR}/NGen.cpp")
 
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
+add_library(ngen_ewts INTERFACE)
+add_library(NGen::ewts ALIAS ngen_ewts)
 
-if(DEFINED ewts_VERSION AND NOT "${ewts_VERSION}" STREQUAL "")
-    set(NGEN_EWTS_VERSION "${ewts_VERSION}")
+message("-- NGEN CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    add_compile_definitions(USE_EWTS)
+
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
+
+    target_link_libraries(ngen_ewts INTERFACE
+        ewts::ewts_ngen_bridge
+        ewts::ewts_cpp
+    )
+
+    if(DEFINED ewts_VERSION AND NOT "${ewts_VERSION}" STREQUAL "")
+        set(NGEN_EWTS_VERSION "${ewts_VERSION}")
+    else()
+        set(NGEN_EWTS_VERSION "<unknown>")
+    endif()
+
+    if(DEFINED EWTS_NGWPC_VERSION AND NOT "${EWTS_NGWPC_VERSION}" STREQUAL "")
+        set(NGEN_EWTS_NGWPC_VERSION "${EWTS_NGWPC_VERSION}")
+    else()
+        set(NGEN_EWTS_NGWPC_VERSION "<unknown>")
+    endif()
+
+    get_filename_component(EWTS_PREFIX "${ewts_DIR}" DIRECTORY)
+    get_filename_component(EWTS_PREFIX "${EWTS_PREFIX}" DIRECTORY)
+    get_filename_component(EWTS_PREFIX "${EWTS_PREFIX}" DIRECTORY)
+
+    message(STATUS "Found EWTS: ${EWTS_PREFIX} (found version ${ewts_VERSION})")
+
+    # NGen itself uses the NGen-specific EWTS logger/bridge
+    target_link_libraries(ngen PRIVATE NGen::ewts)
 else()
-    set(NGEN_EWTS_VERSION "<unknown>")
+    set(NGEN_EWTS_VERSION "<disabled>")
+    set(NGEN_EWTS_NGWPC_VERSION "<disabled>")
+    message("-- NGEN compiled with stdout fallback logging")
 endif()
-
-if(DEFINED EWTS_NGWPC_VERSION AND NOT "${EWTS_NGWPC_VERSION}" STREQUAL "")
-    set(NGEN_EWTS_NGWPC_VERSION "${EWTS_NGWPC_VERSION}")
-else()
-    set(NGEN_EWTS_NGWPC_VERSION "<unknown>")
-endif()
-
-get_filename_component(EWTS_PREFIX "${ewts_DIR}" DIRECTORY)
-get_filename_component(EWTS_PREFIX "${EWTS_PREFIX}" DIRECTORY)
-get_filename_component(EWTS_PREFIX "${EWTS_PREFIX}" DIRECTORY)
-
-message(STATUS "Found EWTS: ${EWTS_PREFIX} (found version ${ewts_VERSION})")
-
-# NGen itself uses the NGen-specific EWTS logger/bridge
-target_link_libraries(ngen PRIVATE ewts::ewts_ngen_bridge)
 
 # Dependencies ================================================================
 
@@ -385,11 +403,14 @@ if(NGEN_WITH_ROUTING)
 endif()
 
 add_executable(partitionGenerator src/partitionGenerator.cpp)
-target_link_libraries(partitionGenerator PRIVATE ewts::ewts_ngen_bridge)
 target_link_libraries(partitionGenerator PUBLIC NGen::logging)
 target_include_directories(partitionGenerator PUBLIC "${PROJECT_BINARY_DIR}/include")
 if(NGEN_WITH_SQLITE)
     target_include_directories(partitionGenerator PUBLIC AFTER "${NGEN_INC_DIR}/geopackage")
+endif()
+
+if(USE_EWTS)
+    target_link_libraries(partitionGenerator PUBLIC ewts::ewts_ngen_bridge)
 endif()
 
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)
@@ -478,6 +499,7 @@ ngen_multiline_message(
 "    Include: ${Boost_INCLUDE_DIRS}"
 "    Library: ${Boost_LIBRARY_DIRS}"
 "  EWTS:"
+"    Use EWTS: ${USE_EWTS}"
 "    Package Version: ${NGEN_EWTS_VERSION}"
 "    NGWPC Version: ${NGEN_EWTS_NGWPC_VERSION}")
 ngen_dependent_multiline_message(INTEL_DPCPP

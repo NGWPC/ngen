@@ -1,6 +1,6 @@
 #ifndef NGEN_UNITSHELPER_H
 #define NGEN_UNITSHELPER_H
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 // FIXME: Workaround to handle UDUNITS2 includes with differing paths.
 //        Not exactly sure why CMake can't handle this, but even with

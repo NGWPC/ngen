@@ -1,5 +1,5 @@
 #include "proj.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace ngen {
 namespace srs {

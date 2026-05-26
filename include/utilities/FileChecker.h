@@ -7,7 +7,7 @@
 #include <iostream>
 #include <cerrno>
 #include <sstream>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace utils {
 

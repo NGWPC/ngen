@@ -1,7 +1,7 @@
 #include <state_save_restore/State_Save_Restore.hpp>
 #include <state_save_restore/File_Per_Unit.hpp>
 
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <boost/optional.hpp>
 #include <boost/property_tree/ptree.hpp>

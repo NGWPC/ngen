@@ -3,7 +3,7 @@
 #include <exception>
 #include <utility>
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 using namespace models::bmi;
 

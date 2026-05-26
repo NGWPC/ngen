@@ -4,7 +4,7 @@
 #include "utilities/FileChecker.h"
 #include "utilities/logging_utils.h"
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 using namespace std;
 std::stringstream str_stream;

@@ -16,7 +16,7 @@
 
 #include "DataProvider.hpp"
 #include "bmi/Bmi_Py_Adapter.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace data_access {
 
@@ -252,7 +252,7 @@ struct ForcingsEngineDataProvider : public DataProvider<DataType, SelectionType>
             for (const std::string &output_var_name : var_output_names_) {
                 var_output_units_map_[output_var_name] = bmi_->GetVarUnits(output_var_name);
             }
-            if (Logger::GetLogger()->GetLogLevel() == LogLevel::DEBUG) {
+            if (GetLogLevel() == LogLevel::DEBUG) {
                 ss.str(""); ss << "BMI instance initialized successfully" << std::endl;
                 LOG(LogLevel::DEBUG, ss.str());
                 ss.str(""); ss << "Time step: " << time_step_.count() << " seconds" << std::endl;

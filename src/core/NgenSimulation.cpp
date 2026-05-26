@@ -1,6 +1,6 @@
 #include <NgenSimulation.hpp>
 #include <NGenConfig.h>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #if NGEN_WITH_MPI
 #include "HY_Features_MPI.hpp"

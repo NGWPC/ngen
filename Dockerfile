@@ -403,24 +403,24 @@ RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
 # ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
     set -eux && \
-        export FFLAGS="-fPIC" && \
-        export FCFLAGS="-fPIC" && \
-        export CMAKE_Fortran_FLAGS="-fPIC" && \
-        cmake -B cmake_build -S . \
-          -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-          -DUSE_EWTS="${USE_EWTS}" \
-          -DNGEN_WITH_MPI=ON \
-          -DNGEN_WITH_NETCDF=ON \
-          -DNGEN_WITH_SQLITE=ON \
-          -DNGEN_WITH_UDUNITS=ON \
-          -DNGEN_WITH_BMI_FORTRAN=ON \
-          -DNGEN_WITH_BMI_C=ON \
-          -DNGEN_WITH_PYTHON=ON \
-          -DNGEN_WITH_TESTS=OFF \
-          -DNGEN_WITH_ROUTING=ON \
-          -DNGEN_QUIET=ON \
-          -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
-          -DBOOST_ROOT=/opt/boost && \
+    export FFLAGS="-fPIC" && \
+    export FCFLAGS="-fPIC" && \
+    export CMAKE_Fortran_FLAGS="-fPIC" && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+        -DUSE_EWTS="${USE_EWTS}" \
+        -DNGEN_WITH_MPI=ON \
+        -DNGEN_WITH_NETCDF=ON \
+        -DNGEN_WITH_SQLITE=ON \
+        -DNGEN_WITH_UDUNITS=ON \
+        -DNGEN_WITH_BMI_FORTRAN=ON \
+        -DNGEN_WITH_BMI_C=ON \
+        -DNGEN_WITH_PYTHON=ON \
+        -DNGEN_WITH_TESTS=OFF \
+        -DNGEN_WITH_ROUTING=ON \
+        -DNGEN_QUIET=ON \
+        -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
+        -DBOOST_ROOT=/opt/boost && \
     cmake --build cmake_build --target all && \
     rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
     rm -rf /ngen-app/ngen/cmake_build/src/core/CMakeFiles && \
@@ -446,17 +446,28 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
 #   ueb-bmi            → (check its CMakeLists.txt for specifics)
 # ──────────────────────────────────────────────────────────────────────────────
 
+ARG LASAM_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
     set -eux && \
+    echo "LASAM cache bust: ${LASAM_CACHE_BUST}" && \
+    echo "LASAM USE_EWTS=${USE_EWTS}" && \
     cmake -B extern/LASAM/cmake_build -S extern/LASAM/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS}" \
+      -DNGEN=ON \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/LASAM/cmake_build/ && \
     find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
 
+ARG SNOW17_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
     set -eux && \
+    echo "SNOW17 cache bust: ${SNOW17_CACHE_BUST}" && \
+    echo "SNOW17 USE_EWTS=${USE_EWTS}" && \
     cmake -B extern/snow17/cmake_build -S extern/snow17/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS}" \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/snow17/cmake_build/ && \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
@@ -464,7 +475,7 @@ ARG SACSMA_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     set -eux && \
     echo "SACSMA cache bust: ${SACSMA_CACHE_BUST}" && \
-    echo "USE_EWTS=${USE_EWTS}" && \
+    echo "SACSMA USE_EWTS=${USE_EWTS}" && \
     rm -rf extern/sac-sma/cmake_build && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
@@ -473,17 +484,28 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     cmake --build extern/sac-sma/cmake_build/ && \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
+ARG SMP_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
     set -eux && \
+    echo "SMP cache bust: ${SMP_CACHE_BUST}" && \
+    echo "SMP USE_EWTS=${USE_EWTS}" && \
     cmake -B extern/SoilMoistureProfiles/cmake_build -S extern/SoilMoistureProfiles/SoilMoistureProfiles/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS}" \
+      -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilMoistureProfiles/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
+ARG SFT_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
     set -eux && \
+    echo "SMP cache bust: ${SFT_CACHE_BUST}" && \
+    echo "SFT USE_EWTS=${USE_EWTS}" && \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS}" \
+      -DNGEN=ON \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilFreezeThaw/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
@@ -491,12 +513,12 @@ ARG UEB_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
     set -eux && \
     echo "UEB cache bust: ${UEB_CACHE_BUST}" && \
-    echo "USE_EWTS=${USE_EWTS}" && \
+    echo "UEB USE_EWTS=${USE_EWTS}" && \
     rm -rf extern/ueb-bmi/cmake_build && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ \
       -DUEB_SUPPRESS_OUTPUTS=ON \
-      -DUSE_EWTS="${USE_EWTS}" \
       -DCMAKE_PREFIX_PATH="${EWTS_PREFIX}" \
+      -DUSE_EWTS="${USE_EWTS}" \
       -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/ueb-bmi/cmake_build/ && \

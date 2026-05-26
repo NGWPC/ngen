@@ -9,7 +9,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/variant.hpp>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace geojson {
     class JSONProperty;

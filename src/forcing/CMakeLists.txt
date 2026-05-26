@@ -5,6 +5,7 @@ add_library(NGen::forcing ALIAS forcing)
 find_package(Threads REQUIRED)
 
 target_include_directories(forcing PUBLIC
+        ${NGEN_INC_DIR}
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/include/core
         ${PROJECT_SOURCE_DIR}/include/core/mediator
@@ -19,7 +20,10 @@ target_link_libraries(forcing PUBLIC
         NGen::config_header
         Threads::Threads
 )
-target_link_libraries(forcing PUBLIC ewts::ewts_ngen_bridge)
+
+if(USE_EWTS)
+    target_link_libraries(forcing PUBLIC NGen::ewts)
+endif()
 
 target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/NullForcingProvider.cpp")
 

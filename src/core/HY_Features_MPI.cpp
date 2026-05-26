@@ -1,7 +1,7 @@
 #include <HY_Features_MPI.hpp>
 #include <HY_PointHydroNexusRemote.hpp>
 #include <Formulation_Manager.hpp>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #if NGEN_WITH_MPI
 

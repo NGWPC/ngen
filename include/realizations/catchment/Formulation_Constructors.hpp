@@ -1,6 +1,6 @@
 #ifndef NGEN_FORMULATION_CONSTRUCTORS_H
 #define NGEN_FORMULATION_CONSTRUCTORS_H
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <NGenConfig.h>
 
