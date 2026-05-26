@@ -246,8 +246,7 @@ SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 
 # Copy the ngen application source.
 # This is placed here (not in base) so that
-# ngen code changes only invalidate the submodules stage, leaving the base and
-# ewts-build stages cached.
+# ngen code changes only invalidate the submodules stage, leaving the base stage cached.
 COPY . /ngen-app/ngen/
 
 WORKDIR /ngen-app/ngen/
@@ -271,15 +270,12 @@ RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
     cd extern/t-route && \
     echo "Running compiler_bmi.sh" && \
     LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
-    ./compiler_bmi.sh no-e && \
+    ./compiler.sh no-e && \
     rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
     find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
     find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
 
 # Configure the build with cache for CMake
-# to find the ewtsConfig.cmake package file so that ngen's
-# CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
-# ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
     set -eux && \
     export FFLAGS="-fPIC" && \
@@ -468,6 +464,8 @@ RUN set -eux && \
       echo "$info" > /ngen-app/submodules-json/git_info_"$sub_key".json; \
     done; \
     \
+    # Merge the main repository JSON + submodule JSONs
+    jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json > /ngen-app/merged_git_info.json && \
     mv /ngen-app/merged_git_info.json $GIT_INFO_PATH && \
     rm -rf /ngen-app/submodules-json
 
