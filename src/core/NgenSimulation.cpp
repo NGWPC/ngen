@@ -195,19 +195,9 @@ void NgenSimulation::advance_models_one_output_step()
                                      ); // assume update_models() calls time->advance_timestep()
 #endif // NGEN_WITH_NEXUSES
 
-                // After updating the layer, get the output data for that timestep and write to netcdf. This is currently
-                //set up only for a non-MPI run.
                 #if NGEN_WITH_NETCDF
-//                #if !NGEN_WITH_MPI
                     std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
-                    size_t chunk_start = nc_manager_->get_chunk_start();
-                    size_t chunk_count = nc_manager_->get_chunk_count();
-                    LOG("Chunk start: " + std::to_string(chunk_start) + "; Chunk count: " + 
-                    std::to_string(chunk_count) + " for rank: " + std::to_string(mpi_rank_), LogLevel::DEBUG);
-                    nc_manager_->prepare_data_chunks(catchment_output_vals);
-                    //nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
-                    nc_manager_->write_timestep_data_to_netcdf(simulation_step_);
-//                #endif //NGEN_WITH_MPI
+                    nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
                 #endif //NGEN_WITH_NETCDF
                 
                 prev_layer_time = layer_next_time;

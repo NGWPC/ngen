@@ -97,7 +97,6 @@ TEST_F(mdframe_netcdf_Test, io_netcdf)
             EXPECT_EQ(vval, (x + 1) * (y + 1));
         }
     }
-
   if (ex.get_ncid() >= 0) nc_close(ex.get_ncid());
 #endif
 }

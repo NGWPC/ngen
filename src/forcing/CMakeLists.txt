@@ -7,12 +7,12 @@ find_package(Threads REQUIRED)
 target_include_directories(forcing PUBLIC
         ${NGEN_INC_DIR}
         ${PROJECT_SOURCE_DIR}/include
-        {PROJECT_SOURCE_DIR}/include/netcdf
+        ${PROJECT_SOURCE_DIR}/include/netcdf
         ${PROJECT_SOURCE_DIR}/include/core
         ${PROJECT_SOURCE_DIR}/include/core/mediator
         ${PROJECT_SOURCE_DIR}/include/utilities
         ${PROJECT_SOURCE_DIR}/include/forcing
-        {CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/include
         )
 
 target_link_libraries(forcing PUBLIC
@@ -31,7 +31,7 @@ target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/NullForcingProvider.cp
 
 if(NGEN_WITH_NETCDF)
     target_sources(forcing PRIVATE "${CMAKE_CURRENT_LIST_DIR}/NetCDFPerFeatureDataProvider.cpp")
-    target_link_libraries(forcing PRIVATE NetCDFManager)
+    target_link_libraries(forcing PUBLIC NetCDFManager)
 endif()
 
 if(NGEN_WITH_PYTHON)

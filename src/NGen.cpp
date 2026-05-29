@@ -711,11 +711,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                                                        mpi_rank,
                                                        mpi_num_procs);
     #if NGEN_WITH_NETCDF
-    #if NGEN_WITH_MPI
-        LOG("Under MPI mode, a NetCDF file for catchment output values is not created due to limitations in NetCDFCxx4 library.", LogLevel::INFO);
-    #else
-        simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs); //create a NetCDF file only for Non-MPI run.
-    #endif //NGEN_WITH_MPI
+        simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs);
     #endif //NGEN_WITH_NETCDF
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;

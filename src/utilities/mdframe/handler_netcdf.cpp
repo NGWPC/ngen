@@ -22,33 +22,34 @@ struct mdarray_netcdf_putvar : public boost::static_visitor<void>
     template<typename T>
     void operator()(const mdarray<T>& arr) const
     {
-        typename mdarray<T>::size_type rank = arr.rank();
-        std::vector<typename mdarray<T>::size_type> expanded_index(rank);
-
-        for (auto it = arr.begin(); it != arr.end(); it++) {
-            it.mdindex(expanded_index);
-            //var.putVar(expanded_index, *it);
+        if (arr.rank() == 1) { //1D array, assumes int values.
+            std::vector<int> arr_1D;
+            for (auto it = arr.begin(); it != arr.end(); ++it) {
+                arr_1D.push_back(*it);
+            }
+            var->write_int_1d(arr_1D);
+        } else if (arr.rank() == 2) { //2D array, assumes double values.
+            std::vector<double> arr_2D;
+            for (auto it = arr.begin(); it != arr.end(); ++it) {
+                arr_2D.push_back(*it);
+            }
+            var->write_flattened_double_array(arr_2D);
         }
     }
-
 };
-
 } // namespace visitors
 
 void mdframe::to_netcdf(const std::string& path) const
 {
     NetCDFManager nc_manager;
     int ncid = nc_manager.create_file(path);
-    NetCDFFile* nc_file = nc_manager.get_file_handle();
-
     std::unordered_map<std::string, int> dimmap;
     for (const auto& dim : this->m_dimensions)
         dimmap[dim.name()] = nc_manager.add_dimension(dim.name(), dim.size());
     
     std::unordered_map<std::string, std::shared_ptr<NetCDFVar>> varmap;
-
     for (const auto& pair : this->m_variables) {
-        nc_type type; // NetCDF C type
+        nc_type type;
         auto& var = pair.second;
 
         switch (var.values().which()) { 

@@ -5,75 +5,80 @@
 #if NGEN_WITH_NETCDF
 #include "NetCDFFile.hpp"
 #include "ewts_ngen/logger.hpp"
-#include <netcdf.h>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
 #include <NGenConfig.h>
 
+#define NC_CHECK(err, err_context) \
+    do { \
+        int retval = (err); \
+        if (retval != NC_NOERR) { \
+            std::string msg = std::string(err_context) \
+                            + ". Internal NetCDF Error: " + std::string(nc_strerror(retval)) \
+                            + ". Error origin: " + std::string(__func__); \
+            LOG(msg, LogLevel::FATAL); \
+        } \
+    } while (0)
+
 
 NetCDFFile::NetCDFFile(const std::string& filename, bool write_only, bool is_mpi)
     : nc_file_name_(filename), is_mpi_(is_mpi)
 {
-    int retval;
     int mode = NC_NETCDF4;
-#if NGEN_WITH_MPI
-    if(is_mpi_){
-        if(write_only){
-            retval = nc_create_par(nc_file_name_.c_str(), NC_NETCDF4 | NC_MPIIO | NC_CLOBBER,
-                MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
-        }
-        else{
-            retval = nc_open_par(nc_file_name_.c_str(), NC_WRITE | NC_MPIIO,
-                MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
-        }
+// #if NGEN_WITH_MPI
+//     if(is_mpi_){
+//         if(write_only){
+//             NC_CHECK(nc_create_par(nc_file_name_.c_str(), NC_NETCDF4 | NC_MPIIO | NC_CLOBBER,
+//                 MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
+//         }
+//         else{
+//             read_only_ = true;
+//             NC_CHECK(nc_open_par(nc_file_name_.c_str(), NC_WRITE | NC_MPIIO,
+//                 MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
+//         }
+//     }
+//     else
+// #endif
+//  {
+    if(write_only){
+        NC_CHECK(nc_create(nc_file_name_.c_str(), NC_NETCDF4 | NC_CLOBBER, &ncid_), "Creating NetCDF file failed");
     }
-    else
-#endif
-    {
-        if(write_only){
-            LOG("Attempting to create NetCDF file", LogLevel::DEBUG);
-            retval = nc_create(nc_file_name_.c_str(), NC_NETCDF4 | NC_CLOBBER, &ncid_);
-        }
-        else{
-            read_only_ = true;
-            LOG("Attempting to open NetCDF file", LogLevel::DEBUG);            
-            retval = nc_open(nc_file_name_.c_str(), NC_NOWRITE, &ncid_);
-        }
+    else{
+        read_only_ = true;
+        NC_CHECK(nc_open(nc_file_name_.c_str(), NC_NOWRITE, &ncid_), "Opening NetCDF file failed");
     }
-
-    if(retval){
-        throw std::runtime_error("Failed creating/opening NetCDF file: " + std::string(nc_strerror(retval)));
-    }
+//    }
+    if(read_only_){
+        load_variables(); //load all netcdf data to objects.
+    } 
 }
 
 // Add a new dimension
 int NetCDFFile::add_dimension(const std::string& name, size_t len) {
     int dimid;
-    int retval = nc_def_dim(ncid_, name.c_str(), len, &dimid);
-    if (retval) throw std::runtime_error("Error defining dimension " + name + ": " + nc_strerror(retval));
-    dims_[name] = dimid;
+    NC_CHECK(nc_def_dim(ncid_, name.c_str(), len, &dimid), "Defining dimension failed");
+    dims_id_map_[name] = dimid;
     return dimid;
 }
 
-void NetCDFFile::add_variable(const std::string& name, nc_type type, const std::vector<int>& dims, const std::vector<std::string>& dim_names) {
+void NetCDFFile::add_variable(const std::string& name, nc_type type, const std::vector<int>& dim_ids, const std::vector<std::string>& dim_names) {
     int varid;
-    int retval = nc_def_var(ncid_, name.c_str(), type, dims.size(), dims.data(), &varid);
-    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
+    NC_CHECK(nc_def_var(ncid_, name.c_str(), type, dim_ids.size(), dim_ids.data(), &varid), "NetCDF variable definition failed");
     // set fill value and missing value for NC_DOUBLE
     if (type == NC_DOUBLE) {
         double fill_missing_val = -1.0;
-        nc_def_var_fill(ncid_, varid, 0, &fill_missing_val); 
-        nc_put_att_double(ncid_, varid, "missing_value", NC_DOUBLE, 1, &fill_missing_val);
+        NC_CHECK(nc_def_var_fill(ncid_, varid, 0, &fill_missing_val), "NetCDF assigning fill value for variable failed"); 
+        NC_CHECK(nc_put_att_double(ncid_, varid, "missing_value", NC_DOUBLE, 1, &fill_missing_val), "NetCDF assigning missing value for variable failed");
     }
-    auto var = std::make_shared<NetCDFVar>(name, type, dims, dim_names, varid, ncid_);
+    auto var = std::make_shared<NetCDFVar>(name, type, dim_ids, dim_names, varid, ncid_);
     add_ncvar(var);
 }
 
 // Get dimension length by name
 size_t NetCDFFile::get_dim_size(const std::string& name) const {
-    auto it = dims_.find(name);
-    if(it == dims_.end()) return -1;
+    auto it = dims_id_map_.find(name);
+    if(it == dims_id_map_.end()) return -1;
 
     size_t len;
     int retval = nc_inq_dimlen(ncid_, it->second, &len);
@@ -82,8 +87,8 @@ size_t NetCDFFile::get_dim_size(const std::string& name) const {
 }
 
 int NetCDFFile::get_dim_id(const std::string& name) const {
-    auto it = dims_.find(name);
-    if(it == dims_.end()) return -1;
+    auto it = dims_id_map_.find(name);
+    if(it == dims_id_map_.end()) return -1;
     return it->second;
 }
 
@@ -93,34 +98,30 @@ void NetCDFFile::add_ncvar(std::shared_ptr<NetCDFVar> var) {
 }
 
 void NetCDFFile::write_catchment_output_data(const std::string& name, std::vector<size_t> start,
-                        std::vector<size_t> count, const double& data)
+                        std::vector<size_t> count, const double data)
 {
     auto var = get_ncvar_by_name(name);
     if (!var) throw std::runtime_error("Variable not found: " + name);
-    int retval = nc_put_vara_double(ncid_, var->get_varid(), start.data(), count.data(), &data);
-    LOG("Added value for catchments", LogLevel::INFO);
-    if (retval != NC_NOERR) {
-        throw std::runtime_error("Error writing value: " + std::string(nc_strerror(retval)));
-    }
+    NC_CHECK(nc_put_vara_double(ncid_, var->get_varid(), start.data(), count.data(), &data), "Writing double value failed");
 }
 
-int NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
+void NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
                  const std::vector<size_t>& count, const std::vector<double>& data) {
-    return nc_put_vara_double(ncid_, varid, start.data(), count.data(), data.data());
+    NC_CHECK(nc_put_vara_double(ncid_, varid, start.data(), count.data(), data.data()), "Writing double value failed");
 }
 
-int NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
+void NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
                  const std::vector<size_t>& count, const std::vector<int>& data) {
-    return nc_put_vara_int(ncid_, varid, start.data(), count.data(), data.data());
+    NC_CHECK(nc_put_vara_int(ncid_, varid, start.data(), count.data(), data.data()), "Writing integer value failed");
 }
 
-int NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
+void NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
                  const std::vector<size_t>& count, const std::vector<std::string>& data) {
     std::vector<const char*> cstrs(data.size());
     for (size_t i = 0; i < data.size(); ++i) {
         cstrs[i] = data[i].c_str();
     }
-    return nc_put_vara_string(ncid_, varid, start.data(), count.data(), cstrs.data());
+    NC_CHECK(nc_put_vara_string(ncid_, varid, start.data(), count.data(), cstrs.data()), "Writing string value failed");
 }
 
 template<typename T>
@@ -130,46 +131,42 @@ void NetCDFFile::write_variable_data(const std::string& name, const std::vector<
     std::vector<size_t> start = {start_index};
     std::vector<size_t> count = {data.size()};
 
-    #if NGEN_WITH_MPI
-        if (comm_ != MPI_COMM_NULL) {
-            int retval = nc_var_par_access(ncid_, var->get_varid(), NC_COLLECTIVE);
-            if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-        }
-    #endif
+    // #if NGEN_WITH_MPI
+    //     if (comm_ != MPI_COMM_NULL) {
+    //         NC_CHECK(nc_var_par_access(ncid_, var->get_varid(), NC_COLLECTIVE);
+    //         if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
+    //     }
+    // #endif
 
-    int retval = NC_NOERR;
-    retval = write_data_to_ncvar(ncid_, var->get_varid(), start, count, data);
-    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
+    write_data_to_ncvar(ncid_, var->get_varid(), start, count, data);
 
     // We need to construct a map of variable value and the index in the nc file.
     // this will be used while writing the output values.
-    // We need this only for the coordinates variables like catchments.
+    // At this moment, we need this only for catchments (string type).
     nc_type data_type;
-    retval = nc_inq_vartype(ncid_, var->get_varid(), &data_type);
-    if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-
+    NC_CHECK(nc_inq_vartype(ncid_, var->get_varid(), &data_type), "Retrieving data type for variable failed");;
     if (data_type == NC_STRING) {
         var->build_variables_index(data.size());
     }
 }
 
-void NetCDFFile::write_attribute_to_ncvar(const std::string& name, const std::string& attName, const std::string& attValue) {
+void NetCDFFile::write_attribute_to_ncvar(const std::string& name, const std::string& att_name, const std::string& att_value) {
     auto var = get_ncvar_by_name(name);
     if (!var) throw std::runtime_error("Variable not found: " + name);
     double value;
     size_t pos;
     bool is_numeric = true;
     try {
-        value = std::stod(attValue, &pos);
+        value = std::stod(att_value, &pos);
     }
     catch (...) {
         is_numeric = false;
     }
-    if (pos == attValue.size()){ //needed to ensure that the entire string is a numeric value.
-        var->add_attribute(attName, value);
+    if (pos == att_value.size()){ //needed to ensure that the entire string is a numeric value.
+        var->add_attribute(att_name, value);
     }
     else{
-        var->add_attribute(attName, attValue);
+        var->add_attribute(att_name, att_value);
     }
 }
 
@@ -180,9 +177,7 @@ std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar(const std::string& name) const
 
 void NetCDFFile::end_def_mode()
 {
-    int retval = nc_enddef(ncid_);
-    if(retval != NC_NOERR)
-        throw std::runtime_error(std::string("Error switching to NetCDF data mode: ") + nc_strerror(retval));
+    NC_CHECK(nc_enddef(ncid_), "Switching to writing mode failed");
 }
 
 std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar_by_name(const std::string& name) const {
@@ -193,60 +188,147 @@ std::shared_ptr<NetCDFVar> NetCDFFile::get_ncvar_by_name(const std::string& name
 
 void NetCDFFile::load_variables()
 {
-    int retval;
     int mode = read_only_ ? NC_NOWRITE : NC_WRITE;
-
-    if (retval != NC_NOERR) {
-        throw std::runtime_error(std::string("Failed to open NetCDF file: ") + nc_strerror(retval));
-    }
 
     // Load dimensions
     int num_dims;
-    retval = nc_inq_ndims(ncid_, &num_dims);
-    if (retval != NC_NOERR)
-        throw std::runtime_error(std::string("Number of Dimensions: ") + nc_strerror(retval));
+    NC_CHECK(nc_inq_ndims(ncid_, &num_dims), "Retrieving number of dimensions failed");
 
     for (int i = 0; i < num_dims; ++i) {
         char dim_name[NC_MAX_NAME + 1];
         size_t dim_len;
-        retval = nc_inq_dim(ncid_, i, dim_name, &dim_len);
-        if (retval == NC_NOERR) {
-            dims_[dim_name] = i;
-        }
+        NC_CHECK(nc_inq_dim(ncid_, i, dim_name, &dim_len), "Retrieving dimensions length failed");;
+        dims_id_map_[dim_name] = i;
     }
 
     // Load variables
     int num_variables;
-    retval = nc_inq_nvars(ncid_, &num_variables);
-    if (retval != NC_NOERR)
-        throw std::runtime_error(std::string("Number of Variables: ") + nc_strerror(retval));
-
+    NC_CHECK(nc_inq_nvars(ncid_, &num_variables), "Retrieving number of variables failed");
     for (int i = 0; i < num_variables; ++i) {
         char var_name[NC_MAX_NAME + 1];
-        retval = nc_inq_varname(ncid_, i, var_name);
-        if (retval != NC_NOERR) continue;
+        NC_CHECK(nc_inq_varname(ncid_, i, var_name), "Retrieving variable name failed");
 
+        int num_dims = 0;
+        NC_CHECK(nc_inq_varndims(ncid_, i, &num_dims), "Retrieving number of dimensions for variable failed");
+        
         nc_type type;
         int num_dims_var;
         int dim_ids[NC_MAX_DIMS];
 
-        retval = nc_inq_var(ncid_, i, nullptr, &type, &num_dims_var, dim_ids, nullptr);
-        if (retval != NC_NOERR) continue;
-
+        NC_CHECK(nc_inq_var(ncid_, i, nullptr, &type, &num_dims_var, dim_ids, nullptr), "Retrieving variable type and dimensions failed");
+        
         // Collect dim names
         std::vector<std::string> dim_names;
         std::vector<int> dim_ids_var;
         for (int d = 0; d < num_dims_var; ++d) {
             dim_ids_var.push_back(dim_ids[d]);
             char dim_name[NC_MAX_NAME + 1];
-            nc_inq_dim(ncid_, dim_ids[d], dim_name, nullptr);
+            NC_CHECK(nc_inq_dim(ncid_, dim_ids[d], dim_name, nullptr), "Retrieving domensions name failed");
             dim_names.push_back(dim_name);
         }
 
-        // Create shared_ptr NcVar
-        auto nc_var = std::make_shared<NetCDFVar>(var_name, type,dim_ids_var, dim_names, i, ncid_);
+        // Create shared_ptr NetCDFVar
+        auto nc_var = std::make_shared<NetCDFVar>(var_name, type, dim_ids_var, dim_names, i, ncid_);
+        load_attributes(nc_var);
         variables_.push_back(nc_var);
         variables_map_[var_name] = nc_var;
+    }
+}
+
+void NetCDFFile::load_attributes(std::shared_ptr<NetCDFVar> nc_var) 
+{
+    int var_id = nc_var->get_varid();
+    int retval;
+    int num_atts;
+    NC_CHECK(nc_inq_varnatts(ncid_, var_id, &num_atts), "Retrieving number of attributes failed");
+
+    for (int att_id = 0; att_id < num_atts; ++att_id) {
+        char att_name[NC_MAX_NAME + 1];
+        NC_CHECK(nc_inq_attname(ncid_, var_id, att_id, att_name), "Retrieving attribute name failed");
+
+        // Get type and length
+        nc_type att_type;
+        size_t att_len;
+        NC_CHECK(nc_inq_att(ncid_, var_id, att_name, &att_type, &att_len), "Retrieving type and length of attributes failed");
+
+        std::string value;
+
+        switch (att_type) {
+            case NC_CHAR: {
+                char *data = new char[att_len + 1];
+                NC_CHECK(nc_get_att_text(ncid_, var_id, att_name, data), "Retrieving attribute text failed");
+                data[att_len] = '\0'; // ensure null termination
+                value = std::string(data);
+                delete[] data;
+                break;
+            }
+            case NC_INT: {
+                std::vector<int> data(att_len);
+                NC_CHECK(nc_get_att_int(ncid_, var_id, att_name, data.data()), "Retrieving integer attribute failed");
+                if (att_len == 1) value = std::to_string(data[0]);
+                else {
+                    for (size_t i = 0; i < data.size(); ++i) {
+                        value += std::to_string(data[i]);
+                        if (i != data.size() - 1) value += ",";
+                    }
+                }
+                break;
+            }
+            case NC_FLOAT: {
+                std::vector<float> data(att_len);
+                NC_CHECK(nc_get_att_float(ncid_, var_id, att_name, data.data()), "Retrieving float attribute failed");
+                if (att_len == 1) value = std::to_string(data[0]);
+                else {
+                    for (size_t i = 0; i < data.size(); ++i) {
+                        value += std::to_string(data[i]);
+                        if (i != data.size() - 1) value += ",";
+                    }
+                }
+                break;
+            }
+            case NC_DOUBLE: {
+                std::vector<double> data(att_len);
+                NC_CHECK(nc_get_att_double(ncid_, var_id, att_name, data.data()), "Retrieving double attribute failed");
+                if (att_len == 1) value = std::to_string(data[0]);
+                else {
+                    for (size_t i = 0; i < data.size(); ++i) {
+                        value += std::to_string(data[i]);
+                        if (i != data.size() - 1) value += ",";
+                    }
+                }
+                break;
+            }
+            case NC_UINT: {
+                std::vector<unsigned int> data(att_len);
+                NC_CHECK(nc_inq_att(ncid_, var_id, att_name, &att_type, &att_len), "Retrieving type and length of attributes failed");
+                if (att_len == 1) value = std::to_string(data[0]);
+                else {
+                    for (size_t i = 0; i < data.size(); ++i) {
+                        value += std::to_string(data[i]);
+                        if (i != data.size()-1) value += ",";
+                    }
+                }
+                break;
+            }
+            case NC_STRING: {
+                char **data = new char*[att_len];
+                NC_CHECK(nc_get_att_string(ncid_, var_id, att_name, data), "Retrieving attribute value as string failed");
+                if (att_len == 1) value = std::string(data[0]);
+                else {
+                    for (size_t i = 0; i < att_len; ++i) {
+                        value += std::string(data[i]);
+                        if (i != att_len - 1) value += ",";
+                    }
+                }
+                NC_CHECK(nc_free_string(att_len, data), "Memory free up failed");
+                delete[] data;
+                break;
+            }
+            default:
+                value = "<unsupported type>";
+        }
+
+        nc_var->add_attribute(std::string(att_name), value, false);
     }
 }
 
@@ -270,6 +352,4 @@ NetCDFFile::~NetCDFFile() {
 template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<double>& data, size_t start_index);
 template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<int>& data, size_t start_index);
 template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<std::string>& data, size_t start_index);
-//template void NetCDFFile::writeAllVariablesDistributed<double>(const std::vector<std::vector<double>>&);
-//template void NetCDFFile::writeAllVariablesDistributed<int>(const std::vector<std::vector<int>>&);
 #endif // NGEN_WITH_NETCDF

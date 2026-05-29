@@ -122,8 +122,13 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 # Define project version and use via generated config header
 project(ngen VERSION 0.3.0)
+# Force CMake to bake the install paths directly into local binaries
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_BUILD_RPATH_USE_LINK_PATH TRUE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--disable-new-dtags")
+set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
 
 add_executable(ngen "${NGEN_SRC_DIR}/NGen.cpp")
 
@@ -189,9 +194,7 @@ endif()
 # -----------------------------------------------------------------------------
 # If MPI support is enabled, set the C++ compiler to "mpicxx"
 if(NGEN_WITH_MPI)
-find_package(MPI REQUIRED)
-set(CMAKE_C_COMPILER   ${MPI_C_COMPILER}   CACHE FILEPATH "" FORCE)
-set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER} CACHE FILEPATH "" FORCE)
+   find_package(MPI REQUIRED)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -344,6 +347,76 @@ if(NGEN_WITH_EXTERN_NOAH_OWP_MODULAR)
 add_dependencies(ngen surfacebmi)
 endif()
 
+if(NGEN_WITH_NETCDF)
+    if(NGEN_WITH_MPI)
+      set(HDF5_INSTALL "$ENV{HOME}/MyInstalls/hdf5_mpi_parallel")
+      set(NETCDF_INSTALL "$ENV{HOME}/MyInstalls/netcdf_mpi_parallel")
+      set(NETCDF_LIB_DIR "$ENV{HOME}/MyInstalls/netcdf_mpi_parallel/lib")
+      set(HDF5_LIB_DIR   "$ENV{HOME}/MyInstalls/hdf5_mpi_parallel/lib")
+    else()
+      set(HDF5_INSTALL "$ENV{HOME}/MyInstalls/hdf5_serial")
+      set(NETCDF_INSTALL "$ENV{HOME}/MyInstalls/netcdf_serial")
+      set(NETCDF_LIB_DIR "$ENV{HOME}/MyInstalls/netcdf_serial/lib")
+      set(HDF5_LIB_DIR   "$ENV{HOME}/MyInstalls/hdf5_serial/lib")
+    endif()
+
+    set(NETCDF_LIB "${NETCDF_LIB_DIR}/libnetcdf.so")
+    set(HDF5_HL "${HDF5_LIB_DIR}/libhdf5_hl.so")
+    set(HDF5_STD "${HDF5_LIB_DIR}/libhdf5.so")
+
+    message(STATUS "CHECKING LIBRARY PATH: ${NETCDF_LIB}")
+    message(STATUS "CHECKING LIBRARY PATH: ${HDF5_STD}")
+    
+    set(WRAPPER_SOURCES
+        ${NGEN_SRC_DIR}/netcdf/NetCDFManager.cpp
+        ${NGEN_SRC_DIR}/netcdf/NetCDFFile.cpp
+        ${NGEN_SRC_DIR}/netcdf/NetCDFVar.cpp
+    )
+    add_library(NetCDFManager STATIC ${WRAPPER_SOURCES})
+    set_target_properties(NetCDFManager PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+    target_include_directories(NetCDFManager PUBLIC
+        ${EWTS_PREFIX}/include
+        ${NGEN_INC_DIR}
+        ${NGEN_INC_DIR}/netcdf
+        ${NGEN_INC_DIR}/core
+        ${NGEN_INC_DIR}/core/catchment
+        ${NGEN_INC_DIR}/realizations/catchment
+        ${NGEN_INC_DIR}/simulation_time
+        ${NGEN_INC_DIR}/utilities
+        ${NGEN_INC_DIR}/geojson
+        ${NGEN_INC_DIR}/forcing
+        ${NGEN_INC_DIR}/core/mediator
+        ${Python_INCLUDE_DIRS}
+        ${pybind11_INCLUDE_DIR}
+        ${NETCDF_INSTALL}/include
+        ${HDF5_INSTALL}/include
+    )
+    target_link_libraries(NetCDFManager PUBLIC 
+      NGen::config_header
+      NGen::core
+      NGen::core_catchment
+      NGen::core_nexus
+      NGen::geojson
+      NGen::realizations_catchment
+      NGen::forcing
+      NGen::core_mediator
+      NGen::logging
+      Python::Python
+   )
+    # the order for the custom netcdf and hdf5 libraries is important.
+    target_link_libraries(NetCDFManager PUBLIC
+        ${NETCDF_INSTALL}/lib/libnetcdf.so
+        ${HDF5_INSTALL}/lib/libhdf5_hl.so
+        ${HDF5_INSTALL}/lib/libhdf5.so
+    )
+
+    target_compile_definitions(NetCDFManager PUBLIC NGEN_WITH_NETCDF=1)
+    if(NGEN_WITH_MPI)
+      target_compile_definitions(NetCDFManager PUBLIC NGEN_WITH_MPI=1)
+      target_link_libraries(NetCDFManager PUBLIC MPI::MPI_CXX)
+    endif()   
+endif()
+
 target_include_directories(ngen PUBLIC "${NGEN_INC_DIR}")
 
 add_subdirectory("src/core")
@@ -375,6 +448,9 @@ NGen::state_save_restore
 NGen::bmi_protocols
 )
 
+if(NGEN_WITH_NETCDF)
+   target_link_libraries(ngen PRIVATE NetCDFManager)
+endif()
 if(NGEN_WITH_SQLITE)
 add_subdirectory("src/geopackage")
 target_link_libraries(ngen PUBLIC NGen::geopackage)
