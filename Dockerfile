@@ -258,8 +258,12 @@ WORKDIR /ngen-app/
 #   - Iterative ngen/submodule development doesn't re-trigger the EWTS clone+build.
 #   - EWTS_REF can be pinned without affecting other stages' caches.
 #
-# EWTS provides a unified logging framework used by ngen core and ALL C, C++, Fortran,
-# and Python submodules. Libraries are created for C, C++ and Fortran submodules
+# When USE_EWTS is enabled, EWTS provides a unified logging framework used by
+# ngen and the C, C++, Fortran, and Python modules that have been wired to it.
+# When USE_EWTS is disabled, this stage removes EWTS artifacts and the later
+# CMake builds receive -DUSE_EWTS=OFF.
+#
+# Libraries are created for C, C++ and Fortran submodules
 # (cfe, evapotranspiration, LASAM, noah-owp-modular, snow17, sac-sma,
 # SoilFreezeThaw, SoilMoistureProfiles, topmodel, ueb-bmi) and a Python package is
 # used by Python sumbodules (lstm, topoflow-glacier and t-route).
@@ -275,7 +279,7 @@ WORKDIR /ngen-app/
 #        ewts::ewts_cpp          – C++ runtime logger    (used by LASAM, SoilFreezeThaw, SoilMoistureProfiles)
 #        ewts::ewts_fortran      – Fortran runtime       (noah-owp-modular sac-sma,, snow17)
 #        ewts::ewts_ngen_bridge  – ngen↔EWTS bridge lib  (linked by ngen itself)
-#        EWTS Python wheel       – pip intalled package  (lstm, topoflow-glacier, t-route)
+#        EWTS Python wheel       – pip installed package  (lstm, topoflow-glacier, t-route)
 #
 # Build args – override at build time to pin a branch, tag, or full commit SHA:
 #   docker build --build-arg EWTS_REF=v1.2.3 ...
@@ -285,6 +289,7 @@ FROM base AS ewts-build
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 
+ARG USE_EWTS
 ARG EWTS_CACHE_BUST=0
 
 # Install path for the built EWTS libraries, headers, cmake config, and
@@ -293,8 +298,9 @@ ARG EWTS_CACHE_BUST=0
 # /tmp which can be cleaned unexpectedly.
 ENV EWTS_PREFIX=/opt/ewts
 
-# Point the development fallback to the cloned source tree so that
-# compiler_bmi.sh can pip-install EWTS from source if the wheel is missing.
+# EWTS_PY_ROOT records the EWTS Python source location used by the EWTS-enabled
+# t-route build path. It is informational at runtime; code should only use it
+# when USE_EWTS is enabled.
 ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 
 # Clone nwm-ewts, build, install, capture git metadata for provenance,
@@ -302,51 +308,45 @@ ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 # Try shallow clone by branch/tag name first; fall back to full clone + checkout
 # for bare commit SHAs (which git clone -b doesn't support).
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ewts \
-    echo "EWTS cache bust: ${EWTS_CACHE_BUST}" && \
+    --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+    echo "USE_EWTS=${USE_EWTS}; EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     set -eux && \
-    (git clone --depth 1 -b "${EWTS_REF}" \
-        "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
-     || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
-         cd /tmp/nwm-ewts && git checkout "${EWTS_REF}")) && \
-    cd /tmp/nwm-ewts && \
-    # ── Build EWTS ──
-    # This produces: C, C++, Fortran shared libs + ngen bridge + Python wheel.
-    # -DEWTS_WITH_NGEN=ON  enables the ngen bridge (ewts_ngen_bridge.so) which
-    #   provides the C shim ewts_ngen_log() that ngen's core calls into.
-    # -DEWTS_BUILD_SHARED=ON  builds .so's so submodule DSOs can link at runtime.
-    cmake -S . -B cmake_build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DEWTS_WITH_NGEN=ON \
-      -DEWTS_BUILD_SHARED=ON && \
-    cmake --build cmake_build -j "$(nproc)" && \
-    cmake --install cmake_build --prefix ${EWTS_PREFIX} && \
-    # ── Capture EWTS git provenance ──
-    # Saved as a JSON sidecar so the git-info merge step at the bottom of this
-    # Dockerfile can include EWTS metadata alongside ngen + submodules.
-    jq -n \
-      --arg commit_hash "$(git rev-parse HEAD)" \
-      --arg branch "$(git branch -r --contains HEAD 2>/dev/null | grep -v '\->' | sed 's|origin/||' | head -n1 | xargs || echo "${EWTS_REF}")" \
-      --arg tags "$(git tag --points-at HEAD 2>/dev/null | tr '\n' ' ')" \
-      --arg author "$(git log -1 --pretty=format:'%an')" \
-      --arg commit_date "$(date -u -d @$(git log -1 --pretty=format:'%ct') +'%Y-%m-%d %H:%M:%S UTC')" \
-      --arg message "$(git log -1 --pretty=format:'%s' | tr '\n' ';')" \
-      --arg build_date "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
-      '{"nwm-ewts": {commit_hash: $commit_hash, branch: $branch, tags: $tags, author: $author, commit_date: $commit_date, message: $message, build_date: $build_date}}' \
-      > /ngen-app/nwm-ewts_git_info.json && \
-    # ── Cleanup source (keep Python source as fallback for compiler_bmi.sh) ──
-    cd / && \
-    rm -rf /tmp/nwm-ewts/cmake_build /tmp/nwm-ewts/.git
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Building and installing EWTS"; \
+        git clone --depth 1 -b "${EWTS_REF}" \
+            "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
+        || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
+            cd /tmp/nwm-ewts && git checkout "${EWTS_REF}"); \
+        cd /tmp/nwm-ewts; \
+        cmake -S . -B cmake_build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEWTS_WITH_NGEN=ON \
+            -DEWTS_BUILD_SHARED=ON; \
+        cmake --build cmake_build -j "$(nproc)"; \
+        cmake --install cmake_build --prefix "${EWTS_PREFIX}"; \
+        jq -n \
+            --arg commit_hash "$(git rev-parse HEAD)" \
+            --arg branch "$(git branch -r --contains HEAD 2>/dev/null | grep -v '\->' | sed 's|origin/||' | head -n1 | xargs || echo "${EWTS_REF}")" \
+            --arg tags "$(git tag --points-at HEAD 2>/dev/null | tr '\n' ' ')" \
+            --arg author "$(git log -1 --pretty=format:'%an')" \
+            --arg commit_date "$(date -u -d @$(git log -1 --pretty=format:'%ct') +'%Y-%m-%d %H:%M:%S UTC')" \
+            --arg message "$(git log -1 --pretty=format:'%s' | tr '\n' ';')" \
+            --arg build_date "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+            '{"nwm-ewts": {commit_hash: $commit_hash, branch: $branch, tags: $tags, author: $author, commit_date: $commit_date, message: $message, build_date: $build_date}}' \
+            > /ngen-app/nwm-ewts_git_info.json; \
+        pip install "${EWTS_PREFIX}"/python/dist/ewts-*.whl; \
+        cd /; \
+        rm -rf /tmp/nwm-ewts/cmake_build /tmp/nwm-ewts/.git; \
+    else \
+        echo "EWTS disabled; removing any EWTS artifacts"; \
+        pip uninstall -y ewts || true; \
+        rm -rf "${EWTS_PREFIX}" /tmp/nwm-ewts /ngen-app/nwm-ewts_git_info.json; \
+    fi
 
-# Install the EWTS Python wheel into the venv.
-# This is what makes "import ewts" work for Python-based submodules.
-# For example, lstm's bmi_lstm.py does:  import ewts; LOG = ewts.get_logger(ewts.LSTM_ID)
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    set -eux && \
-    pip install ${EWTS_PREFIX}/python/dist/ewts-*.whl
 
-# Make EWTS shared libraries (.so) discoverable at runtime.
-# Without this, ngen and every submodule DSO would fail with:
-#   "error while loading shared libraries: libewts_ngen_bridge.so: cannot open"
+# When USE_EWTS=ON, make EWTS shared libraries (.so) discoverable at runtime.
+# Harmless when USE_EWTS=OFF because these directories will not exist.
 # We include both lib/ and lib64/ because cmake may install to either depending
 # on the platform/distro convention.
 ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:${LD_LIBRARY_PATH}"
@@ -354,13 +354,16 @@ ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:${LD_LIBRARY_PATH}"
 ##############################
 # Stage: Submodules Build
 ##############################
-# Inherits from ewts-build so /opt/ewts is already present.
+# Inherits from ewts-build. When USE_EWTS is enabled, /opt/ewts and the
+# EWTS Python package are present; when disabled, EWTS artifacts are removed.
 # The ngen source COPY happens here — changing ngen code only invalidates
 # this stage and below, not the EWTS build above.
 ##############################
 FROM ewts-build AS submodules
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
+
+ARG USE_EWTS
 
 WORKDIR /ngen-app/
 
@@ -388,10 +391,16 @@ ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
 # Use cache for building the t-route submodule
 RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
     set -eux && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     cd extern/t-route && \
-    echo "Running compiler_bmi.sh" && \
     LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
-    ./compiler_bmi.sh no-e && \
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Running compiler_bmi.sh (EWTS enabled)"; \
+        ./compiler_bmi.sh no-e; \
+    else \
+        echo "Running compiler.sh (EWTS disabled)"; \
+        ./compiler.sh no-e; \
+    fi && \
     rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
     find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
     find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
@@ -428,22 +437,13 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
     find /ngen-app/ngen/cmake_build -name "*.o" -exec rm -f {} +
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Build each submodule in a separate layer, using cache for CMake as well
+# Build each submodule in a separate layer.
 #
-# IMPORTANT: Every submodule's CMakeLists.txt now contains:
-#   find_package(ewts CONFIG REQUIRED)
-# so we MUST pass -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} to each cmake call.
-# Without it, cmake cannot locate ewtsConfig.cmake and the build fails with:
-#   "Could not find a package configuration file provided by "ewts"..."
+# When USE_EWTS is enabled, CMAKE_PREFIX_PATH allows submodules that use EWTS
+# to locate the ewtsConfig.cmake package under /opt/ewts.
 #
-# What each submodule links:
-#   LASAM              → ewts::ewts_cpp  + ewts::ewts_ngen_bridge
-#   snow17             → ewts::ewts_fortran + ewts::ewts_ngen_bridge
-#   sac-sma            → ewts::ewts_fortran + ewts::ewts_ngen_bridge
-#   SoilMoistureProfiles → (check its CMakeLists.txt for specifics)
-#   SoilFreezeThaw     → (check its CMakeLists.txt for specifics)
-#   cfe                → (check its CMakeLists.txt for specifics)
-#   ueb-bmi            → (check its CMakeLists.txt for specifics)
+# When USE_EWTS is disabled, submodules should skip EWTS linkage based on
+# -DUSE_EWTS=${USE_EWTS}.
 # ──────────────────────────────────────────────────────────────────────────────
 
 ARG LASAM_CACHE_BUST=0
@@ -492,14 +492,15 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
     cmake -B extern/SoilMoistureProfiles/cmake_build -S extern/SoilMoistureProfiles/SoilMoistureProfiles/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
       -DUSE_EWTS="${USE_EWTS}" \
-      -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DNGEN=ON \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilMoistureProfiles/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
 ARG SFT_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
     set -eux && \
-    echo "SMP cache bust: ${SFT_CACHE_BUST}" && \
+    echo "SFT cache bust: ${SFT_CACHE_BUST}" && \
     echo "SFT USE_EWTS=${USE_EWTS}" && \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
@@ -617,10 +618,16 @@ RUN set -eux && \
       echo "$info" > /ngen-app/submodules-json/git_info_"$sub_key".json; \
     done; \
     \
-    # Merge the main repository JSON + submodule JSONs + EWTS provenance into one file.
-    # The EWTS json was created during the EWTS build step above; including it
-    # here means `cat /ngen-app/ngen_git_info.json` shows EWTS version info too.
-    jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json /ngen-app/nwm-ewts_git_info.json > /ngen-app/merged_git_info.json && \
+    # Merge the main repository JSON and all submodule provenance JSON files into
+    # a single metadata file. When EWTS is enabled, also include the EWTS provenance
+    # JSON created during the optional EWTS build step above so
+    #   cat /ngen-app/ngen_git_info.json
+    # shows the exact EWTS version/build information included in the container.
+    if [ -f /ngen-app/nwm-ewts_git_info.json ]; then \
+        jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json /ngen-app/nwm-ewts_git_info.json > /ngen-app/merged_git_info.json; \
+    else \
+        jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json > /ngen-app/merged_git_info.json; \
+    fi && \
     mv /ngen-app/merged_git_info.json $GIT_INFO_PATH && \
     rm -rf /ngen-app/submodules-json /ngen-app/nwm-ewts_git_info.json
 

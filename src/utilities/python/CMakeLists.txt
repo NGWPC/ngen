@@ -1,9 +1,10 @@
 add_library(ngen_python InterpreterUtil.cpp)
 add_library(NGen::python ALIAS ngen_python)
 
-find_package(ewts CONFIG REQUIRED)   # if not already in scope
+target_compile_features(ngen_python PUBLIC cxx_std_17)
 
 if(USE_EWTS)
+    find_package(ewts CONFIG REQUIRED)   # if not already in scope
     target_link_libraries(ngen_python PUBLIC NGen::ewts)
 endif()
 

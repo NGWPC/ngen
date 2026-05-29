@@ -114,7 +114,7 @@ endif()
 
 # -----------------------------------------------------------------------------
 # Set global C++ options
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
@@ -211,12 +211,7 @@ add_compile_definitions(NGEN_SHARED_LIB_EXTENSION)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
-if(CMAKE_CXX_STANDARD LESS 17)
-    # requires non-header filesystem for state saving if C++ 11 or lower
-    find_package(Boost 1.86.0 REQUIRED COMPONENTS system filesystem)
-else()
-    find_package(Boost 1.86.0 REQUIRED)
-endif()
+find_package(Boost 1.86.0 REQUIRED COMPONENTS system filesystem)
 
 # -----------------------------------------------------------------------------
 if(NGEN_WITH_SQLITE)
