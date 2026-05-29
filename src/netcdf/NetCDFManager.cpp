@@ -246,13 +246,9 @@ void NetCDFManager::prepare_data_chunks(std::map<std::string, std::string> catch
             std::vector<double> catchment_output = string_split(it->second, ',');
             for(size_t var_index = 0; var_index < num_variables; ++var_index){
                 data_chunks_[var_index][index - chunk_start_] = catchment_output[var_index];
-                // LOG("Index value: " + std::to_string(index) + "; Inserted value " + std::to_string(catchment_output[var_index]) + " to  " + 
-                // std::to_string(var_index) + " for catchment index: " + std::to_string(index - chunk_start_), LogLevel::DEBUG);
             }
             index++;
         }
-        // LOG("Number of Variables: " + std::to_string(data_chunks_.size()) + "; Number of catchments: " + 
-        // std::to_string(data_chunks_[0].size()) + " for rank: " + std::to_string(rank_), LogLevel::DEBUG);
     }
 }
 

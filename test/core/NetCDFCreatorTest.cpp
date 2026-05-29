@@ -206,11 +206,11 @@ class NetCDFCreatorTest : public ::testing::Test {
         "        \"output_interval\": 3600"
         "    }"
         "}";
+
 };
 
 TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
 {
-
     nc_manager = std::make_unique<NetCDFManager>(manager_,"catchment_test", *sim_time_, 0, 1);
     NetCDFFile* nc_file = nc_manager->get_file_handle();
     std::shared_ptr<NetCDFVar> catchments_var = nc_file->get_ncvar("catchments");
@@ -238,10 +238,9 @@ TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
     std::vector<std::string> catchments;
     std::string catchment;
     for(size_t i = 0; i < len; ++i){
-        index[0] = item_index;
-        catchments_var.getVar(index, &catchment);
+        index[0] = i;
+        catchment = catchments_var->get_str_value_at_index(index);
         catchments.push_back(catchment.c_str());
-        item_index++;
     }
     //delete the netcdf file that was created once the information is obtained.
     ncFile.close();

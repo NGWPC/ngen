@@ -280,17 +280,31 @@ void NetCDFVar::write_timesliced_data(size_t timestep, size_t slice_start, size_
 {
     std::vector<size_t> start = {timestep, slice_start};
     std::vector<size_t> count = {1, slice_count};
-    int retval;
-    
 #if NGEN_WITH_MPI
-    retval = nc_var_par_access(ncid_, varid_, NC_COLLECTIVE);
-    if(retval!= NC_NOERR) {
-        throw std::runtime_error(std::string("Failed to set up parallel access: ") + nc_strerror(retval));
-    }
+    NC_CHECK(nc_var_par_access(ncid_, varid_, NC_COLLECTIVE), "Setting up parallel access failed");
 #endif
-    retval = nc_put_vara_double(ncid_, varid_, start.data(), count.data(), data);
-    if (retval != NC_NOERR) {
-        throw std::runtime_error("Error writing value in NetCDF: " + std::string(nc_strerror(retval)));
+    NC_CHECK(nc_put_vara_double(ncid_, varid_, start.data(), count.data(), data) , "Writing double data as slices failed");
+}
+
+void NetCDFVar::write_int_1d(const std::vector<int>& data) const {
+    std::vector<size_t> index(1);
+    for (size_t i = 0; i < data.size(); ++i) {
+        index[0] = i;
+        NC_CHECK(nc_put_var1_int(ncid_, varid_, index.data(), &data[i]), "Writing single integer value in NetCDF failed");
+    }
+}
+
+void NetCDFVar::write_flattened_double_array(const std::vector<double>& data) const {
+    size_t rank = dim_ids_.size();
+    std::vector<size_t> md_index(rank);
+    for (size_t i = 0; i < data.size(); ++i) {
+        size_t linear = i;
+        // Convert linear index to multi-dimensional index
+        for (int d = rank - 1; d >= 0; --d) {
+            md_index[d] = linear % get_dim_size(dim_ids_[d]);
+            linear /= get_dim_size(dim_ids_[d]);
+        }
+        NC_CHECK(nc_put_var1_double(ncid_, varid_, md_index.data(), &data[i]), "Writing single integer value in NetCDF failed");
     }
 }
 #endif // NGEN_WITH_NETCDF
