@@ -21,10 +21,10 @@ ARG USE_EWTS=ON
 ARG NGEN_FORCING_IMAGE_TAG=latest
 ARG NGEN_FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG}
 
-FROM ${NGEN_FORCING_IMAGE} AS base
+#FROM ${NGEN_FORCING_IMAGE} AS base
 
 # Uncomment when building locally
-# FROM ngen-bmi-forcing AS base
+FROM ngen-bmi-forcing AS base
 
 # Re-expose args after FROM for the remaining build stage
 # Keeps whatever value was already set
@@ -77,6 +77,7 @@ RUN set -eux && \
     dnf config-manager --set-enabled powertools && \
     dnf install -y \
         cmake \
+        ccache \
         curl curl-devel \
         file \
         findutils \
@@ -107,6 +108,20 @@ RUN set -eux && \
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 ## FIXME: replace openmpi with Intel MPI libraries ##
 ENV PATH="${PATH}:/usr/lib64/openmpi/bin/"
+
+# Use ccache so repeated Docker builds can reuse previously 
+# compiled C/C++/Fortran objects even when a Docker layer 
+# containing source files is invalidated.
+# ccache computes a hash based on things like:
+#   source file contents
+#   compiler flags
+#   compiler version
+#   included headers
+# If it has already compiled the exact same thing before, 
+# it returns the cached .o file instead of recompiling
+
+ENV CCACHE_DIR="/root/.cache/ccache" \
+    CCACHE_MAXSIZE="10G"
 
 # Fix OpenMPI support within container
 ENV PSM3_HAL=loopback \
@@ -190,25 +205,38 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
     rm --recursive --force /usr/src/hdf5 hdf5.tar.gz
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     curl --location --output netcdf-c.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_C_VERSION%%[a-z]*}.tar.gz && \
     mkdir --parents /usr/src/netcdf-c && \
     tar --extract --directory /usr/src/netcdf-c --strip-components=1 --file netcdf-c.tar.gz && \
     cd /usr/src/netcdf-c && \
-    cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=ON \
+        -DENABLE_TESTS=OFF \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
     #strip --strip-debug /usr/local/lib64/libnetcdf*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-c netcdf-c.tar.gz
 
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     curl --location --output netcdf-fortran.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION%%[a-z]*}.tar.gz && \
     mkdir --parents /usr/src/netcdf-fortran && \
     tar --extract --directory /usr/src/netcdf-fortran --strip-components=1 --file netcdf-fortran.tar.gz && \
     cd /usr/src/netcdf-fortran && \
-    cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF \
-       -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=ON \
+        -DENABLE_TESTS=OFF \
+        -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
     #strip --strip-debug /usr/local/lib/libnetcdff*.so.* || true && \
@@ -308,6 +336,7 @@ ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 # Try shallow clone by branch/tag name first; fall back to full clone + checkout
 # for bare commit SHAs (which git clone -b doesn't support).
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ewts \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     echo "USE_EWTS=${USE_EWTS}; EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     set -eux && \
@@ -322,7 +351,10 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ewts \
         cmake -S . -B cmake_build \
             -DCMAKE_BUILD_TYPE=Release \
             -DEWTS_WITH_NGEN=ON \
-            -DEWTS_BUILD_SHARED=ON; \
+            -DEWTS_BUILD_SHARED=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache; \
         cmake --build cmake_build -j "$(nproc)"; \
         cmake --install cmake_build --prefix "${EWTS_PREFIX}"; \
         jq -n \
@@ -367,17 +399,21 @@ ARG USE_EWTS
 
 WORKDIR /ngen-app/
 
+# Copy only the requirements files first for dependency installation caching.
+# Changes to ngen source files will not invalidate the pip install layer unless
+# one of these requirements files changes.
+COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
+COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
+
 # Copy the ngen application source.
-# This is placed here (not in base) so that
-# ngen code changes only invalidate the submodules stage, leaving the base and
-# ewts-build stages cached.
+# This is placed here, not in base, so ngen code changes only invalidate this
+# stage and later stages, while base and ewts-build remain cached.
+#
+# Note: this still invalidates every RUN below it. ccache reduces the cost of
+# recompiling when only a small subset of C/C++/Fortran source files changed.
 COPY . /ngen-app/ngen/
 
 WORKDIR /ngen-app/ngen/
-
-# Copy only the requirements files first for dependency installation caching
-COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
-COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
 
 # Install Python dependencies and remove the temporary requirements files
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
@@ -390,6 +426,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
 
 # Use cache for building the t-route submodule
 RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     cd extern/t-route && \
@@ -411,6 +448,7 @@ RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
 # CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
 # ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     export FFLAGS="-fPIC" && \
     export FCFLAGS="-fPIC" && \
@@ -429,6 +467,9 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
         -DNGEN_WITH_ROUTING=ON \
         -DNGEN_QUIET=ON \
         -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
         -DBOOST_ROOT=/opt/boost && \
     cmake --build cmake_build --target all && \
     rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
@@ -448,6 +489,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
 
 ARG LASAM_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "LASAM cache bust: ${LASAM_CACHE_BUST}" && \
     echo "LASAM USE_EWTS=${USE_EWTS}" && \
@@ -455,24 +497,32 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
       -DUSE_EWTS="${USE_EWTS}" \
       -DNGEN=ON \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/LASAM/cmake_build/ && \
     find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
 
 ARG SNOW17_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "SNOW17 cache bust: ${SNOW17_CACHE_BUST}" && \
     echo "SNOW17 USE_EWTS=${USE_EWTS}" && \
     cmake -B extern/snow17/cmake_build -S extern/snow17/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
       -DUSE_EWTS="${USE_EWTS}" \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/snow17/cmake_build/ && \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
 ARG SACSMA_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "SACSMA cache bust: ${SACSMA_CACHE_BUST}" && \
     echo "SACSMA USE_EWTS=${USE_EWTS}" && \
@@ -480,12 +530,16 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
       -DUSE_EWTS="${USE_EWTS}" \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/sac-sma/cmake_build/ && \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
 ARG SMP_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "SMP cache bust: ${SMP_CACHE_BUST}" && \
     echo "SMP USE_EWTS=${USE_EWTS}" && \
@@ -493,12 +547,16 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
       -DUSE_EWTS="${USE_EWTS}" \
       -DNGEN=ON \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilMoistureProfiles/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
 ARG SFT_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "SFT cache bust: ${SFT_CACHE_BUST}" && \
     echo "SFT USE_EWTS=${USE_EWTS}" && \
@@ -506,12 +564,16 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
       -DUSE_EWTS="${USE_EWTS}" \
       -DNGEN=ON \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilFreezeThaw/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
 ARG UEB_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "UEB cache bust: ${UEB_CACHE_BUST}" && \
     echo "UEB USE_EWTS=${USE_EWTS}" && \
@@ -521,6 +583,9 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
       -DCMAKE_PREFIX_PATH="${EWTS_PREFIX}" \
       -DUSE_EWTS="${USE_EWTS}" \
       -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/ueb-bmi/cmake_build/ && \
     find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
