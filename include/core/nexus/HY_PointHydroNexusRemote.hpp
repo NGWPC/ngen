@@ -43,7 +43,7 @@ class HY_PointHydroNexusRemote : public HY_PointHydroNexus
         void add_upstream_flow(double val, std::string catchment_id, time_step_t t) override;
 
         /** extract a numeric id from the catchment id for use as a mpi tag */
-        static long extract(std::string s) {  return std::stoi( s.substr( s.find(hy_features::identifiers::separator)+1 ) ); }
+        static long extract(std::string s) {  return std::stoll( s.substr( s.find(hy_features::identifiers::separator)+1 ) ); }
         
         const Catchments& get_local_contributing_catchments(){
             return local_contributers;
@@ -87,7 +87,7 @@ class HY_PointHydroNexusRemote : public HY_PointHydroNexus
         struct time_step_and_flow_t
         {
             long time_step;
-            long catchment_id;
+            int64_t catchment_id;
             double flow;
         };
 

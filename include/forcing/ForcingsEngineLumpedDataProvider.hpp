@@ -34,13 +34,13 @@ struct ForcingsEngineLumpedDataProvider final :
     ) override;
 
     //! Get this provider's Divide ID.
-    std::size_t divide() const noexcept;
+    int64_t divide() const noexcept;
 
     //! Get this provider's Divide ID index within the Forcings Engine.
     std::size_t divide_index() const noexcept;
 
   private:
-    std::size_t divide_id_;
+    int64_t divide_id_;
     std::size_t divide_idx_;
 
     // Search an array of numbers for the first instance of the current `divide_id_` and set the `divide_idx_` to that index if found
