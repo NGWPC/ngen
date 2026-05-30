@@ -21,10 +21,10 @@ ARG USE_EWTS=ON
 ARG NGEN_FORCING_IMAGE_TAG=latest
 ARG NGEN_FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG}
 
-#FROM ${NGEN_FORCING_IMAGE} AS base
+FROM ${NGEN_FORCING_IMAGE} AS base
 
 # Uncomment when building locally
-FROM ngen-bmi-forcing AS base
+#FROM ngen-bmi-forcing AS base
 
 # Re-expose args after FROM for the remaining build stage
 # Keeps whatever value was already set
@@ -388,8 +388,18 @@ ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:${LD_LIBRARY_PATH}"
 ##############################
 # Inherits from ewts-build. When USE_EWTS is enabled, /opt/ewts and the
 # EWTS Python package are present; when disabled, EWTS artifacts are removed.
-# The ngen source COPY happens here — changing ngen code only invalidates
-# this stage and below, not the EWTS build above.
+#
+# Cache strategy:
+#   1. Copy dependency manifests first so pip dependency installs are cached.
+#   2. Copy only the standalone extern/submodule trees and build/install them.
+#   3. Copy the full ngen source only after the submodule-heavy work is done.
+#
+# Result:
+#   - Pure ngen src/include/cmake changes should not invalidate the standalone
+#     submodule build layers.
+#   - Submodule source changes still invalidate the corresponding submodule
+#     COPY/RUN layers, as desired.
+#   - The final full COPY keeps .git/.gitmodules/provenance behavior intact.
 ##############################
 FROM ewts-build AS submodules
 
@@ -400,37 +410,51 @@ ARG USE_EWTS
 WORKDIR /ngen-app/
 
 # Copy only the requirements files first for dependency installation caching.
-# Changes to ngen source files will not invalidate the pip install layer unless
+# Changes to ngen source files will not invalidate this pip install layer unless
 # one of these requirements files changes.
 COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
 COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
 
-# Copy the ngen application source.
-# This is placed here, not in base, so ngen code changes only invalidate this
-# stage and later stages, while base and ewts-build remain cached.
-#
-# Note: this still invalidates every RUN below it. ccache reduces the cost of
-# recompiling when only a small subset of C/C++/Fortran source files changed.
-COPY . /ngen-app/ngen/
-
-WORKDIR /ngen-app/ngen/
-
-# Install Python dependencies and remove the temporary requirements files
+# Install Python dependencies and remove the temporary requirements files.
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     set -eux && \
         pip3 install -r /tmp/test_bmi_py_requirements.txt && \
         pip3 install -r /tmp/t-route_requirements.txt && \
         rm /tmp/test_bmi_py_requirements.txt /tmp/t-route_requirements.txt
 
+# Copy only the extern/submodule trees that are built independently below.
+# Keep these COPY lines separate enough that a change in one submodule does not
+# invalidate every unrelated submodule build layer.
+WORKDIR /ngen-app/ngen/
+COPY extern/bmi-cxx extern/bmi-cxx
+COPY extern/LASAM extern/LASAM
+COPY extern/iso_c_fortran_bmi extern/iso_c_fortran_bmi
+COPY extern/snow17 extern/snow17
+COPY extern/sac-sma extern/sac-sma
+COPY extern/SoilMoistureProfiles extern/SoilMoistureProfiles
+COPY extern/SoilFreezeThaw extern/SoilFreezeThaw
+COPY extern/ueb-bmi extern/ueb-bmi
+COPY extern/lstm extern/lstm
+COPY extern/topoflow-glacier extern/topoflow-glacier
+COPY extern/t-route extern/t-route
+
 ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
 
-# Use cache for building the t-route submodule
-RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+# Build/install the t-route submodule.
+# t-route's compiler scripts run make/pip commands inside the source tree, so a
+# separate t-route mount (e.g. /root/.cache/t-route) does not help unless
+# the scripts explicitly write build artifacts there. pip/uv caches are the
+# useful reusable caches here.
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+    --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
     set -eux && \
+    export CC="gcc" && \
+    export CXX="g++" && \
+    export F90="gfortran" && \
+    export FC="gfortran" && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     cd extern/t-route && \
-    LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
+    export LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
         echo "Running compiler_bmi.sh (EWTS enabled)"; \
         ./compiler_bmi.sh no-e; \
@@ -441,41 +465,6 @@ RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
     rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
     find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
     find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
-
-# Configure the build with cache for CMake
-# -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} tells cmake where
-# to find the ewtsConfig.cmake package file so that ngen's
-# CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
-# ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
-    set -eux && \
-    export FFLAGS="-fPIC" && \
-    export FCFLAGS="-fPIC" && \
-    export CMAKE_Fortran_FLAGS="-fPIC" && \
-    cmake -B cmake_build -S . \
-        -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-        -DUSE_EWTS="${USE_EWTS}" \
-        -DNGEN_WITH_MPI=ON \
-        -DNGEN_WITH_NETCDF=ON \
-        -DNGEN_WITH_SQLITE=ON \
-        -DNGEN_WITH_UDUNITS=ON \
-        -DNGEN_WITH_BMI_FORTRAN=ON \
-        -DNGEN_WITH_BMI_C=ON \
-        -DNGEN_WITH_PYTHON=ON \
-        -DNGEN_WITH_TESTS=OFF \
-        -DNGEN_WITH_ROUTING=ON \
-        -DNGEN_QUIET=ON \
-        -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
-        -DBOOST_ROOT=/opt/boost && \
-    cmake --build cmake_build --target all && \
-    rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
-    rm -rf /ngen-app/ngen/cmake_build/src/core/CMakeFiles && \
-    find /ngen-app/ngen/cmake_build -name "*.a" -exec rm -f {} + && \
-    find /ngen-app/ngen/cmake_build -name "*.o" -exec rm -f {} +
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Build each submodule in a separate layer.
@@ -505,8 +494,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
     find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
 
 ARG SNOW17_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     echo "SNOW17 cache bust: ${SNOW17_CACHE_BUST}" && \
     echo "SNOW17 USE_EWTS=${USE_EWTS}" && \
@@ -595,10 +583,55 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     cd extern/lstm; \
     pip install .
 
+
+# Copy the full ngen application source only after the standalone submodules
+# above have been built. This keeps ordinary ngen code changes from invalidating
+# the expensive submodule build layers while preserving .git/.gitmodules for the
+# provenance extraction step below.
+COPY . /ngen-app/ngen/
+
+# topoflow-glacier uses setuptools-scm/VCS versioning and requires Git
+# metadata to be available when `pip install .` runs. Therefore this must
+# be built after the full repository COPY step.
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     set -eux; \
     cd extern/topoflow-glacier; \
     pip install .
+
+# Configure the build with cache for CMake
+# -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} tells cmake where
+# to find the ewtsConfig.cmake package file so that ngen's
+# CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
+# ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
+RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+    set -eux && \
+    export FFLAGS="-fPIC" && \
+    export FCFLAGS="-fPIC" && \
+    export CMAKE_Fortran_FLAGS="-fPIC" && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+        -DUSE_EWTS="${USE_EWTS}" \
+        -DNGEN_WITH_MPI=ON \
+        -DNGEN_WITH_NETCDF=ON \
+        -DNGEN_WITH_SQLITE=ON \
+        -DNGEN_WITH_UDUNITS=ON \
+        -DNGEN_WITH_BMI_FORTRAN=ON \
+        -DNGEN_WITH_BMI_C=ON \
+        -DNGEN_WITH_PYTHON=ON \
+        -DNGEN_WITH_TESTS=OFF \
+        -DNGEN_WITH_ROUTING=ON \
+        -DNGEN_QUIET=ON \
+        -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
+        -DBOOST_ROOT=/opt/boost && \
+    cmake --build cmake_build --target all && \
+    rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
+    rm -rf /ngen-app/ngen/cmake_build/src/core/CMakeFiles && \
+    find /ngen-app/ngen/cmake_build -name "*.a" -exec rm -f {} + && \
+    find /ngen-app/ngen/cmake_build -name "*.o" -exec rm -f {} +
 
 RUN set -eux && \
     mkdir --parents /ngencerf/data/ngen-run-logs/ && \
