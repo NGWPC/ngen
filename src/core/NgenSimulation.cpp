@@ -116,6 +116,7 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
             //   for steps 100-199 will be lost, and the program will likely hang as Rank 0 waits for those messages from Rank 1.
             // For now, set up a barrier to make sure all ranks can catch up before checkpointing.
             // A possible later improvement would be the ability to store and recreate the MPI messages when saving/loading checkpoints.
+            LOG(LogLevel::INFO, "Creating checkpoint at simulation step %d.", this->simulation_step_);
             this->sync_mpi_ranks();
             auto step_saver = checkpoint_saver->initialize_checkpoint_snapshot(simulation_step_, State_Saver::State_Durability::strict);
             this->save_checkpoint(step_saver);
