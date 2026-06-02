@@ -105,7 +105,7 @@ std::shared_ptr<geojson::FeatureCollection> ngen::geopackage::read(
             } else {
                 sep_index++;
             }
-            int id_num = std::atoi(filter_id.c_str() + sep_index);
+            int64_t id_num = std::atoll(filter_id.c_str() + sep_index);
             if (id_num <= 0) {
                 // check if the failed item is a fake terminal and igore if it is
                 std::string terminal = "wb-TERMINAL_SENTINEL-";

@@ -289,16 +289,16 @@ void NgenSimulation::set_troute_inputs(
 #if NGEN_WITH_ROUTING
     if (this->mpi_rank_ == 0) {
         // set up nexus id indexes
-        std::vector<int> df_index(feature_indexes->size());
+        std::vector<int64_t> df_index(feature_indexes->size());
         for (const auto& key_value : *feature_indexes) {
             int id_index = key_value.second;
 
             // Convert string ID into numbers for T-route index
-            int id_as_int = -1;
+            int64_t id_as_int = -1;
             size_t sep_index = key_value.first.find(hy_features::identifiers::separator);
             if (sep_index != std::string::npos) {
                 std::string numbers = key_value.first.substr(sep_index + hy_features::identifiers::separator.length());
-                id_as_int = std::stoi(numbers);
+                id_as_int = std::stoll(numbers);
             }
             if (id_as_int == -1) {
                 std::string error_msg = "Cannot convert the ID to an integer: " + key_value.first;

@@ -11,7 +11,7 @@ namespace data_access {
 using Provider     = ForcingsEngineLumpedDataProvider;
 using BaseProvider = Provider::base_type;
 
-std::size_t convert_divide_id_stoi(const std::string& divide_id)
+int64_t convert_divide_id_stoll(const std::string& divide_id)
 {
     auto separator = divide_id.find('-');
     const char* split = (
@@ -25,7 +25,7 @@ std::size_t convert_divide_id_stoi(const std::string& divide_id)
     ss << "Converting divide ID: " << divide_id
        << " -> " << split << std::endl;
     LOG(ss.str(), LogLevel::DEBUG);
-    return std::atol(split);
+    return std::atoll(split);
 }
 
 Provider::ForcingsEngineLumpedDataProvider(
@@ -60,7 +60,7 @@ Provider::ForcingsEngineLumpedDataProvider(
     ss << "  divide ID:    " << divide_id << std::endl;
     LOG(ss.str(), LogLevel::DEBUG);
 
-    divide_id_ = convert_divide_id_stoi(divide_id);
+    divide_id_ = convert_divide_id_stoll(divide_id);
 
     // Check that CAT-ID is an available output name, otherwise we most likely aren't
     // running the correct configuration of the forcings engine for this class.
@@ -107,6 +107,10 @@ Provider::ForcingsEngineLumpedDataProvider(
         this->find_divide_id<long>(cat_id_ptr, size_id_dimension);
     } else if (cat_id_cpp_type == "unsigned long") {
         this->find_divide_id<unsigned long>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "long long") {
+        this->find_divide_id<long long>(cat_id_ptr, size_id_dimension);
+    } else if (cat_id_cpp_type == "unsigned long long") {
+        this->find_divide_id<unsigned long long>(cat_id_ptr, size_id_dimension);
     } else if (cat_id_cpp_type == "float") {
         this->find_divide_id<float>(cat_id_ptr, size_id_dimension);
     } else if (cat_id_cpp_type == "double") {
@@ -150,7 +154,7 @@ inline void Provider::find_divide_id(const void *cat_id_ptr, const std::size_t s
     }
 }
 
-std::size_t Provider::divide() const noexcept
+int64_t Provider::divide() const noexcept
 {
     return divide_id_;
 }
@@ -166,9 +170,9 @@ Provider::data_type Provider::get_value(
 )
 {
     std::stringstream ss; 
-    if (!(divide_id_ == convert_divide_id_stoi(selector.get_id()))) {
+    if (!(divide_id_ == convert_divide_id_stoll(selector.get_id()))) {
         ss.str("");
-        ss << "get_value() divide_id_ " << divide_id_ << " != selector id " << convert_divide_id_stoi(selector.get_id());
+        ss << "get_value() divide_id_ " << divide_id_ << " != selector id " << convert_divide_id_stoll(selector.get_id());
         LOG(LogLevel::FATAL, ss.str());
         throw std::runtime_error{
             "Divide ID mismatch in the forcings engine."
@@ -259,9 +263,9 @@ std::vector<Provider::data_type> Provider::get_values(
 )
 {
     std::stringstream ss; 
-    if (!(divide_id_ == convert_divide_id_stoi(selector.get_id()))) {
+    if (!(divide_id_ == convert_divide_id_stoll(selector.get_id()))) {
         ss.str("");
-        ss << "get_values() divide id " << divide_id_ << "not equal to selector.get_id" << convert_divide_id_stoi(selector.get_id());
+        ss << "get_values() divide id " << divide_id_ << "not equal to selector.get_id" << convert_divide_id_stoll(selector.get_id());
         LOG(LogLevel::FATAL, ss.str());
         throw std::runtime_error{
             "Divide ID mismatch in the forcings engine."

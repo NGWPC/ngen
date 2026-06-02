@@ -29,8 +29,8 @@ HY_PointHydroNexusRemote::HY_PointHydroNexusRemote(std::string nexus_id, Catchme
 {
    int count = 3;
    const int array_of_blocklengths[3] = { 1, 1, 1};
-   const MPI_Aint array_of_displacements[3] = { 0, sizeof(long), sizeof(long) + sizeof(long) };
-   const MPI_Datatype array_of_types[3] = { MPI_LONG, MPI_LONG, MPI_DOUBLE };
+   const MPI_Aint array_of_displacements[3] = { 0, sizeof(long), sizeof(int64_t) + sizeof(long) };
+   const MPI_Datatype array_of_types[3] = { MPI_LONG, MPI_INT64_T, MPI_DOUBLE };
 
    MPI_Type_create_struct(count, array_of_blocklengths, array_of_displacements, array_of_types, &time_step_and_flow_type);
 
@@ -199,7 +199,7 @@ void HY_PointHydroNexusRemote::add_upstream_flow(double val, std::string catchme
 
 		    // fill the message buffer
 		    stored_sends.back().buffer->time_step = t;
-		    stored_sends.back().buffer->catchment_id = std::stoi( id.substr( id.find(hy_features::identifiers::separator)+1 ) );
+		    stored_sends.back().buffer->catchment_id = std::stoll( id.substr( id.find(hy_features::identifiers::separator)+1 ) );
 
 		    // get the correct amount of flow using the inherted function this means are local bookkeeping is accurate
 		    stored_sends.back().buffer->flow = HY_PointHydroNexus::get_downstream_flow(id, t, 100.0);;
