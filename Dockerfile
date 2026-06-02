@@ -240,8 +240,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
         -DENABLE_TESTS=OFF \
         -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran \
         -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache && \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
     #strip --strip-debug /usr/local/lib/libnetcdff*.so.* || true && \
@@ -379,8 +378,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
             -DEWTS_WITH_NGEN=ON \
             -DEWTS_BUILD_SHARED=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache; \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache; \
         cmake --build cmake_build -j "$(nproc)"; \
         cmake --install cmake_build --prefix "${EWTS_PREFIX}"; \
         jq -n \
@@ -529,7 +527,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
       -DNGEN=ON \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/LASAM/cmake_build/ && \
     find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
@@ -547,7 +544,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
       -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/snow17/cmake_build/ && \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
@@ -565,7 +561,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
       -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/sac-sma/cmake_build/ && \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
@@ -584,7 +579,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
       -DNGEN=ON \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilMoistureProfiles/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
@@ -603,7 +597,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
       -DNGEN=ON \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilFreezeThaw/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
@@ -623,7 +616,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
       -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-      -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
       -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/ueb-bmi/cmake_build/ && \
     find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
@@ -678,7 +670,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
         -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
         -DCMAKE_C_COMPILER_LAUNCHER=ccache \
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
         -DBOOST_ROOT=/opt/boost && \
     cmake --build cmake_build --target all && \
     rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
