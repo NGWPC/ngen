@@ -33,7 +33,13 @@ ARG GHCR_ORG
 ARG IMAGE_NAMESPACE
 ARG EWTS_ORG
 ARG EWTS_REF
-ARG USE_EWTS
+
+# USE_EWTS defaults to ON globally, but this value is also passed into CMake as
+# a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
+# a reused CMake build directory may retain that OFF value. Keep the Docker ARG
+# default explicit in this stage and normalize/default it before passing it to
+# CMake so an unset or empty value never becomes -DUSE_EWTS=.
+ARG USE_EWTS=ON
 
 # OCI Metadata Arguments
 ARG NGEN_FORCING_IMAGE
@@ -178,8 +184,8 @@ RUN set -eux && \
 	done
 
 # Build additional libraries (SZIP, HDF5, netcdf-c, netcdf-fortran, Boost)
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-szip \
-    set -eux && \
+# Removed cache mounts where nothing writes to the mounted cache directory
+RUN set -eux && \
 	curl --location --output szip.tar.gz https://docs.hdfgroup.org/archive/support/ftp/lib-external/szip/${SZIP_VERSION%%[a-z]*}/src/szip-${SZIP_VERSION}.tar.gz && \
 	mkdir --parents /usr/src/szip && \
 	tar --extract --directory /usr/src/szip --strip-components=1 --file szip.tar.gz && \
@@ -191,8 +197,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-szip \
     strip --strip-debug /usr/local/lib/libsz*.so.* || true && \
     rm --recursive --force /usr/src/szip szip.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
-    set -eux && \
+RUN set -eux && \
 	curl --location --output hdf5.tar.gz https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-${HDF5_VERSION//./_}.tar.gz && \
 	mkdir --parents /usr/src/hdf5 && \
 	tar --extract --directory /usr/src/hdf5 --strip-components=1 --file hdf5.tar.gz && \
@@ -204,12 +209,12 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
     rm -f /usr/local/lib/libhdf5*.a && \
     rm --recursive --force /usr/src/hdf5 hdf5.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     curl --location --output netcdf-c.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_C_VERSION%%[a-z]*}.tar.gz && \
     mkdir --parents /usr/src/netcdf-c && \
     tar --extract --directory /usr/src/netcdf-c --strip-components=1 --file netcdf-c.tar.gz && \
+    rm -rf /usr/src/netcdf-c/cmake_build && \
     cd /usr/src/netcdf-c && \
     cmake -B cmake_build -S . \
         -DCMAKE_BUILD_TYPE=Release \
@@ -222,12 +227,12 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
     #strip --strip-debug /usr/local/lib64/libnetcdf*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-c netcdf-c.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     curl --location --output netcdf-fortran.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION%%[a-z]*}.tar.gz && \
     mkdir --parents /usr/src/netcdf-fortran && \
     tar --extract --directory /usr/src/netcdf-fortran --strip-components=1 --file netcdf-fortran.tar.gz && \
+    rm -rf /usr/src/netcdf-fortran/cmake_build && \
     cd /usr/src/netcdf-fortran && \
     cmake -B cmake_build -S . \
         -DCMAKE_BUILD_TYPE=Release \
@@ -242,8 +247,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
     #strip --strip-debug /usr/local/lib/libnetcdff*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-fortran netcdf-fortran.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-boost \
-    set -eux && \
+RUN set -eux && \
     curl --location --output boost.tar.gz https://archives.boost.io/release/${BOOST_VERSION%%[a-z]*}/source/boost_${BOOST_VERSION//./_}.tar.gz && \
     mkdir --parents /opt/boost && \
     tar --extract --directory /opt/boost --strip-components=1 --file boost.tar.gz && \
@@ -294,7 +298,7 @@ WORKDIR /ngen-app/
 # Libraries are created for C, C++ and Fortran submodules
 # (cfe, evapotranspiration, LASAM, noah-owp-modular, snow17, sac-sma,
 # SoilFreezeThaw, SoilMoistureProfiles, topmodel, ueb-bmi) and a Python package is
-# used by Python sumbodules (lstm, topoflow-glacier and t-route).
+# used by Python submodules (lstm, topoflow-glacier and t-route).
 #
 # How the plumbing works:
 #   1. We build EWTS here and install it to /opt/ewts.
@@ -317,8 +321,28 @@ FROM base AS ewts-build
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 
-ARG USE_EWTS
+# USE_EWTS defaults to ON globally, but this value is also passed into CMake as
+# a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
+# a reused CMake build directory may retain that OFF value. Keep the Docker ARG
+# default explicit in this stage and normalize/default it before passing it to
+# CMake so an unset or empty value never becomes -DUSE_EWTS=.
+ARG USE_EWTS=ON
+ARG EWTS_ORG
+ARG EWTS_REF
 ARG EWTS_CACHE_BUST=0
+
+RUN set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \ 
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Checking EWTS branch/tag: ${EWTS_REF}"; \
+        if ! git ls-remote --exit-code --heads \
+            "https://github.com/${EWTS_ORG}/nwm-ewts.git" \
+            "${EWTS_REF}" >/dev/null 2>&1; then \
+            echo "ERROR: EWTS branch '${EWTS_REF}' not found in ${EWTS_ORG}/nwm-ewts. Make sure it has been pushed." >&2; \
+            exit 1; \
+        fi; \
+    fi
 
 # Install path for the built EWTS libraries, headers, cmake config, and
 # Fortran .mod files.  /opt/ewts follows the FHS convention for add-on
@@ -335,18 +359,20 @@ ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 # then remove the source tree.
 # Try shallow clone by branch/tag name first; fall back to full clone + checkout
 # for bare commit SHAs (which git clone -b doesn't support).
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ewts \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     echo "USE_EWTS=${USE_EWTS}; EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
         echo "Building and installing EWTS"; \
+        rm -rf /tmp/nwm-ewts && \
         git clone --depth 1 -b "${EWTS_REF}" \
             "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
         || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
             cd /tmp/nwm-ewts && git checkout "${EWTS_REF}"); \
+        rm -rf /tmp/nwm-ewts/cmake_build && \
         cd /tmp/nwm-ewts; \
         cmake -S . -B cmake_build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -405,7 +431,14 @@ FROM ewts-build AS submodules
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 
-ARG USE_EWTS
+ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
+
+# USE_EWTS defaults to ON globally, but this value is also passed into CMake as
+# a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
+# a reused CMake build directory may retain that OFF value. Keep the Docker ARG
+# default explicit in this stage and normalize/default it before passing it to
+# CMake so an unset or empty value never becomes -DUSE_EWTS=.
+ARG USE_EWTS=ON
 
 WORKDIR /ngen-app/
 
@@ -426,6 +459,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
 # Keep these COPY lines separate enough that a change in one submodule does not
 # invalidate every unrelated submodule build layer.
 WORKDIR /ngen-app/ngen/
+
 COPY extern/bmi-cxx extern/bmi-cxx
 COPY extern/LASAM extern/LASAM
 COPY extern/iso_c_fortran_bmi extern/iso_c_fortran_bmi
@@ -435,14 +469,17 @@ COPY extern/SoilMoistureProfiles extern/SoilMoistureProfiles
 COPY extern/SoilFreezeThaw extern/SoilFreezeThaw
 COPY extern/ueb-bmi extern/ueb-bmi
 COPY extern/lstm extern/lstm
-COPY extern/topoflow-glacier extern/topoflow-glacier
-COPY extern/t-route extern/t-route
 
-ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
+# Place t-route last because it is currently the submodule that changes most
+# often. Keeping it later in the COPY/build sequence avoids invalidating the
+# more stable submodule layers above. If t-route stabilizes in the future,
+# consider moving it earlier so changes to other submodules do not trigger a
+# relatively expensive t-route rebuild.
+COPY extern/t-route extern/t-route
 
 # Build/install the t-route submodule.
 # t-route's compiler scripts run make/pip commands inside the source tree, so a
-# separate t-route mount (e.g. /root/.cache/t-route) does not help unless
+# separate t-route cache mount (e.g. /root/.cache/t-route) does not help unless
 # the scripts explicitly write build artifacts there. pip/uv caches are the
 # useful reusable caches here.
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
@@ -452,6 +489,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     export CXX="g++" && \
     export F90="gfortran" && \
     export FC="gfortran" && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "T-Route USE_EWTS=${USE_EWTS}" && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     cd extern/t-route && \
     export LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
@@ -477,14 +516,16 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
 # ──────────────────────────────────────────────────────────────────────────────
 
 ARG LASAM_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     echo "LASAM cache bust: ${LASAM_CACHE_BUST}" && \
     echo "LASAM USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/LASAM/cmake_build && \
     cmake -B extern/LASAM/cmake_build -S extern/LASAM/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DUSE_EWTS="${USE_EWTS}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DNGEN=ON \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -496,11 +537,14 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
 ARG SNOW17_CACHE_BUST=0
 RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SNOW17 cache bust: ${SNOW17_CACHE_BUST}" && \
     echo "SNOW17 USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/snow17/cmake_build && \
     cmake -B extern/snow17/cmake_build -S extern/snow17/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DUSE_EWTS="${USE_EWTS}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
       -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
@@ -509,15 +553,16 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
 ARG SACSMA_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SACSMA cache bust: ${SACSMA_CACHE_BUST}" && \
     echo "SACSMA USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     rm -rf extern/sac-sma/cmake_build && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DUSE_EWTS="${USE_EWTS}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
       -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
@@ -526,14 +571,16 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
 ARG SMP_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SMP cache bust: ${SMP_CACHE_BUST}" && \
     echo "SMP USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/SoilMoistureProfiles/cmake_build && \
     cmake -B extern/SoilMoistureProfiles/cmake_build -S extern/SoilMoistureProfiles/SoilMoistureProfiles/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DUSE_EWTS="${USE_EWTS}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DNGEN=ON \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -543,14 +590,16 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
 ARG SFT_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SFT cache bust: ${SFT_CACHE_BUST}" && \
     echo "SFT USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/SoilFreezeThaw/cmake_build && \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ \
       -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DUSE_EWTS="${USE_EWTS}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DNGEN=ON \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -560,16 +609,17 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
 ARG UEB_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
     echo "UEB cache bust: ${UEB_CACHE_BUST}" && \
     echo "UEB USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     rm -rf extern/ueb-bmi/cmake_build && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ \
       -DUEB_SUPPRESS_OUTPUTS=ON \
       -DCMAKE_PREFIX_PATH="${EWTS_PREFIX}" \
-      -DUSE_EWTS="${USE_EWTS}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -598,20 +648,23 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     cd extern/topoflow-glacier; \
     pip install .
 
-# Configure the build with cache for CMake
+# Configure ngen using ccache for compiler caching.
 # -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} tells cmake where
 # to find the ewtsConfig.cmake package file so that ngen's
 # CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
 # ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
-    --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "ngen USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     export FFLAGS="-fPIC" && \
     export FCFLAGS="-fPIC" && \
     export CMAKE_Fortran_FLAGS="-fPIC" && \
+    rm -rf cmake_build && \
     cmake -B cmake_build -S . \
         -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-        -DUSE_EWTS="${USE_EWTS}" \
+        -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
         -DNGEN_WITH_MPI=ON \
         -DNGEN_WITH_NETCDF=ON \
         -DNGEN_WITH_SQLITE=ON \
