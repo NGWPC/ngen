@@ -358,6 +358,14 @@ ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 # then remove the source tree.
 # Try shallow clone by branch/tag name first; fall back to full clone + checkout
 # for bare commit SHAs (which git clone -b doesn't support).
+#
+# Ensures an unset or empty USE_EWTS defaults to ON
+#
+# USE_EWTS accepted ON values:
+#   ON, YES, TRUE, 1
+#
+# Everything else is treated as OFF.
+#
 RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     echo "USE_EWTS=${USE_EWTS}; EWTS cache bust: ${EWTS_CACHE_BUST}" && \
