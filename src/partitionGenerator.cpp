@@ -20,7 +20,7 @@
 #endif
 
 #include "core/Partition_Parser.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 std::stringstream partgen_ss("");
 
@@ -237,7 +237,7 @@ int find_remote_rank(const std::string& id, const PartitionVSet& catchment_parti
     }
     if(pos < 0){
         std::string msg = "find_remote_rank: Could not find feature id "+id+" in any partition";
-        LOG(LogLevel::FATAL, msg);
+        LOG(msg, LogLevel::FATAL);
         throw std::runtime_error(msg);
     }
     return pos;
@@ -437,12 +437,12 @@ int main(int argc, char* argv[])
         } catch (std::exception &e) {
             // Handle all exceptions
             std::string msg = "Geopackage error occurred reading divides: " + catchmentDataFile;
-            LOG(LogLevel::FATAL, msg);
-            LOG(LogLevel::FATAL, e.what());
+            LOG(msg, LogLevel::FATAL);
+            LOG(e.what(), LogLevel::FATAL);
             throw std::runtime_error(msg);
         }
 #else
-        LOG(LogLevel::FATAL, "SQLite3 support required to read GeoPackage files");
+        LOG("SQLite3 support required to read GeoPackage files", LogLevel::FATAL);
         throw std::runtime_error("SQLite3 support required to read GeoPackage files");
 #endif
     }
@@ -458,7 +458,7 @@ int main(int argc, char* argv[])
     if (num_catchments < num_partitions) {
         std::string msg = "Input error: total number of catchments: " + std::to_string(num_catchments) + \
                                  ", cannot be less than the number of partitions: " + std::to_string(num_partitions);
-        LOG(msg,LogLevel::FATAL, msg);
+        LOG(msg,LogLevel::FATAL);
         throw std::runtime_error(msg);
     }
 
@@ -479,11 +479,11 @@ int main(int argc, char* argv[])
             // Handle all exceptions
             std::string msg = "Geopackage error occurred reading nexuses: " + nexusDataFile;
             LOG(msg,LogLevel::FATAL);
-            LOG(LogLevel::FATAL, e.what());
+            LOG(e.what(), LogLevel::FATAL);
             throw;
         } 
 #else
-        LOG(LogLevel::FATAL, "SQLite3 support required to read GeoPackage files.");
+        LOG("SQLite3 support required to read GeoPackage files.", LogLevel::FATAL);
         throw std::runtime_error("SQLite3 support required to read GeoPackage files.");
 #endif
     } 

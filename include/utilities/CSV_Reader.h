@@ -1,6 +1,6 @@
 #ifndef CSV_Reader_H
 #define CSV_Reader_H
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <fstream>
 #include <vector>

@@ -17,7 +17,7 @@
 
 #include "NGenConfig.h"
 
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <FileChecker.h>
 #include <boost/algorithm/string.hpp>

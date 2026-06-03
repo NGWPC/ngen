@@ -14,6 +14,7 @@ ARG IMAGE_NAMESPACE=ngwpc
 # External repository sources (org and ref/branch overrides)
 ARG EWTS_ORG=${GH_ORG}
 ARG EWTS_REF=development
+ARG USE_EWTS=ON
 ############################################################################
 
 # Image selection
@@ -23,7 +24,7 @@ ARG NGEN_FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE
 FROM ${NGEN_FORCING_IMAGE} AS base
 
 # Uncomment when building locally
-# FROM ngen-bmi-forcing AS base
+#FROM ngen-bmi-forcing AS base
 
 # Re-expose args after FROM for the remaining build stage
 # Keeps whatever value was already set
@@ -32,6 +33,13 @@ ARG GHCR_ORG
 ARG IMAGE_NAMESPACE
 ARG EWTS_ORG
 ARG EWTS_REF
+
+# USE_EWTS defaults to ON globally, but this value is also passed into CMake as
+# a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
+# a reused CMake build directory may retain that OFF value. Keep the Docker ARG
+# default explicit in this stage and normalize/default it before passing it to
+# CMake so an unset or empty value never becomes -DUSE_EWTS=.
+ARG USE_EWTS=ON
 
 # OCI Metadata Arguments
 ARG NGEN_FORCING_IMAGE
@@ -75,6 +83,7 @@ RUN set -eux && \
     dnf config-manager --set-enabled powertools && \
     dnf install -y \
         cmake \
+        ccache \
         curl curl-devel \
         file \
         findutils \
@@ -105,6 +114,20 @@ RUN set -eux && \
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 ## FIXME: replace openmpi with Intel MPI libraries ##
 ENV PATH="${PATH}:/usr/lib64/openmpi/bin/"
+
+# Use ccache so repeated Docker builds can reuse previously 
+# compiled C/C++/Fortran objects even when a Docker layer 
+# containing source files is invalidated.
+# ccache computes a hash based on things like:
+#   source file contents
+#   compiler flags
+#   compiler version
+#   included headers
+# If it has already compiled the exact same thing before, 
+# it returns the cached .o file instead of recompiling
+
+ENV CCACHE_DIR="/root/.cache/ccache" \
+    CCACHE_MAXSIZE="10G"
 
 # Fix OpenMPI support within container
 ENV PSM3_HAL=loopback \
@@ -161,8 +184,8 @@ RUN set -eux && \
 	done
 
 # Build additional libraries (SZIP, HDF5, netcdf-c, netcdf-fortran, Boost)
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-szip \
-    set -eux && \
+# Removed cache mounts where nothing writes to the mounted cache directory
+RUN set -eux && \
 	curl --location --output szip.tar.gz https://docs.hdfgroup.org/archive/support/ftp/lib-external/szip/${SZIP_VERSION%%[a-z]*}/src/szip-${SZIP_VERSION}.tar.gz && \
 	mkdir --parents /usr/src/szip && \
 	tar --extract --directory /usr/src/szip --strip-components=1 --file szip.tar.gz && \
@@ -174,8 +197,7 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-szip \
     strip --strip-debug /usr/local/lib/libsz*.so.* || true && \
     rm --recursive --force /usr/src/szip szip.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
-    set -eux && \
+RUN set -eux && \
 	curl --location --output hdf5.tar.gz https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-${HDF5_VERSION//./_}.tar.gz && \
 	mkdir --parents /usr/src/hdf5 && \
 	tar --extract --directory /usr/src/hdf5 --strip-components=1 --file hdf5.tar.gz && \
@@ -187,33 +209,44 @@ RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-hdf5 \
     rm -f /usr/local/lib/libhdf5*.a && \
     rm --recursive --force /usr/src/hdf5 hdf5.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-c \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     curl --location --output netcdf-c.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_C_VERSION%%[a-z]*}.tar.gz && \
     mkdir --parents /usr/src/netcdf-c && \
     tar --extract --directory /usr/src/netcdf-c --strip-components=1 --file netcdf-c.tar.gz && \
+    rm -rf /usr/src/netcdf-c/cmake_build && \
     cd /usr/src/netcdf-c && \
-    cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=ON \
+        -DENABLE_TESTS=OFF \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
     #strip --strip-debug /usr/local/lib64/libnetcdf*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-c netcdf-c.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-netcdf-fortran \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
     curl --location --output netcdf-fortran.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION%%[a-z]*}.tar.gz && \
     mkdir --parents /usr/src/netcdf-fortran && \
     tar --extract --directory /usr/src/netcdf-fortran --strip-components=1 --file netcdf-fortran.tar.gz && \
+    rm -rf /usr/src/netcdf-fortran/cmake_build && \
     cd /usr/src/netcdf-fortran && \
-    cmake -B cmake_build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DENABLE_TESTS=OFF \
-       -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=ON \
+        -DENABLE_TESTS=OFF \
+        -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
     cmake --build cmake_build --parallel "$(nproc)" && \
     cmake --build cmake_build --target install && \
     #strip --strip-debug /usr/local/lib/libnetcdff*.so.* || true && \
     rm --recursive --force /usr/src/netcdf-fortran netcdf-fortran.tar.gz
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-boost \
-    set -eux && \
+RUN set -eux && \
     curl --location --output boost.tar.gz https://archives.boost.io/release/${BOOST_VERSION%%[a-z]*}/source/boost_${BOOST_VERSION//./_}.tar.gz && \
     mkdir --parents /opt/boost && \
     tar --extract --directory /opt/boost --strip-components=1 --file boost.tar.gz && \
@@ -256,11 +289,15 @@ WORKDIR /ngen-app/
 #   - Iterative ngen/submodule development doesn't re-trigger the EWTS clone+build.
 #   - EWTS_REF can be pinned without affecting other stages' caches.
 #
-# EWTS provides a unified logging framework used by ngen core and ALL C, C++, Fortran,
-# and Python submodules. Libraries are created for C, C++ and Fortran submodules
+# When USE_EWTS is enabled, EWTS provides a unified logging framework used by
+# ngen and the C, C++, Fortran, and Python modules that have been wired to it.
+# When USE_EWTS is disabled, this stage removes EWTS artifacts and the later
+# CMake builds receive -DUSE_EWTS=OFF.
+#
+# Libraries are created for C, C++ and Fortran submodules
 # (cfe, evapotranspiration, LASAM, noah-owp-modular, snow17, sac-sma,
 # SoilFreezeThaw, SoilMoistureProfiles, topmodel, ueb-bmi) and a Python package is
-# used by Python sumbodules (lstm, topoflow-glacier and t-route).
+# used by Python submodules (lstm, topoflow-glacier and t-route).
 #
 # How the plumbing works:
 #   1. We build EWTS here and install it to /opt/ewts.
@@ -273,7 +310,7 @@ WORKDIR /ngen-app/
 #        ewts::ewts_cpp          – C++ runtime logger    (used by LASAM, SoilFreezeThaw, SoilMoistureProfiles)
 #        ewts::ewts_fortran      – Fortran runtime       (noah-owp-modular sac-sma,, snow17)
 #        ewts::ewts_ngen_bridge  – ngen↔EWTS bridge lib  (linked by ngen itself)
-#        EWTS Python wheel       – pip intalled package  (lstm, topoflow-glacier, t-route)
+#        EWTS Python wheel       – pip installed package  (lstm, topoflow-glacier, t-route)
 #
 # Build args – override at build time to pin a branch, tag, or full commit SHA:
 #   docker build --build-arg EWTS_REF=v1.2.3 ...
@@ -283,7 +320,28 @@ FROM base AS ewts-build
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 
+# USE_EWTS defaults to ON globally, but this value is also passed into CMake as
+# a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
+# a reused CMake build directory may retain that OFF value. Keep the Docker ARG
+# default explicit in this stage and normalize/default it before passing it to
+# CMake so an unset or empty value never becomes -DUSE_EWTS=.
+ARG USE_EWTS=ON
+ARG EWTS_ORG
+ARG EWTS_REF
 ARG EWTS_CACHE_BUST=0
+
+RUN set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \ 
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Checking EWTS branch/tag: ${EWTS_REF}"; \
+        if ! git ls-remote --exit-code --heads \
+            "https://github.com/${EWTS_ORG}/nwm-ewts.git" \
+            "${EWTS_REF}" >/dev/null 2>&1; then \
+            echo "ERROR: EWTS branch '${EWTS_REF}' not found in ${EWTS_ORG}/nwm-ewts. Make sure it has been pushed." >&2; \
+            exit 1; \
+        fi; \
+    fi
 
 # Install path for the built EWTS libraries, headers, cmake config, and
 # Fortran .mod files.  /opt/ewts follows the FHS convention for add-on
@@ -291,60 +349,68 @@ ARG EWTS_CACHE_BUST=0
 # /tmp which can be cleaned unexpectedly.
 ENV EWTS_PREFIX=/opt/ewts
 
-# Point the development fallback to the cloned source tree so that
-# compiler_bmi.sh can pip-install EWTS from source if the wheel is missing.
+# EWTS_PY_ROOT records the EWTS Python source location used by the EWTS-enabled
+# t-route build path. It is informational at runtime; code should only use it
+# when USE_EWTS is enabled.
 ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 
 # Clone nwm-ewts, build, install, capture git metadata for provenance,
 # then remove the source tree.
 # Try shallow clone by branch/tag name first; fall back to full clone + checkout
 # for bare commit SHAs (which git clone -b doesn't support).
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ewts \
-    echo "EWTS cache bust: ${EWTS_CACHE_BUST}" && \
+#
+# Ensures an unset or empty USE_EWTS defaults to ON
+#
+# USE_EWTS accepted ON values:
+#   ON, YES, TRUE, 1
+#
+# Everything else is treated as OFF.
+#
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+    --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+    echo "USE_EWTS=${USE_EWTS}; EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     set -eux && \
-    (git clone --depth 1 -b "${EWTS_REF}" \
-        "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
-     || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
-         cd /tmp/nwm-ewts && git checkout "${EWTS_REF}")) && \
-    cd /tmp/nwm-ewts && \
-    # ── Build EWTS ──
-    # This produces: C, C++, Fortran shared libs + ngen bridge + Python wheel.
-    # -DEWTS_WITH_NGEN=ON  enables the ngen bridge (ewts_ngen_bridge.so) which
-    #   provides the C shim ewts_ngen_log() that ngen's core calls into.
-    # -DEWTS_BUILD_SHARED=ON  builds .so's so submodule DSOs can link at runtime.
-    cmake -S . -B cmake_build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DEWTS_WITH_NGEN=ON \
-      -DEWTS_BUILD_SHARED=ON && \
-    cmake --build cmake_build -j "$(nproc)" && \
-    cmake --install cmake_build --prefix ${EWTS_PREFIX} && \
-    # ── Capture EWTS git provenance ──
-    # Saved as a JSON sidecar so the git-info merge step at the bottom of this
-    # Dockerfile can include EWTS metadata alongside ngen + submodules.
-    jq -n \
-      --arg commit_hash "$(git rev-parse HEAD)" \
-      --arg branch "$(git branch -r --contains HEAD 2>/dev/null | grep -v '\->' | sed 's|origin/||' | head -n1 | xargs || echo "${EWTS_REF}")" \
-      --arg tags "$(git tag --points-at HEAD 2>/dev/null | tr '\n' ' ')" \
-      --arg author "$(git log -1 --pretty=format:'%an')" \
-      --arg commit_date "$(date -u -d @$(git log -1 --pretty=format:'%ct') +'%Y-%m-%d %H:%M:%S UTC')" \
-      --arg message "$(git log -1 --pretty=format:'%s' | tr '\n' ';')" \
-      --arg build_date "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
-      '{"nwm-ewts": {commit_hash: $commit_hash, branch: $branch, tags: $tags, author: $author, commit_date: $commit_date, message: $message, build_date: $build_date}}' \
-      > /ngen-app/nwm-ewts_git_info.json && \
-    # ── Cleanup source (keep Python source as fallback for compiler_bmi.sh) ──
-    cd / && \
-    rm -rf /tmp/nwm-ewts/cmake_build /tmp/nwm-ewts/.git
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Building and installing EWTS"; \
+        rm -rf /tmp/nwm-ewts && \
+        git clone --depth 1 -b "${EWTS_REF}" \
+            "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
+        || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
+            cd /tmp/nwm-ewts && git checkout "${EWTS_REF}"); \
+        rm -rf /tmp/nwm-ewts/cmake_build && \
+        cd /tmp/nwm-ewts; \
+        cmake -S . -B cmake_build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEWTS_WITH_NGEN=ON \
+            -DEWTS_BUILD_SHARED=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache; \
+        cmake --build cmake_build -j "$(nproc)"; \
+        cmake --install cmake_build --prefix "${EWTS_PREFIX}"; \
+        jq -n \
+            --arg commit_hash "$(git rev-parse HEAD)" \
+            --arg branch "$(git branch -r --contains HEAD 2>/dev/null | grep -v '\->' | sed 's|origin/||' | head -n1 | xargs || echo "${EWTS_REF}")" \
+            --arg tags "$(git tag --points-at HEAD 2>/dev/null | tr '\n' ' ')" \
+            --arg author "$(git log -1 --pretty=format:'%an')" \
+            --arg commit_date "$(date -u -d @$(git log -1 --pretty=format:'%ct') +'%Y-%m-%d %H:%M:%S UTC')" \
+            --arg message "$(git log -1 --pretty=format:'%s' | tr '\n' ';')" \
+            --arg build_date "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+            '{"nwm-ewts": {commit_hash: $commit_hash, branch: $branch, tags: $tags, author: $author, commit_date: $commit_date, message: $message, build_date: $build_date}}' \
+            > /ngen-app/nwm-ewts_git_info.json; \
+        pip install "${EWTS_PREFIX}"/python/dist/ewts-*.whl; \
+        cd /; \
+        rm -rf /tmp/nwm-ewts/cmake_build /tmp/nwm-ewts/.git; \
+    else \
+        echo "EWTS disabled; removing any EWTS artifacts"; \
+        pip uninstall -y ewts || true; \
+        rm -rf "${EWTS_PREFIX}" /tmp/nwm-ewts /ngen-app/nwm-ewts_git_info.json; \
+    fi
 
-# Install the EWTS Python wheel into the venv.
-# This is what makes "import ewts" work for Python-based submodules.
-# For example, lstm's bmi_lstm.py does:  import ewts; LOG = ewts.get_logger(ewts.LSTM_ID)
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    set -eux && \
-    pip install ${EWTS_PREFIX}/python/dist/ewts-*.whl
 
-# Make EWTS shared libraries (.so) discoverable at runtime.
-# Without this, ngen and every submodule DSO would fail with:
-#   "error while loading shared libraries: libewts_ngen_bridge.so: cannot open"
+# When USE_EWTS=ON, make EWTS shared libraries (.so) discoverable at runtime.
+# Harmless when USE_EWTS=OFF because these directories will not exist.
 # We include both lib/ and lib64/ because cmake may install to either depending
 # on the platform/distro convention.
 ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:${LD_LIBRARY_PATH}"
@@ -352,137 +418,213 @@ ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:${LD_LIBRARY_PATH}"
 ##############################
 # Stage: Submodules Build
 ##############################
-# Inherits from ewts-build so /opt/ewts is already present.
-# The ngen source COPY happens here — changing ngen code only invalidates
-# this stage and below, not the EWTS build above.
+# Inherits from ewts-build. When USE_EWTS is enabled, /opt/ewts and the
+# EWTS Python package are present; when disabled, EWTS artifacts are removed.
+#
+# Cache strategy:
+#   1. Copy dependency manifests first so pip dependency installs are cached.
+#   2. Copy only the standalone extern/submodule trees and build/install them.
+#   3. Copy the full ngen source only after the submodule-heavy work is done.
+#
+# Result:
+#   - Pure ngen src/include/cmake changes should not invalidate the standalone
+#     submodule build layers.
+#   - Submodule source changes still invalidate the corresponding submodule
+#     COPY/RUN layers, as desired.
+#   - The final full COPY keeps .git/.gitmodules/provenance behavior intact.
 ##############################
 FROM ewts-build AS submodules
 
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 
+ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
+
+# USE_EWTS defaults to ON globally, but this value is also passed into CMake as
+# a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
+# a reused CMake build directory may retain that OFF value. Keep the Docker ARG
+# default explicit in this stage and normalize/default it before passing it to
+# CMake so an unset or empty value never becomes -DUSE_EWTS=.
+ARG USE_EWTS=ON
+
 WORKDIR /ngen-app/
 
-# Copy the ngen application source.
-# This is placed here (not in base) so that
-# ngen code changes only invalidate the submodules stage, leaving the base and
-# ewts-build stages cached.
-COPY . /ngen-app/ngen/
-
-WORKDIR /ngen-app/ngen/
-
-# Copy only the requirements files first for dependency installation caching
+# Copy only the requirements files first for dependency installation caching.
+# Changes to ngen source files will not invalidate this pip install layer unless
+# one of these requirements files changes.
 COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
 COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
 
-# Install Python dependencies and remove the temporary requirements files
+# Install Python dependencies and remove the temporary requirements files.
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     set -eux && \
         pip3 install -r /tmp/test_bmi_py_requirements.txt && \
         pip3 install -r /tmp/t-route_requirements.txt && \
         rm /tmp/test_bmi_py_requirements.txt /tmp/t-route_requirements.txt
 
-ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
+# Copy only the extern/submodule trees that are built independently below.
+# Keep these COPY lines separate enough that a change in one submodule does not
+# invalidate every unrelated submodule build layer.
+WORKDIR /ngen-app/ngen/
 
-# Use cache for building the t-route submodule
-RUN --mount=type=cache,target=/root/.cache/t-route,id=t-route-build \
+COPY extern/bmi-cxx extern/bmi-cxx
+COPY extern/LASAM extern/LASAM
+COPY extern/iso_c_fortran_bmi extern/iso_c_fortran_bmi
+COPY extern/snow17 extern/snow17
+COPY extern/sac-sma extern/sac-sma
+COPY extern/SoilMoistureProfiles extern/SoilMoistureProfiles
+COPY extern/SoilFreezeThaw extern/SoilFreezeThaw
+COPY extern/ueb-bmi extern/ueb-bmi
+COPY extern/lstm extern/lstm
+
+# Place t-route last because it is currently the submodule that changes most
+# often. Keeping it later in the COPY/build sequence avoids invalidating the
+# more stable submodule layers above. If t-route stabilizes in the future,
+# consider moving it earlier so changes to other submodules do not trigger a
+# relatively expensive t-route rebuild.
+COPY extern/t-route extern/t-route
+
+# Build/install the t-route submodule.
+# t-route's compiler scripts run make/pip commands inside the source tree, so a
+# separate t-route cache mount (e.g. /root/.cache/t-route) does not help unless
+# the scripts explicitly write build artifacts there. pip/uv caches are the
+# useful reusable caches here.
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+    --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
     set -eux && \
+    export CC="gcc" && \
+    export CXX="g++" && \
+    export F90="gfortran" && \
+    export FC="gfortran" && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "T-Route USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     cd extern/t-route && \
-    echo "Running compiler_bmi.sh" && \
-    LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
-    ./compiler_bmi.sh no-e && \
+    export LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Running compiler_bmi.sh (EWTS enabled)"; \
+        ./compiler_bmi.sh no-e; \
+    else \
+        echo "Running compiler.sh (EWTS disabled)"; \
+        ./compiler.sh no-e; \
+    fi && \
     rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
     find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
     find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
 
-# Configure the build with cache for CMake
-# -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} tells cmake where
-# to find the ewtsConfig.cmake package file so that ngen's
-# CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
-# ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ngen \
-    set -eux && \
-        export FFLAGS="-fPIC" && \
-        export FCFLAGS="-fPIC" && \
-        export CMAKE_Fortran_FLAGS="-fPIC" && \
-        cmake -B cmake_build -S . \
-          -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-          -DNGEN_WITH_MPI=ON \
-          -DNGEN_WITH_NETCDF=ON \
-          -DNGEN_WITH_SQLITE=ON \
-          -DNGEN_WITH_UDUNITS=ON \
-          -DNGEN_WITH_BMI_FORTRAN=ON \
-          -DNGEN_WITH_BMI_C=ON \
-          -DNGEN_WITH_PYTHON=ON \
-          -DNGEN_WITH_TESTS=OFF \
-          -DNGEN_WITH_ROUTING=ON \
-          -DNGEN_QUIET=ON \
-          -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
-          -DBOOST_ROOT=/opt/boost && \
-    cmake --build cmake_build --target all && \
-    rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
-    rm -rf /ngen-app/ngen/cmake_build/src/core/CMakeFiles && \
-    find /ngen-app/ngen/cmake_build -name "*.a" -exec rm -f {} + && \
-    find /ngen-app/ngen/cmake_build -name "*.o" -exec rm -f {} +
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Build each submodule in a separate layer, using cache for CMake as well
+# Build each submodule in a separate layer.
 #
-# IMPORTANT: Every submodule's CMakeLists.txt now contains:
-#   find_package(ewts CONFIG REQUIRED)
-# so we MUST pass -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} to each cmake call.
-# Without it, cmake cannot locate ewtsConfig.cmake and the build fails with:
-#   "Could not find a package configuration file provided by "ewts"..."
+# When USE_EWTS is enabled, CMAKE_PREFIX_PATH allows submodules that use EWTS
+# to locate the ewtsConfig.cmake package under /opt/ewts.
 #
-# What each submodule links:
-#   LASAM              → ewts::ewts_cpp  + ewts::ewts_ngen_bridge
-#   snow17             → ewts::ewts_fortran + ewts::ewts_ngen_bridge
-#   sac-sma            → ewts::ewts_fortran + ewts::ewts_ngen_bridge
-#   SoilMoistureProfiles → (check its CMakeLists.txt for specifics)
-#   SoilFreezeThaw     → (check its CMakeLists.txt for specifics)
-#   cfe                → (check its CMakeLists.txt for specifics)
-#   ueb-bmi            → (check its CMakeLists.txt for specifics)
+# When USE_EWTS is disabled, submodules should skip EWTS linkage based on
+# -DUSE_EWTS=${USE_EWTS}.
 # ──────────────────────────────────────────────────────────────────────────────
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-lasam \
+ARG LASAM_CACHE_BUST=0
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "LASAM cache bust: ${LASAM_CACHE_BUST}" && \
+    echo "LASAM USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/LASAM/cmake_build && \
     cmake -B extern/LASAM/cmake_build -S extern/LASAM/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+      -DNGEN=ON \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/LASAM/cmake_build/ && \
     find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-snow17 \
+ARG SNOW17_CACHE_BUST=0
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "SNOW17 cache bust: ${SNOW17_CACHE_BUST}" && \
+    echo "SNOW17 USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/snow17/cmake_build && \
     cmake -B extern/snow17/cmake_build -S extern/snow17/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/snow17/cmake_build/ && \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-sac-sma \
+ARG SACSMA_CACHE_BUST=0
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "SACSMA cache bust: ${SACSMA_CACHE_BUST}" && \
+    echo "SACSMA USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/sac-sma/cmake_build && \
     cmake -B extern/sac-sma/cmake_build -S extern/sac-sma/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/sac-sma/cmake_build/ && \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilmoistureprofiles \
+ARG SMP_CACHE_BUST=0
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "SMP cache bust: ${SMP_CACHE_BUST}" && \
+    echo "SMP USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/SoilMoistureProfiles/cmake_build && \
     cmake -B extern/SoilMoistureProfiles/cmake_build -S extern/SoilMoistureProfiles/SoilMoistureProfiles/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+      -DNGEN=ON \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilMoistureProfiles/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-soilfreezethaw \
+ARG SFT_CACHE_BUST=0
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "SFT cache bust: ${SFT_CACHE_BUST}" && \
+    echo "SFT USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/SoilFreezeThaw/cmake_build && \
     cmake -B extern/SoilFreezeThaw/cmake_build -S extern/SoilFreezeThaw/SoilFreezeThaw/ \
-      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} -DNGEN=ON -DBOOST_ROOT=/opt/boost && \
+      -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+      -DNGEN=ON \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/SoilFreezeThaw/cmake_build/ && \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
-RUN --mount=type=cache,target=/root/.cache/cmake,id=cmake-ueb-bmi \
+ARG UEB_CACHE_BUST=0
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "UEB cache bust: ${UEB_CACHE_BUST}" && \
+    echo "UEB USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    rm -rf extern/ueb-bmi/cmake_build && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ \
-      -DUEB_SUPPRESS_OUTPUTS=ON -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
-      -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ -DBOOST_ROOT=/opt/boost && \
+      -DUEB_SUPPRESS_OUTPUTS=ON \
+      -DCMAKE_PREFIX_PATH="${EWTS_PREFIX}" \
+      -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+      -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DBOOST_ROOT=/opt/boost && \
     cmake --build extern/ueb-bmi/cmake_build/ && \
     find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
 
@@ -491,15 +633,57 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     cd extern/lstm; \
     pip install .
 
+
+# Copy the full ngen application source only after the standalone submodules
+# above have been built. This keeps ordinary ngen code changes from invalidating
+# the expensive submodule build layers while preserving .git/.gitmodules for the
+# provenance extraction step below.
+COPY . /ngen-app/ngen/
+
+# topoflow-glacier uses setuptools-scm/VCS versioning and requires Git
+# metadata to be available when `pip install .` runs. Therefore this must
+# be built after the full repository COPY step.
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     set -eux; \
     cd extern/topoflow-glacier; \
     pip install .
 
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    set -eux; \
-    cd extern/topoflow-glacier; \
-    pip install .
+# Configure ngen using ccache for compiler caching.
+# -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} tells cmake where
+# to find the ewtsConfig.cmake package file so that ngen's
+# CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
+# ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+    set -eux && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "ngen USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    export FFLAGS="-fPIC" && \
+    export FCFLAGS="-fPIC" && \
+    export CMAKE_Fortran_FLAGS="-fPIC" && \
+    rm -rf cmake_build && \
+    cmake -B cmake_build -S . \
+        -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+        -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
+        -DNGEN_WITH_MPI=ON \
+        -DNGEN_WITH_NETCDF=ON \
+        -DNGEN_WITH_SQLITE=ON \
+        -DNGEN_WITH_UDUNITS=ON \
+        -DNGEN_WITH_BMI_FORTRAN=ON \
+        -DNGEN_WITH_BMI_C=ON \
+        -DNGEN_WITH_PYTHON=ON \
+        -DNGEN_WITH_TESTS=OFF \
+        -DNGEN_WITH_ROUTING=ON \
+        -DNGEN_QUIET=ON \
+        -DNGEN_UPDATE_GIT_SUBMODULES=OFF \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+        -DBOOST_ROOT=/opt/boost && \
+    cmake --build cmake_build --target all && \
+    rm -rf /ngen-app/ngen/cmake_build/test/CMakeFiles && \
+    rm -rf /ngen-app/ngen/cmake_build/src/core/CMakeFiles && \
+    find /ngen-app/ngen/cmake_build -name "*.a" -exec rm -f {} + && \
+    find /ngen-app/ngen/cmake_build -name "*.o" -exec rm -f {} +
 
 RUN set -eux && \
     mkdir --parents /ngencerf/data/ngen-run-logs/ && \
@@ -584,10 +768,16 @@ RUN set -eux && \
       echo "$info" > /ngen-app/submodules-json/git_info_"$sub_key".json; \
     done; \
     \
-    # Merge the main repository JSON + submodule JSONs + EWTS provenance into one file.
-    # The EWTS json was created during the EWTS build step above; including it
-    # here means `cat /ngen-app/ngen_git_info.json` shows EWTS version info too.
-    jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json /ngen-app/nwm-ewts_git_info.json > /ngen-app/merged_git_info.json && \
+    # Merge the main repository JSON and all submodule provenance JSON files into
+    # a single metadata file. When EWTS is enabled, also include the EWTS provenance
+    # JSON created during the optional EWTS build step above so
+    #   cat /ngen-app/ngen_git_info.json
+    # shows the exact EWTS version/build information included in the container.
+    if [ -f /ngen-app/nwm-ewts_git_info.json ]; then \
+        jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json /ngen-app/nwm-ewts_git_info.json > /ngen-app/merged_git_info.json; \
+    else \
+        jq -s 'add' $GIT_INFO_PATH /ngen-app/submodules-json/*.json > /ngen-app/merged_git_info.json; \
+    fi && \
     mv /ngen-app/merged_git_info.json $GIT_INFO_PATH && \
     rm -rf /ngen-app/submodules-json /ngen-app/nwm-ewts_git_info.json
 

@@ -1,6 +1,6 @@
 #ifndef NGEN_REALIZATION_CONFIG_LAYER_H
 #define NGEN_REALIZATION_CONFIG_LAYER_H
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <boost/property_tree/ptree.hpp>
 

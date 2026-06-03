@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 #include <algorithm>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace ngen {
 namespace sqlite {

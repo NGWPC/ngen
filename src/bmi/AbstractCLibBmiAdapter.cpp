@@ -6,7 +6,7 @@
 
 #include <dlfcn.h>
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace models {
 namespace bmi {

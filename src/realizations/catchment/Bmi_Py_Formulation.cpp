@@ -1,6 +1,6 @@
 #include <NGenConfig.h>
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 
 #if NGEN_WITH_PYTHON

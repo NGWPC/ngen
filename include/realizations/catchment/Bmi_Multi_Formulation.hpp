@@ -1,6 +1,6 @@
 #ifndef NGEN_BMI_MULTI_FORMULATION_HPP
 #define NGEN_BMI_MULTI_FORMULATION_HPP
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <map>
 #include <vector>

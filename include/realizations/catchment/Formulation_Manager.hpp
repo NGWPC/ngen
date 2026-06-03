@@ -2,7 +2,7 @@
 #define NGEN_FORMULATION_MANAGER_H
 
 #include <NGenConfig.h>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <memory>
 #include <sstream>

@@ -11,7 +11,7 @@
 #include "Bmi_C_Formulation.hpp"
 #include "Bmi_Fortran_Formulation.hpp"
 #include "Bmi_Py_Formulation.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include <stdexcept>
 
 #include "state_save_restore/vecbuf.hpp"

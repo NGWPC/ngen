@@ -1,6 +1,6 @@
 #include "Bmi_Cpp_Formulation.hpp"
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 using namespace realization;
 using namespace models::bmi;

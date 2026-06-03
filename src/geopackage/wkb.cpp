@@ -1,7 +1,7 @@
 #include "wkb.hpp"
 #include "proj.hpp"
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 namespace ngen {
 namespace geopackage {

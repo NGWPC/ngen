@@ -2,7 +2,7 @@
 #define NGEN_BMI_FORTRAN_ADAPTER_HPP
 
 #include <NGenConfig.h>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #if NGEN_WITH_BMI_FORTRAN
 

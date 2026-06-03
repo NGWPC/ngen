@@ -3,7 +3,7 @@
 #include <numeric>
 #include <regex>
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 std::stringstream read_ss("");
 

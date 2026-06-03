@@ -1,3 +1,5 @@
+# ngen/extern/cfe/CmakeLists.txt
+
 cmake_minimum_required(VERSION 3.12)
 
 # Uncomment this and rebuild artifacts to enable debugging
@@ -35,15 +37,23 @@ set_target_properties(cfebmi PROPERTIES PUBLIC_HEADER cfe/include/bmi_cfe.h)
 
 target_link_libraries(cfebmi PRIVATE Boost::serialization)
 
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
+option(USE_EWTS "Build CFE with EWTS logging" ON)
+message("-- CFE CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- CFE compiled with EWTS logging")
 
-# Always use EWTS runtime logger for C
-target_link_libraries(cfebmi PRIVATE ewts::ewts_c)
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
 
-# Built with ngen bridge
-target_link_libraries(cfebmi PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(cfebmi PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+    # Always use EWTS runtime logger for C
+    target_link_libraries(cfebmi PRIVATE ewts::ewts_c)
+
+    # Built with ngen bridge
+    target_link_libraries(cfebmi PRIVATE ewts::ewts_ngen_bridge)
+    target_compile_definitions(cfebmi PRIVATE CFE_USE_EWTS)
+else()
+    message("-- CFE compiled with stdout fallback logging")
+endif()
 
 
 # Code requires minimum of C99 standard to compile

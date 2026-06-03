@@ -1,7 +1,7 @@
 #ifndef SIMULATION_TIME_H
 #define SIMULATION_TIME_H
 
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <ctime>
 #include <time.h>

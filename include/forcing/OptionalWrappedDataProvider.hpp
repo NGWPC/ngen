@@ -1,6 +1,6 @@
 #ifndef NGEN_OPTIONALWRAPPEDPROVIDER_HPP
 #define NGEN_OPTIONALWRAPPEDPROVIDER_HPP
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include <utility>
 

@@ -2,7 +2,7 @@
 #include "utilities/logging_utils.h"
 #include <UnitsHelper.hpp>
 #include <stdexcept>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include <state_save_restore/State_Save_Restore.hpp>
 
@@ -154,7 +154,7 @@ namespace realization {
                         << ". t_index=" << t_index
                         << ", next_step_index=" << next_time_step_index << "\n";
                     append_model_inputs_to_stream(model_initial_time, t_delta, error_message);
-                    Logger::Log(LogLevel::FATAL, error_message.str());
+                    LOG(LogLevel::FATAL, error_message.str());
                     throw;
                 }
                 // TODO: again, consider whether we should store any historic response, ts_delta, or other var values

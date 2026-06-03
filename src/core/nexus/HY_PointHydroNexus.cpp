@@ -2,7 +2,7 @@
 
 #include <boost/exception/all.hpp>
 
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 typedef boost::error_info<struct tag_errmsg, std::string> errmsg_info;
 

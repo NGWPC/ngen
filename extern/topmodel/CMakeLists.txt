@@ -32,15 +32,23 @@ set_target_properties(topmodelbmi PROPERTIES PUBLIC_HEADER topmodel/include/bmi_
 
 target_link_libraries(topmodelbmi PRIVATE Boost::serialization)
 
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
+option(USE_EWTS "Build TOPMODEL with EWTS logging" ON)
+message("-- TOPMODEL CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- TOPMODEL compiled with EWTS logging")
 
-# Always use EWTS runtime logger for C
-target_link_libraries(topmodelbmi PRIVATE ewts::ewts_c)
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
 
-# Built with ngen bridge
-target_link_libraries(topmodelbmi PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(topmodelbmi PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+    # Always use EWTS runtime logger for C
+    target_link_libraries(topmodelbmi PRIVATE ewts::ewts_c)
+
+    # Built with ngen bridge
+    target_link_libraries(topmodelbmi PRIVATE ewts::ewts_ngen_bridge)
+    target_compile_definitions(topmodelbmi PRIVATE TOPMODEL_USE_EWTS)
+else()
+    message("-- TOPMODEL compiled with stdout fallback logging")
+endif()
 
 # Code requires minimum of C99 standard to compile
 set_target_properties(topmodelbmi PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)

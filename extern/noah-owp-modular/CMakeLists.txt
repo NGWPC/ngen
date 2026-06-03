@@ -32,11 +32,27 @@ target_compile_options(surfacebmi PRIVATE -cpp -ffree-line-length-none)
 target_include_directories(surfacebmi INTERFACE "${_SURFACEBMI_BINARY_DIR}/mod")
 target_compile_definitions(surfacebmi PRIVATE BMI_ACTIVE)
 
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
 
-# Always use EWTS runtime logger for Fortran
-target_link_libraries(surfacebmi PRIVATE ewts::ewts_fortran)
+option(USE_EWTS "Build NOAHOWP with EWTS logging" ON)
+message("-- NOAHOWP CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- NOAHOWP compiled with EWTS logging")
+
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
+
+    # Always use EWTS runtime logger for Fortran
+    target_link_libraries(surfacebmi PRIVATE ewts::ewts_fortran)
+
+    # Built with ngen bridge
+    target_link_libraries(surfacebmi PRIVATE 
+        ewts::ewts_ngen_bridge
+    )
+    target_compile_definitions(surfacebmi PRIVATE NOAHOWP_USE_EWTS)
+else()
+    message("-- NOAHOWP compiled with stdout fallback logging")
+endif()
+
 
 if(NGEN_IS_MAIN_PROJECT)
 
@@ -52,9 +68,6 @@ if(NGEN_IS_MAIN_PROJECT)
     target_link_libraries(surfacebmi PUBLIC iso_c_bmi)
     target_compile_definitions(surfacebmi PRIVATE NGEN_FORCING_ACTIVE NGEN_OUTPUT_ACTIVE NGEN_ACTIVE)
 
-    # Built with ngen bridge
-    target_link_libraries(surfacebmi PRIVATE ewts::ewts_ngen_bridge)
-    target_compile_definitions(surfacebmi PRIVATE EWTS_HAVE_NGEN_BRIDGE)
 else()
     find_path(NETCDF_MODULE_DIR netcdf.mod
         PATHS "${NETCDF_ROOT}/include"
