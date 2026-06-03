@@ -405,7 +405,7 @@ if(NGEN_WITH_SQLITE)
 endif()
 
 if(USE_EWTS)
-    target_link_libraries(partitionGenerator PUBLIC ewts::ewts_ngen_bridge)
+    target_link_libraries(partitionGenerator PUBLIC NGen::ewts)
 endif()
 
 target_link_libraries(partitionGenerator PUBLIC NGen::core NGen::geojson)
