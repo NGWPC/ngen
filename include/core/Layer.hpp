@@ -129,6 +129,9 @@ namespace ngen
         std::string unit_name() const;
         virtual std::vector<std::string> required_checkpoint_units() const;
 
+        virtual std::map<std::string, std::string> get_catchment_output_data_for_timestep();
+        virtual void set_simulations_output_format(std::vector<std::string> out_formats);
+        virtual std::vector<std::string> get_simulations_output_format();
         protected:
 
         const LayerDescription description;
@@ -139,7 +142,11 @@ namespace ngen
         feature_type& features;
         //TODO is this really required at the top level? or can this be moved to SurfaceLayer?
         const geojson::GeoJSON catchment_data;
-        long output_time_index;   
+        long output_time_index;       
+        std::map<std::string, std::string> catchment_output_values;
+        std::vector<std::string> output_formats;
+    };
+}
 
         // Serialization template will be defined and instantiated in the .cpp file
         template <class Archive>

@@ -26,21 +26,6 @@ NetCDFFile::NetCDFFile(const std::string& filename, bool write_only, bool is_mpi
     : nc_file_name_(filename), is_mpi_(is_mpi)
 {
     int mode = NC_NETCDF4;
-// #if NGEN_WITH_MPI
-//     if(is_mpi_){
-//         if(write_only){
-//             NC_CHECK(nc_create_par(nc_file_name_.c_str(), NC_NETCDF4 | NC_MPIIO | NC_CLOBBER,
-//                 MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
-//         }
-//         else{
-//             read_only_ = true;
-//             NC_CHECK(nc_open_par(nc_file_name_.c_str(), NC_WRITE | NC_MPIIO,
-//                 MPI_COMM_WORLD, MPI_INFO_NULL, &ncid_);
-//         }
-//     }
-//     else
-// #endif
-//  {
     if(write_only){
         NC_CHECK(nc_create(nc_file_name_.c_str(), NC_NETCDF4 | NC_CLOBBER, &ncid_), "Creating NetCDF file failed");
     }
@@ -131,21 +116,13 @@ void NetCDFFile::write_variable_data(const std::string& name, const std::vector<
     std::vector<size_t> start = {start_index};
     std::vector<size_t> count = {data.size()};
 
-    // #if NGEN_WITH_MPI
-    //     if (comm_ != MPI_COMM_NULL) {
-    //         NC_CHECK(nc_var_par_access(ncid_, var->get_varid(), NC_COLLECTIVE);
-    //         if (retval != NC_NOERR) throw std::runtime_error(nc_strerror(retval));
-    //     }
-    // #endif
-
     write_data_to_ncvar(ncid_, var->get_varid(), start, count, data);
 
     // We need to construct a map of variable value and the index in the nc file.
     // this will be used while writing the output values.
-    // At this moment, we need this only for catchments (string type).
-    nc_type data_type;
-    NC_CHECK(nc_inq_vartype(ncid_, var->get_varid(), &data_type), "Retrieving data type for variable failed");;
-    if (data_type == NC_STRING) {
+    // At this moment, we need this only for catchments
+
+    if (name == "catchments") {
         var->build_variables_index(data.size());
     }
 }

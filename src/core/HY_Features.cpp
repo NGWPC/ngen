@@ -24,7 +24,7 @@ HY_Features::HY_Features(network::Network network, std::shared_ptr<Formulation_M
       std::string feat_id;
       std::string feat_type;
       std::vector<std::string> origins, destinations;
-
+      std::vector<std::string> output_formats = formulations->get_simulation_output_format();
       for(const auto& feat_idx : network){
         feat_id = network.get_id(feat_idx);//feature->get_id();
         feat_type = feat_id.substr(0, feat_id.find(hy_features::identifiers::separator) );
@@ -35,11 +35,14 @@ HY_Features::HY_Features(network::Network network, std::shared_ptr<Formulation_M
           //Find and prepare formulation
           auto formulation = formulations->get_formulation(feat_id);
           if (formulation->get_output_header_count() > 0) {
-            // only create an output stream if there are output variables to be recorded
-            formulation->set_output_stream(formulations->get_output_root() + feat_id + ".csv");
-            // TODO: add command line or config option to have this be omitted
-            //FIXME why isn't default param working here??? get_output_header_line() fails.
-            formulation->write_output("Time Step,""Time,"+formulation->get_output_header_line(",")+"\n");
+            // only create an output stream if there are output variables to be recorded and the csv format is requested
+            if (std::find(output_formats.begin(), output_formats.end(), "csv") != output_formats.end()){
+              formulation->set_output_stream(formulations->get_output_root() + feat_id + ".csv");
+            
+              // TODO: add command line or config option to have this be omitted
+              //FIXME why isn't default param working here??? get_output_header_line() fails.
+              formulation->write_output("Time Step,""Time,"+formulation->get_output_header_line(",")+"\n");
+            }
           }
           //Find upstream nexus ids
           origins = network.get_origination_ids(feat_id);

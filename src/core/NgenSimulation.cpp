@@ -196,8 +196,11 @@ void NgenSimulation::advance_models_one_output_step()
 #endif // NGEN_WITH_NEXUSES
 
                 #if NGEN_WITH_NETCDF
-                    std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
-                    nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
+                    std::vector<std::string> output_formats = layer->get_simulations_output_format();
+                    if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
+                        std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
+                        nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
+                    }
                 #endif //NGEN_WITH_NETCDF
                 
                 prev_layer_time = layer_next_time;

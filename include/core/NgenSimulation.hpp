@@ -23,10 +23,6 @@ namespace hy_features
 class State_Snapshot_Saver;
 class State_Snapshot_Loader;
 
-// #if NGEN_WITH_NETCDF
-//     class NetCDFManager;
-// #endif
-
 #if NGEN_WITH_ROUTING
 #include "bmi/Bmi_Py_Adapter.hpp"
 #endif // NGEN_WITH_ROUTING
@@ -157,8 +153,6 @@ private:
     void serialize(Archive& ar, const unsigned int version);
     void serialize(Archive& ar);
 
-    //Pointer to netcdfcreator to write simulation output per timestep.
-    //std::unique_ptr<NetCDFCreator> nc_writer_;
 #if NGEN_WITH_MPI
         MPI_Comm mpi_comm_;
 #endif

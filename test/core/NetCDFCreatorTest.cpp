@@ -223,12 +223,12 @@ TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
     int item_index = 0;
     std::vector<size_t> index;
     index.resize(1);
-    std::vector<std::string> catchments;
-    std::string catchment;
+    std::vector<std::string>catchments;
+    int catchment;
     for(size_t i = 0; i < len; ++i){
         index[0] = i;
-        catchment = catchments_var->get_str_value_at_index(index);
-        catchments.push_back(catchment.c_str());
+        catchment = catchments_var->get_int_value_at_index(index);
+        catchments.push_back("cat-" + std::to_string(catchment));
     }
     //delete the netcdf file that was created once the information is obtained.
     nc_file->close_file();
@@ -269,11 +269,9 @@ TEST_F(NetCDFCreatorTest, TestOutputValues)
         int item_index = 0;
         std::vector<size_t> index;
         index.resize(1);
-        std::vector<std::string> catchments;
-        std::string catchment;
         for(size_t i = 0; i < len; ++i){
             index[0] = i;
-            std::string catchm = catchments_var->get_str_value_at_index(index);
+            std::string catchm = "cat-" + std::to_string(catchments_var->get_int_value_at_index(index));
             if(catchm == "cat-52"){
                 //use the catchment_index to query the value from the netcdf file and write it to a string.
                 std::vector<size_t> start = {0, i};

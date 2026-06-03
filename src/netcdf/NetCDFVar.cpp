@@ -190,25 +190,24 @@ double NetCDFVar::get_double_attribute(const std::string& att_name) const {
     throw std::runtime_error("Double attribute not found: " + att_name);
 }
 
-size_t NetCDFVar::get_variable_index(const std::string& name) const
+size_t NetCDFVar::get_variable_index(const int& catchment_id) const
 {
-    auto it = variable_index_.find(name);
+    auto it = variable_index_.find(catchment_id);
     if (it == variable_index_.end()) {
-        LOG("Variable not found in NetCDF: " + name, LogLevel::FATAL);
-        throw std::runtime_error(std::string("Variable not found in NetCDF: ") + name);
+        LOG("Variable not found in NetCDF: " + std::to_string(catchment_id), LogLevel::FATAL);
+        throw std::runtime_error(std::string("Variable not found in NetCDF: ") + std::to_string(catchment_id));
     }
     return it->second;
 }
 
 void NetCDFVar::build_variables_index(size_t num_items)
 {
-    std::vector<char*> data(num_items);
-    NC_CHECK(nc_get_var_string(ncid_, varid_, data.data()), "Building variables index failed");
+    std::vector<int> data(num_items);
+    NC_CHECK(nc_get_var_int(ncid_, varid_, data.data()), "Building variables index failed");
     for (size_t index = 0; index < num_items; ++index) {
-        std::string key = data[index]; //required to prevent heap corruption while freeing memory later
+        int key = data[index];
         variable_index_[key] = index;
     }
-    NC_CHECK(nc_free_string(num_items, data.data()), "Memory free up failed");
 }
 
 void NetCDFVar::read_slice(const std::vector<size_t>& start, const std::vector<size_t>& count, double* data) const

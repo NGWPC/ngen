@@ -67,12 +67,19 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             // only write output if config specifies output values
             std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
                 r_c->get_output_line_for_timestep(output_time_index)+"\n";
-            r_c->write_output(output);
-
-            //capture all the output values for this timestep to write to netcdf
-            #if NGEN_WITH_NETCDF
-                catchment_output_values[id] = r_c->get_output_line_for_timestep(output_time_index);
-            #endif //NGEN_WITH_NETCDF
+            
+            for (const auto& fmt : output_formats)
+            {
+                if (fmt == "csv"){
+                    r_c->write_output(output);
+                }
+                if(fmt == "netcdf"){
+                    //capture all the output values for this timestep to write to netcdf
+                    #if NGEN_WITH_NETCDF
+                        catchment_output_values[id] = r_c->get_output_line_for_timestep(output_time_index);
+                    #endif //NGEN_WITH_NETCDF
+                }
+            }
         }
         //TODO put this somewhere else.  For now, just trying to ensure we get m^3/s into nexus output
         double area_sq_km;
@@ -181,4 +188,12 @@ void ngen::Layer::load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot
 }
 std::map<std::string, std::string> ngen::Layer::get_catchment_output_data_for_timestep(){
     return catchment_output_values;
+}
+
+void ngen::Layer::set_simulations_output_format(std::vector<std::string> out_formats){
+    output_formats = out_formats;
+}
+
+std::vector<std::string> ngen::Layer::get_simulations_output_format(){
+    return output_formats;
 }

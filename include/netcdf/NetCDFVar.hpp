@@ -44,7 +44,7 @@ public:
     std::string get_string_attribute(const std::string& att_name) const;
     int get_int_attribute(const std::string& att_name) const;
     double get_double_attribute(const std::string& att_name) const;
-    size_t get_variable_index(const std::string& name) const;
+    size_t get_variable_index(const int& catchment_id) const;
 
     void write_timesliced_data(size_t timestep, size_t slice_start, size_t slice_count, const double* data);
     
@@ -64,7 +64,7 @@ public:
     std::map<std::string, std::string> attributes_str_;
     std::map<std::string, int> attributes_int_;
     std::map<std::string, double> attributes_double_;
-    std::unordered_map<std::string, size_t> variable_index_;
+    std::unordered_map<int, size_t> variable_index_;
 };
 #endif // NGEN_WITH_NETCDF
 #endif // NETCDFVAR_HPP

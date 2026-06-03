@@ -548,6 +548,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     }
     LOG("Formulation Initialized", LogLevel::DEBUG);
 
+    //pass on the user requested output format to the layers.
+    std::vector<std::string> output_formats  = manager->get_simulation_output_format();
+
 // TODO refactor manager->read so certain configs can be queried before the entire
 // realization collection is created
 #if NGEN_WITH_ROUTING
@@ -655,7 +658,6 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
     std::vector<std::shared_ptr<ngen::Layer>> layers;
     layers.resize(keys.size());
-
     for (long i = 0; i < keys.size(); ++i) {
         auto& desc = layer_meta_data.get_layer(keys[i]);
         std::vector<std::string> cat_ids;
@@ -691,6 +693,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                 );
             }
         }
+        layers[i]->set_simulations_output_format(output_formats); //set the output format for catchments
     }
 
     // T-ROUTE data storage
@@ -711,7 +714,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                                                        mpi_rank,
                                                        mpi_num_procs);
     #if NGEN_WITH_NETCDF
-        simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs);
+        if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
+            simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs);
+        }
     #endif //NGEN_WITH_NETCDF
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
