@@ -203,3 +203,11 @@ std::vector<std::string> ngen::Layer::get_simulations_output_format(){
 std::map<std::string, std::string> ngen::Layer::get_catchment_output_data_for_timestep(){
     return catchment_output_values;
 }
+
+void ngen::Layer::set_simulations_output_format(std::vector<std::string> out_formats){
+    output_formats = out_formats;
+}
+
+std::vector<std::string> ngen::Layer::get_simulations_output_format(){
+    return output_formats;
+}

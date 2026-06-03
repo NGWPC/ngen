@@ -239,8 +239,8 @@ TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
     std::string catchment;
     for(size_t i = 0; i < len; ++i){
         index[0] = i;
-        catchment = catchments_var->get_str_value_at_index(index);
-        catchments.push_back(catchment.c_str());
+        catchment = catchments_var->get_int_value_at_index(index);
+        catchments.push_back("cat-" + std::to_string(catchment));
     }
     //delete the netcdf file that was created once the information is obtained.
     ncFile.close();

@@ -234,24 +234,6 @@ static std::vector<double> string_split(std::string str, char delimiter)
     return res;
 }
 
-void NetCDFManager::prepare_data_chunks(std::map<std::string, std::string> catchment_output_vals)
-{
-    int num_variables = data_chunks_.size();
-    if (num_variables > 0){ // if number of output variables is greater than zero
-        size_t index = 0;
-        for(auto it = catchment_output_vals.begin(); it != catchment_output_vals.end(); ++it)
-        {
-            if(index < chunk_start_) { index++; continue; }        // skip catchments not for this rank
-            if(index >= chunk_start_ + chunk_count_) break;       // done with this rank.
-            std::vector<double> catchment_output = string_split(it->second, ',');
-            for(size_t var_index = 0; var_index < num_variables; ++var_index){
-                data_chunks_[var_index][index - chunk_start_] = catchment_output[var_index];
-            }
-            index++;
-        }
-    }
-}
-
 void NetCDFManager::write_simulations_response_from_formulation(size_t time_index, std::map<std::string, std::string> catchment_output_values)
 {
     LOG("NetCDFManager: write_simulations_response_from_formulation", LogLevel::INFO);
@@ -337,6 +319,7 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int6
     // Lambda helper function for writing the data to netcdf file
     auto write_data_to_netcdf = [&](const int64_t& catchment_id, const std::string& csv_output_line) {
         std::vector<double> catchment_output = string_split(csv_output_line, ',');
+        LOG("CSV Line: " + csv_output_line, LogLevel::INFO);
         auto var = nc_file_->get_ncvar("catchments");
         if (!var){
             LOG("Catchments variable/dimension not found in NetCDF", LogLevel::FATAL);
