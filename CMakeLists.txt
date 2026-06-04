@@ -211,7 +211,7 @@ add_compile_definitions(NGEN_SHARED_LIB_EXTENSION)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
-find_package(Boost 1.86.0 REQUIRED COMPONENTS system filesystem)
+find_package(Boost 1.86.0 REQUIRED COMPONENTS system filesystem serialization)
 
 # -----------------------------------------------------------------------------
 if(NGEN_WITH_SQLITE)
