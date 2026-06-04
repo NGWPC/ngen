@@ -113,7 +113,10 @@ std::unique_ptr<State_Loader> State_Save_Config::checkpoint_loader() const {
             if (i.mechanism_ == State_Save_Mechanism::FilePerUnit) {
                 return std::make_unique<File_Per_Unit_Loader>(i.path_);
             } else {
-                Logger::LogAndThrow("State_Save_Config: Loading mechanism " + i.mechanism_string() + " is not supported for checkpoint loading.");
+                std::stringstream ss;
+                ss << "State_Save_Config: Loading mechanism " << i.mechanism_string() << " is not supported for checkpoint loading.";
+                LOG(LogLevel::FATAL, ss.str());
+                throw std::runtime_error(ss.str());
             }
         }
     }
@@ -136,12 +139,16 @@ std::shared_ptr<State_Saver> State_Save_Config::checkpoint_saver(int *const freq
                 *frequency = i.frequency_;
                 return std::make_shared<File_Per_Unit_Saver>(i.path_);
             } else {
-                Logger::LogAndThrow("State_Save_Config: Saving mechanism " + i.mechanism_string() + " is not supported for checkpoint saving.");
+                std::stringstream ss;
+                ss << "State_Save_Config: Saving mechanism " << i.mechanism_string() << " is not supported for checkpoint saving.";
+                LOG(LogLevel::FATAL, ss.str());
+                throw std::runtime_error(ss.str());
             }
         }
     }
-    Logger::LogAndThrow("State_Save_Config: Failed to find a suitable checkpoint saving configuration.");
-    return NULL;
+    const auto error = "State_Save_Config: Failed to find a suitable checkpoint saving configuration.";
+    LOG(LogLevel::FATAL, error);
+    throw std::runtime_error(error);
 }
 
 State_Save_Config::instance::instance(std::string const& direction, std::string const& label, std::string const& path, std::string const& mechanism, std::string const& timing, boost::optional<int> frequency)
@@ -177,14 +184,17 @@ State_Save_Config::instance::instance(std::string const& direction, std::string 
         timing_ = State_Save_When::Checkpoint;
         if (direction_ == State_Save_Direction::Save) {
             if (!frequency.has_value()) {
-                Logger::LogAndThrow("The checkpoint save configuration is missing a 'frequency' of checkpointing.");
+                const auto message = "The checkpoint save configuration is missing a 'frequency' of checkpointing.";
+                LOG(LogLevel::FATAL, message);
+                throw std::runtime_error(message);
             }
             frequency_ = frequency.get();
             // make sure the frequency makes sense
             if (frequency_ <= 0) {
                 std::stringstream ss;
                 ss << "The frequency of a checkpoint save must be greater than 0. The configured value is " << frequency_;
-                Logger::LogAndThrow(ss.str());
+                LOG(LogLevel::FATAL, ss.str());
+                throw std::runtime_error(ss.str());
             }
         }
     } else {
