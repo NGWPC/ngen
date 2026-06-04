@@ -17,37 +17,37 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
     
     Layer::update_models(catchment_outflows, catchment_indexes, nexus_downstream_flows, nexus_indexes, current_step);
 
-    // Once contributing catchments are updated for this timestep, dump the nexus output
-    for(const auto& id : features.nexuses()) 
-    {
-        std::string current_timestamp = simulation_time.get_timestamp(current_time_index);
+    // // Once contributing catchments are updated for this timestep, dump the nexus output
+    // for(const auto& id : features.nexuses()) 
+    // {
+    //     std::string current_timestamp = simulation_time.get_timestamp(current_time_index);
 
-        // Get the correct "requesting" id for downstream_flow
-        const auto& nexus = features.nexus_at(id);
-        const auto& cat_ids = nexus->get_receiving_catchments();
+    //     // Get the correct "requesting" id for downstream_flow
+    //     const auto& nexus = features.nexus_at(id);
+    //     const auto& cat_ids = nexus->get_receiving_catchments();
 
-        if (cat_ids.size() > 1) {
-            std::string error = "Nexus '" + id + "' violates dendritic hydrofabric network assumption";
-            LOG(error, LogLevel::FATAL);
-            throw std::runtime_error(error);
-        }
+    //     if (cat_ids.size() > 1) {
+    //         std::string error = "Nexus '" + id + "' violates dendritic hydrofabric network assumption";
+    //         LOG(error, LogLevel::FATAL);
+    //         throw std::runtime_error(error);
+    //     }
 
-        std::string cat_id;
-        if( cat_ids.size() == 1 ) {
-            // With a dendritic network, there can only be a single downstream. It will consume 100%  of the available flow
-            cat_id = cat_ids[0];
-        }
-        else {
-            // This is a terminal node, SHOULDN'T be remote, so ID shouldn't matter too much
-            cat_id = "terminal";
-        }
+    //     std::string cat_id;
+    //     if( cat_ids.size() == 1 ) {
+    //         // With a dendritic network, there can only be a single downstream. It will consume 100%  of the available flow
+    //         cat_id = cat_ids[0];
+    //     }
+    //     else {
+    //         // This is a terminal node, SHOULDN'T be remote, so ID shouldn't matter too much
+    //         cat_id = "terminal";
+    //     }
 
-        //std::cerr << "Requesting water from nexus, id = " << id << " at time = " <<current_time_index << ",  percent = 100, destination = " << cat_id << std::endl;
-        double contribution_at_t = features.nexus_at(id)->get_downstream_flow(cat_id, current_time_index, 100.0);
+    //     //std::cerr << "Requesting water from nexus, id = " << id << " at time = " <<current_time_index << ",  percent = 100, destination = " << cat_id << std::endl;
+    //     double contribution_at_t = features.nexus_at(id)->get_downstream_flow(cat_id, current_time_index, 100.0);
 
-        int nexus_index = nexus_indexes[id];
-        nexus_downstream_flows[nexus_index] += contribution_at_t;
+    //     int nexus_index = nexus_indexes[id];
+    //     nexus_downstream_flows[nexus_index] += contribution_at_t;
 
-        //std::cout<<"\tNexus "<<id<<" has "<<contribution_at_t<<" m^3/s"<<std::endl;
-    } //done nexuses
+    //     //std::cout<<"\tNexus "<<id<<" has "<<contribution_at_t<<" m^3/s"<<std::endl;
+    // } //done nexuses
 }

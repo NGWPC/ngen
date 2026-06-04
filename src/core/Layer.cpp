@@ -87,27 +87,27 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             // multiply by square meters: (m/s) * (m^2) = (m^3/s)
             * area_sq_m;
 #endif // NGEN_WITH_ROUTING
-        // NOTE: the conversion below loos like it's missing a conversion from per timestep to per second
-        // Maintaining the current code in case there's a step later that accounts for this
-        double response_m_s = response * area_sq_m;
-        //since we are operating on a 1 hour (3600s) dt, we need to scale the output appropriately
-        //so no response is m^2/hr...m^2/hr * 1hr/3600s = m^3/hr
-        double response_m_h = response_m_s / 3600.0;
-        //update the nexus with this flow
-        for(auto& nexus : features.destination_nexuses(id)) {
-            //TODO in a DENDRITIC network, only one destination nexus per catchment
-            //If there is more than one, some form of catchment partitioning will be required.
-            //for now, only contribute to the first one in the list
-            if(nexus == nullptr){
-                std::string throw_msg; throw_msg.assign("Invalid (null) nexus instantiation downstream of '"+id+"'");
-                LOG(throw_msg, LogLevel::WARNING);
-                throw std::runtime_error(throw_msg);
-            }
-            nexus->add_upstream_flow(response_m_h, id, output_time_index);
-            /*std::cerr << "Add water to nexus ID = " << nexus->get_id() << " from catchment ID = " << id << " value = "
-              << response << ", ID = " << id << ", time-index = " << output_time_index << std::endl; */
-            break;
-        }
+        // // NOTE: the conversion below loos like it's missing a conversion from per timestep to per second
+        // // Maintaining the current code in case there's a step later that accounts for this
+        // double response_m_s = response * area_sq_m;
+        // //since we are operating on a 1 hour (3600s) dt, we need to scale the output appropriately
+        // //so no response is m^2/hr...m^2/hr * 1hr/3600s = m^3/hr
+        // double response_m_h = response_m_s / 3600.0;
+        // //update the nexus with this flow
+        // for(auto& nexus : features.destination_nexuses(id)) {
+        //     //TODO in a DENDRITIC network, only one destination nexus per catchment
+        //     //If there is more than one, some form of catchment partitioning will be required.
+        //     //for now, only contribute to the first one in the list
+        //     if(nexus == nullptr){
+        //         std::string throw_msg; throw_msg.assign("Invalid (null) nexus instantiation downstream of '"+id+"'");
+        //         LOG(throw_msg, LogLevel::WARNING);
+        //         throw std::runtime_error(throw_msg);
+        //     }
+        //     nexus->add_upstream_flow(response_m_h, id, output_time_index);
+        //     /*std::cerr << "Add water to nexus ID = " << nexus->get_id() << " from catchment ID = " << id << " value = "
+        //       << response << ", ID = " << id << ", time-index = " << output_time_index << std::endl; */
+        //     break;
+        // }
                 
     } //done catchments   
 
