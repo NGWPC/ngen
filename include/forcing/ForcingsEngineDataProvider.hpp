@@ -89,6 +89,17 @@ struct ForcingsEngineStorage {
         data_.clear();
     }
 
+    /** Advance all forcing engine instances to update to the requested time.
+     * @param time The amount of seconds from the beginning of the simulation the forcing models will be advanaced to.
+     * This should use `0.0` as the start time and allow the backing models to update their own times accordingly.
+     */
+    void advance_to(double time) {
+        for (auto &provider : data_) {
+            double bmi_start = provider.second->GetStartTime();
+            provider.second->UpdateUntil(time + bmi_start);
+        }
+    }
+
   private:
     //! Instance map of underlying BMI models.
     std::unordered_map<key_type, value_type> data_;

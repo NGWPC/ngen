@@ -55,6 +55,18 @@ namespace realization {
 
         void load_hot_start(std::shared_ptr<State_Snapshot_Loader> loader) override;
 
+        /** Create a vector representing Bmi_Module_Formulation metadata that should be included in state data on top of the backing BMI's state.
+         * 
+         * WARNING: Other parts of NGEN assume that the metadata should be copied and reset after loading a hot start.
+         */
+        std::vector<char> create_state_metadata() const;
+
+        /** Loads state metadata on the Bmi_Module_Formulation that is needed beyond the state known by the BMI.
+         * @param data vector storing byte data representing the metadata. The data will be read from the beginning of the vector.
+         * @return The number of bytes read from the data vector.
+         */
+        size_t load_state_metadata(const std::vector<char> &data);
+
         /**
          * Get the collection of forcing output property names this instance can provide.
          * For this type, this is the collection of BMI output variables, plus any aliases included in the formulation

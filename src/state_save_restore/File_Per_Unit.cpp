@@ -17,18 +17,28 @@
   #error "No Filesystem library implementation available"
 #endif
 
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/file_descriptor.hpp>
+#include <boost/iostreams/stream.hpp>
+
 #include <fstream>
 #include <iomanip>
 
-namespace unit_saving_utils {
-    std::string format_epoch(State_Saver::snapshot_time_t epoch)
-    {
-        time_t t = std::chrono::system_clock::to_time_t(epoch);
-        std::tm tm = *std::gmtime(&t);
-
-        std::stringstream tss;
-        tss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
-        return tss.str();
+namespace {
+    // Populate a vector of paths with subfolders with names that can be interpreted as ints.
+    // The vector will be sorted by highest numeric representation first.
+    void ordered_checkpoint_subfolders(const std::string &root, std::vector<path> &subdirs) {
+        for (const auto &subdir : directory_iterator(root)) {
+            path subdir_path = subdir.path();
+            // make sure subfolder is a number from a timestep
+            if (subdir_path.filename().string().find_first_not_of("0123456789") == std::string::npos) {
+                subdirs.push_back(subdir);
+            }
+        }
+        // sort options by the highest number representation
+        std::sort(subdirs.begin(), subdirs.end(), [](const path &a, const path &b) {
+            return std::stoi(a.filename().string()) > std::stoi(b.filename().string());
+        });
     }
 }
 
@@ -62,15 +72,25 @@ File_Per_Unit_Saver::File_Per_Unit_Saver(std::string base_path)
 File_Per_Unit_Saver::~File_Per_Unit_Saver() = default;
 
 std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_snapshot(State_Durability durability) {
-    // TODO
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(path(this->base_path_), durability);
 }
 
-std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_checkpoint_snapshot(snapshot_time_t epoch, State_Durability durability)
+std::shared_ptr<State_Snapshot_Saver> File_Per_Unit_Saver::initialize_checkpoint_snapshot(int step, State_Durability durability)
 {
-    path checkpoint_path = path(this->base_path_) / unit_saving_utils::format_epoch(epoch);
+    path checkpoint_path = path(this->base_path_) / std::to_string(step);
     create_directory(checkpoint_path);
     return std::make_shared<File_Per_Unit_Snapshot_Saver>(checkpoint_path, durability);
+}
+
+void File_Per_Unit_Saver::clear_prior(int mpi_rank) {
+    if (mpi_rank == 0) { // reserve file system deletion to just the main MPI rank
+        std::vector<path> subdirs;
+        ordered_checkpoint_subfolders(this->base_path_, subdirs);
+        // delete all checkpoint directories save the most recent one
+        for (int i = 1; i < subdirs.size(); ++i) {
+            remove_all(subdirs[i]);
+        }
+    }
 }
 
 void File_Per_Unit_Saver::finalize()
@@ -188,9 +208,26 @@ std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_snapshot
     return std::make_shared<File_Per_Unit_Snapshot_Loader>(path(dir_path_));
 }
 
-std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoint_snapshot(State_Saver::snapshot_time_t epoch)
+std::shared_ptr<State_Snapshot_Loader> File_Per_Unit_Loader::initialize_checkpoint_snapshot(const std::vector<std::string> &required_units)
 {
-    path checkpoint_path = path(dir_path_) / unit_saving_utils::format_epoch(epoch);;
-    return std::make_shared<File_Per_Unit_Snapshot_Loader>(checkpoint_path);
+    std::vector<path> options;
+    ordered_checkpoint_subfolders(this->dir_path_, options);
+    for (const path &option : options) {
+        auto loader = std::make_shared<File_Per_Unit_Snapshot_Loader>(option);
+        bool passes = true;
+        for (const auto &unit : required_units) {
+            if (!loader->has_unit(unit)) {
+                passes = false;
+                break;
+            }
+        }
+        if (passes) {
+            LOG(LogLevel::INFO, "Loading state from checkpoint step " + option.filename().string());
+            return loader;
+        }
+    }
+    std::string error = "No checkpoint location found with all required units in root directory " + this->dir_path_;
+    LOG(LogLevel::FATAL, error);
+    throw std::runtime_error(error);
 }
 

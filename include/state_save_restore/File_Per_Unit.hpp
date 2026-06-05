@@ -11,7 +11,9 @@ public:
 
     std::shared_ptr<State_Snapshot_Saver> initialize_snapshot(State_Durability durability) override;
 
-    std::shared_ptr<State_Snapshot_Saver> initialize_checkpoint_snapshot(snapshot_time_t epoch, State_Durability durability) override;
+    std::shared_ptr<State_Snapshot_Saver> initialize_checkpoint_snapshot(int step, State_Durability durability) override;
+
+    void clear_prior(int mpi_rank) override;
 
     void finalize() override;
 
@@ -30,7 +32,7 @@ public:
 
     std::shared_ptr<State_Snapshot_Loader> initialize_snapshot() override;
 
-    std::shared_ptr<State_Snapshot_Loader> initialize_checkpoint_snapshot(State_Saver::snapshot_time_t epoch) override;
+    std::shared_ptr<State_Snapshot_Loader> initialize_checkpoint_snapshot(const std::vector<std::string> &required_units) override;
 private:
     std::string dir_path_;
 };

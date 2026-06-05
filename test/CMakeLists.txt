@@ -461,6 +461,7 @@ ngen_add_test(
         NGen::logging
         NGen::core_mediator
         NGen::ngen_bmi
+        NGen::forcing
 )
 
 ########################### Netcdf Forcing Tests

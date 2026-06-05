@@ -9,6 +9,8 @@ target_link_libraries(core PUBLIC
 
 target_link_libraries(core PRIVATE
                            NGen::parallel
+                           NGen::state_save_restore
+                           Boost::serialization        # needed for the NgenSimulation test to compile
                            )
 
 if(USE_EWTS)

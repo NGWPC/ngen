@@ -703,7 +703,24 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
         }
     }
 
-    simulation->run_catchments();
+    { // optionally load a checkpoint if configured
+        auto checkpoint_loader = state_saving_config.checkpoint_loader();
+        if (checkpoint_loader) {
+            LOG(LogLevel::INFO, "Loading checkpoint data from prior snapshot.");
+            const std::vector<std::string> required_units = simulation->required_checkpoint_units(true);
+            std::shared_ptr<State_Snapshot_Loader> snapshot_loader
+                = checkpoint_loader->initialize_checkpoint_snapshot(required_units);
+            simulation->load_checkpoint(snapshot_loader);
+        }
+    }
+
+    if (state_saving_config.has_checkpoint_saver()) {
+        int checkpoint_frequency;
+        std::shared_ptr<State_Saver> checkpoint_saver = state_saving_config.checkpoint_saver(&checkpoint_frequency);
+        simulation->run_catchments(checkpoint_saver, checkpoint_frequency);
+    } else {
+        simulation->run_catchments();
+    }
 
 #if NGEN_WITH_MPI
     MPI_Barrier(MPI_COMM_WORLD);

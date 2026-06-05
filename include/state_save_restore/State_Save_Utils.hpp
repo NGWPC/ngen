@@ -23,8 +23,8 @@ enum class State_Save_Mechanism {
 enum class State_Save_When {
     None = 0,
     EndOfRun,
-    FirstOfMonth,
-    StartOfRun
+    StartOfRun,
+    Checkpoint
 };
 
 #endif

@@ -8,13 +8,43 @@
 #include "HY_Features.hpp"
 #endif
 
+#if NGEN_WITH_PYTHON
+#include <forcing/ForcingsEngineDataProvider.hpp>
+#endif
+
+#include "state_save_restore/vecbuf.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include "state_save_restore/State_Save_Restore.hpp"
+
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/unordered_map.hpp>
+
 #include "parallel_utils.h"
 
 namespace {
-    const auto NGEN_UNIT_NAME = "ngen";
     const auto TROUTE_UNIT_NAME = "troute";
+
+    #if NGEN_WITH_MPI
+    // Merge strings from multiple MPI ranks and broadcast the results to all ranks. Duplicates will be removed.
+    std::vector<std::string> collect_unique_strings(const std::vector<std::string> &items, int mpi_rank, int mpi_num_procs) {
+        // MPI_Gather all items to rank 0
+        std::vector<std::string> all_items
+            = parallel::gather_strings(items, mpi_rank, mpi_num_procs);
+        if (mpi_rank == 0) {
+            // filter to only the unique items
+            std::sort(all_items.begin(), all_items.end());
+            all_items.erase(
+                std::unique(all_items.begin(), all_items.end()),
+                all_items.end()
+            );
+        }
+        // MPI_Broadcast unique, sorted results to all ranks
+        return parallel::broadcast_strings(all_items, mpi_rank, mpi_num_procs);
+    }
+    #endif // NGEN_WITH_MPI
 }
 
 NgenSimulation::NgenSimulation(
@@ -55,6 +85,52 @@ void NgenSimulation::run_catchments()
             sim_time_->advance_timestep();
         }
     }
+}
+
+void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_saver, int frequency) {
+    int num_times = get_num_output_times();
+    if (frequency > num_times) {
+        LOG(LogLevel::WARNING, "The frequency of checkpoints (%d) is less than the number of simulation steps (%d). No checkpoints will be generated.", frequency, num_times);
+    }
+
+    while (simulation_step_ < num_times) {
+        // Make room for this output step's results
+        catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
+        nexus_downstream_flows_.resize(nexus_downstream_flows_.size() + nexus_indexes_.size(), 0.0);
+        
+        advance_models_one_output_step();
+
+        // advance_models_one_output_step runs the BMIs for the next time step,
+        // so the checkpoint state should include advancing the step
+        this->simulation_step_++;
+
+        if (simulation_step_ < num_times) {
+            sim_time_->advance_timestep();
+        }
+
+        // this position allows creating a checkpoint on the very last step. This might be useful if t-route fails and we want to "skip" the final steps
+        if (simulation_step_ % frequency == 0) {
+            // Remote data is currently handled by MPI, so saving a checkpoint without retreiving all messages could lose data.
+            // An example would be checkpointing every 100 steps with two ranks. Rank 1 is faster than Rank 0, so it saves
+            //   step 200 whilst Rank 1 has only saved step 100. If checkpoints are loaded, all data in MPI messages from Rank 1
+            //   for steps 100-199 will be lost, and the program will likely hang as Rank 0 waits for those messages from Rank 1.
+            // For now, set up a barrier to make sure all ranks can catch up before checkpointing.
+            // A possible later improvement would be the ability to store and recreate the MPI messages when saving/loading checkpoints.
+            LOG(LogLevel::INFO, "Creating checkpoint at simulation step %d.", this->simulation_step_);
+            this->sync_mpi_ranks();
+            auto step_saver = checkpoint_saver->initialize_checkpoint_snapshot(simulation_step_, State_Saver::State_Durability::strict);
+            this->save_checkpoint(step_saver);
+            this->sync_mpi_ranks();
+            checkpoint_saver->clear_prior(this->mpi_rank_);
+        }
+    }
+}
+
+void NgenSimulation::sync_mpi_ranks() const {
+#if NGEN_WITH_MPI
+    if (this->mpi_num_procs_ > 1)
+        MPI_Barrier(MPI_COMM_WORLD);
+#endif // NGEN_WITH_MPI
 }
 
 void NgenSimulation::finalize() {
@@ -120,20 +196,10 @@ void NgenSimulation::advance_models_one_output_step()
 
 }
 
-void NgenSimulation::save_state_snapshot(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
-{
-    // TODO: save the current nexus data
-    auto unit_name = this->unit_name();
-    // XXX Handle self, then recursively pass responsibility to Layers
-    for (auto& layer : layers_) {
-        layer->save_state_snapshot(snapshot_saver);
-    }
-}
-
 void NgenSimulation::save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
 {
     for (auto& layer : layers_) {
-        layer->save_state_snapshot(snapshot_saver);
+        layer->save_end_of_run(snapshot_saver);
     }
 #if NGEN_WITH_ROUTING
     if (this->mpi_rank_ == 0 && this->py_troute_) {
@@ -148,11 +214,10 @@ void NgenSimulation::save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snaps
 #endif // NGEN_WITH_ROUTING
 }
 
-void NgenSimulation::load_state_snapshot(std::shared_ptr<State_Snapshot_Loader> snapshot_loader) {
-    // TODO: load the state data related to nexus outflows
-    auto unit_name = this->unit_name();
+void NgenSimulation::save_checkpoint(std::shared_ptr<State_Snapshot_Saver> snapshot_saver) {
+    snapshot_saver->archive_unit(this->unit_name(), this);
     for (auto& layer : layers_) {
-        layer->load_state_snapshot(snapshot_loader);
+        layer->save_checkpoint(snapshot_saver);
     }
 }
 
@@ -183,6 +248,37 @@ void NgenSimulation::load_hot_start(std::shared_ptr<State_Snapshot_Loader> snaps
         }
     }
 #endif // NGEN_WITH_ROUTING
+}
+
+void NgenSimulation::load_checkpoint(std::shared_ptr<State_Snapshot_Loader> checkpoint_loader) {
+    checkpoint_loader->dearchive_unit(this->unit_name(), this);
+    for (auto& layer : layers_) {
+        layer->load_checkpoint(checkpoint_loader);
+    }
+#if NGEN_WITH_PYTHON
+    // advance any forcing engine instances to make sure the first query doesn't get messy when catching up to the simulation's time
+    auto now = this->sim_time_->get_current_epoch_time();
+    auto start = this->sim_time_->get_start_time();
+    data_access::detail::ForcingsEngineStorage::instances.advance_to(now - start);
+#endif // NGEN_WITH_PYTHON
+}
+
+
+std::vector<std::string> NgenSimulation::required_checkpoint_units(bool merge_all_ranks) const {
+    std::vector<std::string> units;
+    units.push_back(this->unit_name());
+    for (const auto &layer : this->layers_) {
+        const auto layer_units = layer->required_checkpoint_units();
+        for (const auto &unit : layer_units)
+            units.push_back(unit);
+    }
+#if NGEN_WITH_MPI
+    if (merge_all_ranks && this->mpi_num_procs_ > 1) {
+        // merge all ranks' units so to ensure all read from the same source
+        units = collect_unique_strings(units, this->mpi_rank_, this->mpi_num_procs_);
+    }
+#endif // NGEN_WITH_MPI
+    return units;
 }
 
 
@@ -235,18 +331,10 @@ void NgenSimulation::set_troute_inputs(
         for (const auto& id_pair : *feature_indexes) {
             local_ids.push_back(id_pair.first);
         }
-        // MPI_Gather all IDs into a single vector
-        std::vector<std::string> all_ids = parallel::gather_strings(local_ids, mpi_rank_, mpi_num_procs_);
-        if (mpi_rank_ == 0) {
-            // filter to only the unique IDs
-            std::sort(all_ids.begin(), all_ids.end());
-            all_ids.erase(
-                std::unique(all_ids.begin(), all_ids.end()),
-                all_ids.end()
-            );
-        }
-        // MPI_Broadcast so all processes share the IDs
-        all_ids = std::move(parallel::broadcast_strings(all_ids, mpi_rank_, mpi_num_procs_));
+        // gather all nexus IDs into a single vector
+        std::vector<std::string> all_ids = std::move(collect_unique_strings(
+            local_ids, mpi_rank_, mpi_num_procs_
+        ));
 
         // MPI_Reduce to collect the results from processes
         if (this->mpi_rank_ == 0) {
@@ -332,7 +420,7 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         // case a future implementation needs these two values from the ngen framework.
         int delta_time = sim_time_->get_output_interval_seconds();
 
-        // model for routing
+        // if the t-route model was not created from a hot start load, make it now
         if (this->py_troute_ == NULL) {
             this->make_troute(t_route_config_file_with_path);
         }
@@ -369,16 +457,14 @@ std::string NgenSimulation::get_timestamp_for_step(int step) const
 }
 
 template <class Archive>
-void NgenSimulation::serialize(Archive& ar) {
+void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
     /* Handle `catchment_formulation_manager` specially in the
      * overall checkpoint/restart logic, so that we can subset
      * individual catchments and do other tricky things */
     //ar & catchment_formulation_manager
 
     ar & simulation_step_;
-    ar & sim_time_;
-
-    // Layers will be reconstructed, but their internal time keeping needs to be serialized
+    ar & (*sim_time_);
 
     // Nexus and catchment indexes could be re-generated, but only if
     // the set of catchments remains consistent
