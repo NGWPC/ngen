@@ -24,7 +24,7 @@ ARG NGEN_FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE
 FROM ${NGEN_FORCING_IMAGE} AS base
 
 # Uncomment when building locally
-#FROM ngen-bmi-forcing AS base
+# FROM ngen-bmi-forcing AS base
 
 # Re-expose args after FROM for the remaining build stage
 # Keeps whatever value was already set
@@ -65,55 +65,16 @@ LABEL org.opencontainers.image.base.name="${NGEN_FORCING_IMAGE}" \
     io.${IMAGE_NAMESPACE}.ewts.ref="${EWTS_REF}" \
     io.${IMAGE_NAMESPACE}.ewts.revision="${EWTS_REVISION}"
 
-# cannot remove LANG even though https://bugs.python.org/issue19846 is fixed
-# last attempted removal of LANG broke many users:
-# https://github.com/docker-library/python/pull/570
-ENV LANG="C.UTF-8" \
-    \
-    PYTHON_VERSION="3.11.13" \
-    SZIP_VERSION="2.1.1" \
-    HDF5_VERSION="1.10.11" \
-    NETCDF_C_VERSION="4.7.4" \
-    NETCDF_FORTRAN_VERSION="4.5.4" \
-    BOOST_VERSION="1.86.0"
-
-# runtime dependencies
+# ngen-specific build/runtime dependencies not already provided by ngen-bmi-forcing.
 RUN set -eux && \
-    dnf install -y epel-release && \
-    dnf config-manager --set-enabled powertools && \
     dnf install -y \
-        cmake \
         ccache \
-        curl curl-devel \
-        file \
-        findutils \
-        git \
-## FIXME: replace GNU compilers with Intel compiler ##
-        gcc-toolset-10 \
-        gcc-toolset-10-libasan-devel \
-        libasan6 \
-        libffi libffi-devel \
-        m4 \
         udunits2 udunits2-devel \
-        bzip2 bzip2-devel \
-        zlib zlib-devel \
-        xz-devel \
-## FIXME: replace openmpi with Intel MPI libraries ##
-        openmpi openmpi-devel \
-        openssl openssl-devel \
-        rsync \
-        sqlite sqlite-devel \
-        tk tk-devel \
-        uuid uuid-devel \
-        which \
-        xz \
-        jq \
+        xz xz-devel \
     && dnf clean all && rm -rf /var/cache/dnf
 
-## FIXME: replace GNU compilers with Intel compiler ##
 SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
-## FIXME: replace openmpi with Intel MPI libraries ##
-ENV PATH="${PATH}:/usr/lib64/openmpi/bin/"
+
 
 # Use ccache so repeated Docker builds can reuse previously 
 # compiled C/C++/Fortran objects even when a Docker layer 
@@ -133,186 +94,54 @@ ENV CCACHE_DIR="/root/.cache/ccache" \
 ENV PSM3_HAL=loopback \
     PSM3_DEVICES=self
 
-# Build Python from source and install it
-RUN --mount=type=cache,target=/root/.cache/build-python,id=build-python \
-	set -eux && \
-    curl --location --output python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" && \
-	mkdir --parents /usr/src/python && \
-    tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz && \
-    rm python.tar.xz && \
-    cd /usr/src/python && \
-	./configure \
-		--enable-loadable-sqlite-extensions \
-		--enable-optimizations \
-		--enable-option-checking=fatal \
-		--enable-shared \
-		--with-lto \
-		--with-system-expat \
-		--without-ensurepip && \
-	nproc="$(nproc)" && \
-	make -j "$nproc" "PROFILE_TASK=${PROFILE_TASK:-}" && \
-# https://github.com/docker-library/python/issues/784
-# prevent accidental usage of a system installed libpython of the same version
-    rm python && \
-	make -j "$nproc" \
-		"LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
-		"PROFILE_TASK=${PROFILE_TASK:-}" \
-        python && \
-    make install && \
-# enable GDB to load debugging data: https://github.com/docker-library/python/pull/701
-    bin="$(readlink -ve /usr/local/bin/python3)" && \
-    dir="$(dirname "$bin")" && \
-    mkdir --parents "/usr/share/gdb/auto-load/$dir" && \
-    cp -vL Tools/gdb/libpython.py "/usr/share/gdb/auto-load/$bin-gdb.py" && \
-    cd / && \
-    rm -rf /usr/src/python && \
-    find /usr/local -depth \
-        \( \
-            \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-            -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-        \) -exec rm -rf '{}' + && \
-    ldconfig && \
-    python3 --version
-
-# make some useful symlinks that are expected to exist ("/usr/local/bin/python" and friends)
-RUN set -eux && \
-	for src in idle3 pydoc3 python3 python3-config; do \
-		dst="$(echo "$src" | tr -d 3)"; \
-		[ -s "/usr/local/bin/$src" ]; \
-		[ ! -e "/usr/local/bin/$dst" ]; \
-		ln -svT "$src" "/usr/local/bin/$dst"; \
-	done
-
-# Build additional libraries (SZIP, HDF5, netcdf-c, netcdf-fortran, Boost)
-# Removed cache mounts where nothing writes to the mounted cache directory
-RUN set -eux && \
-	curl --location --output szip.tar.gz https://docs.hdfgroup.org/archive/support/ftp/lib-external/szip/${SZIP_VERSION%%[a-z]*}/src/szip-${SZIP_VERSION}.tar.gz && \
-	mkdir --parents /usr/src/szip && \
-	tar --extract --directory /usr/src/szip --strip-components=1 --file szip.tar.gz && \
-	cd /usr/src/szip && \
-	./configure --prefix=/usr/local/ && \
-	nproc="$(nproc)" && \
-	make -j "$nproc" && \
-	make install && \
-    strip --strip-debug /usr/local/lib/libsz*.so.* || true && \
-    rm --recursive --force /usr/src/szip szip.tar.gz
-
-RUN set -eux && \
-	curl --location --output hdf5.tar.gz https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-${HDF5_VERSION//./_}.tar.gz && \
-	mkdir --parents /usr/src/hdf5 && \
-	tar --extract --directory /usr/src/hdf5 --strip-components=1 --file hdf5.tar.gz && \
-	cd /usr/src/hdf5 && \
-	./configure --prefix=/usr/local/ --with-szlib=/usr/local/ && \
-	make check -j "$(nproc)" && \
-    make install && \
-    strip --strip-debug /usr/local/lib/libhdf5*.so.* || true && \
-    rm -f /usr/local/lib/libhdf5*.a && \
-    rm --recursive --force /usr/src/hdf5 hdf5.tar.gz
-
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
-    set -eux && \
-    curl --location --output netcdf-c.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_C_VERSION%%[a-z]*}.tar.gz && \
-    mkdir --parents /usr/src/netcdf-c && \
-    tar --extract --directory /usr/src/netcdf-c --strip-components=1 --file netcdf-c.tar.gz && \
-    rm -rf /usr/src/netcdf-c/cmake_build && \
-    cd /usr/src/netcdf-c && \
-    cmake -B cmake_build -S . \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=ON \
-        -DENABLE_TESTS=OFF \
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
-    cmake --build cmake_build --parallel "$(nproc)" && \
-    cmake --build cmake_build --target install && \
-    #strip --strip-debug /usr/local/lib64/libnetcdf*.so.* || true && \
-    rm --recursive --force /usr/src/netcdf-c netcdf-c.tar.gz
-
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
-    set -eux && \
-    curl --location --output netcdf-fortran.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION%%[a-z]*}.tar.gz && \
-    mkdir --parents /usr/src/netcdf-fortran && \
-    tar --extract --directory /usr/src/netcdf-fortran --strip-components=1 --file netcdf-fortran.tar.gz && \
-    rm -rf /usr/src/netcdf-fortran/cmake_build && \
-    cd /usr/src/netcdf-fortran && \
-    cmake -B cmake_build -S . \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=ON \
-        -DENABLE_TESTS=OFF \
-        -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran \
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
-    cmake --build cmake_build --parallel "$(nproc)" && \
-    cmake --build cmake_build --target install && \
-    #strip --strip-debug /usr/local/lib/libnetcdff*.so.* || true && \
-    rm --recursive --force /usr/src/netcdf-fortran netcdf-fortran.tar.gz
-
-RUN set -eux && \
-    curl --location --output boost.tar.gz https://archives.boost.io/release/${BOOST_VERSION%%[a-z]*}/source/boost_${BOOST_VERSION//./_}.tar.gz && \
-    mkdir --parents /opt/boost && \
-    tar --extract --directory /opt/boost --strip-components=1 --file boost.tar.gz && \
-    rm boost.tar.gz \
-    # build boost libraries
-    && cd /opt/boost && ./bootstrap.sh && ./b2 && ./b2 install --prefix=/usr/local && \
-    strip --strip-debug /usr/local/lib/libboost_*.so.* || true && \
-    rm -f /usr/local/lib/libboost_*.a
-
-ENV VIRTUAL_ENV="/ngen-app/ngen-python"
-
-# Create virtual environment for the application and upgrade pip within it
-RUN python3.11 -m venv --system-site-packages ${VIRTUAL_ENV}
-
-ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+# Re-expose the Python virtual environment inherited from ngen-bmi-forcing.
+# The dependency image creates the venv and the unversioned `python` symlink.
+# ngen-bmi-forcing installs the forcing package into that venv.
+# ngen and downstream images should reuse it rather than recreating it.
+ENV VIRTUAL_ENV="/ngen-app/ngen-python" \
+    PATH="${VIRTUAL_ENV}/bin:${PATH}" \
+    PYTHONPATH="${VIRTUAL_ENV}/lib/python3.11/site-packages:/usr/local/lib64/python3.11/site-packages:${PYTHONPATH}"
 
 # Consolidated LD_LIBRARY_PATH for MPI
 ENV LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
 
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     set -eux && \
-    pip3 install --upgrade pip setuptools wheel && \
-    pip3 install 'numpy==1.26.4' && \
-    pip3 install --no-binary=mpi4py 'mpi4py'&& \
-    pip3 install 'netcdf4<=1.6.3' && \
-    pip3 install 'bmipy' && \
-    pip3 install 'pandas' && \
-    pip3 install 'pyyml' && \
-    pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    pip install /ngen-app/ngen-forcing
+    python -m pip install --upgrade pip setuptools wheel && \
+    python -m pip install 'numpy==1.26.4' && \
+    python -m pip install 'netcdf4<=1.6.3' && \
+    python -m pip install 'bmipy' && \
+    python -m pip install 'pandas' && \
+    python -m pip install 'pyyml' && \
+    python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 WORKDIR /ngen-app/
 
 ##############################
 # Stage: EWTS Build – Error, Warning and Trapping System
 ##############################
-# EWTS is built in its own stage so that:
-#   - It is cached independently from ngen source changes (COPY . /ngen-app/ngen/
-#     happens later in the submodules stage).
-#   - Iterative ngen/submodule development doesn't re-trigger the EWTS clone+build.
-#   - EWTS_REF can be pinned without affecting other stages' caches.
+# EWTS is installed in the ewts-build stage so the built libraries, CMake
+# package files, Python wheel, and provenance metadata can be inherited by
+# the later submodules stage and final ngen image.
+#
+# Downstream images inherit that same EWTS installation:
+#   ngen-dependencies-rocky8 -> ngen-bmi-forcing -> ngen -> forecast/calibration/etc.
+#
+# As a result, downstream images should not install EWTS themselves unless
+# they intentionally need a different version.
 #
 # When USE_EWTS is enabled, EWTS provides a unified logging framework used by
 # ngen and the C, C++, Fortran, and Python modules that have been wired to it.
-# When USE_EWTS is disabled, this stage removes EWTS artifacts and the later
-# CMake builds receive -DUSE_EWTS=OFF.
+# When USE_EWTS is disabled, this stage removes EWTS artifacts and later CMake
+# builds receive -DUSE_EWTS=OFF.
 #
-# Libraries are created for C, C++ and Fortran submodules
-# (cfe, evapotranspiration, LASAM, noah-owp-modular, snow17, sac-sma,
-# SoilFreezeThaw, SoilMoistureProfiles, topmodel, ueb-bmi) and a Python package is
-# used by Python submodules (lstm, topoflow-glacier and t-route).
+# EWTS provides:
+#   - C/C++/Fortran runtime libraries
+#   - ngen bridge library
+#   - CMake package files under /opt/ewts
+#   - Python wheel into the shared venv
 #
-# How the plumbing works:
-#   1. We build EWTS here and install it to /opt/ewts.
-#   2. Every cmake call in the submodules stage passes
-#      -DCMAKE_PREFIX_PATH=/opt/ewts so that
-#      find_package(ewts CONFIG REQUIRED) in each submodule's CMakeLists.txt
-#      can locate the ewtsConfig.cmake package file.
-#   3. The following gives each submodule access to the EWTS targets:
-#        ewts::ewts_c            – C runtime             (cfe, evapotranspiration, topmodel)
-#        ewts::ewts_cpp          – C++ runtime logger    (used by LASAM, SoilFreezeThaw, SoilMoistureProfiles)
-#        ewts::ewts_fortran      – Fortran runtime       (noah-owp-modular sac-sma,, snow17)
-#        ewts::ewts_ngen_bridge  – ngen↔EWTS bridge lib  (linked by ngen itself)
-#        EWTS Python wheel       – pip installed package  (lstm, topoflow-glacier, t-route)
-#
-# Build args – override at build time to pin a branch, tag, or full commit SHA:
+# Build args can override the EWTS repo/ref:
 #   docker build --build-arg EWTS_REF=v1.2.3 ...
 #   docker build --build-arg EWTS_REF=abc123def456 ...
 ##############################
@@ -332,7 +161,7 @@ ARG EWTS_CACHE_BUST=0
 
 RUN set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
-    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \ 
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
         echo "Checking EWTS branch/tag: ${EWTS_REF}"; \
         if ! git ls-remote --exit-code --heads \
@@ -354,41 +183,50 @@ ENV EWTS_PREFIX=/opt/ewts
 # when USE_EWTS is enabled.
 ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 
-# Clone nwm-ewts, build, install, capture git metadata for provenance,
-# then remove the source tree.
-# Try shallow clone by branch/tag name first; fall back to full clone + checkout
-# for bare commit SHAs (which git clone -b doesn't support).
+# Clone/build/install EWTS when enabled.
 #
-# Ensures an unset or empty USE_EWTS defaults to ON
+# The Docker layer is intentionally invalidated via EWTS_CACHE_BUST so we can
+# check the latest branch state. A persistent cache mount stores the EWTS source
+# tree and last-built commit SHA. If the branch HEAD has not changed, the cached
+# source/build tree is reused instead of recloning.
+#
+# Ensures an unset or empty USE_EWTS defaults to ON.
 #
 # USE_EWTS accepted ON values:
 #   ON, YES, TRUE, 1
 #
 # Everything else is treated as OFF.
 #
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
-    --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+RUN --mount=type=cache,target=/root/.cache/ewts,id=ewts-source-rocky \
+    --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
+    --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     echo "USE_EWTS=${USE_EWTS}; EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
-        echo "Building and installing EWTS"; \
-        rm -rf /tmp/nwm-ewts && \
-        git clone --depth 1 -b "${EWTS_REF}" \
-            "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
-        || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
-            cd /tmp/nwm-ewts && git checkout "${EWTS_REF}"); \
-        rm -rf /tmp/nwm-ewts/cmake_build && \
-        cd /tmp/nwm-ewts; \
+        # Current HEAD commit of the requested branch.
+        EWTS_REMOTE_SHA="$(git ls-remote "https://github.com/${EWTS_ORG}/nwm-ewts.git" "refs/heads/${EWTS_REF}" | awk '{print $1}')" && \
+        EWTS_CACHE_DIR="/root/.cache/ewts/nwm-ewts-${EWTS_REF}" && \
+        EWTS_SHA_FILE="/root/.cache/ewts/nwm-ewts-${EWTS_REF}.sha" && \
+        # Re-clone only when the branch HEAD has changed.
+        if [ ! -d "${EWTS_CACHE_DIR}" ] || [ ! -f "${EWTS_SHA_FILE}" ] || [ "$(cat "${EWTS_SHA_FILE}")" != "${EWTS_REMOTE_SHA}" ]; then \
+            echo "EWTS changed or missing; cloning ${EWTS_REF} at ${EWTS_REMOTE_SHA}"; \
+            rm -rf "${EWTS_CACHE_DIR}"; \
+            git clone --depth 1 -b "${EWTS_REF}" "https://github.com/${EWTS_ORG}/nwm-ewts.git" "${EWTS_CACHE_DIR}"; \
+            echo "${EWTS_REMOTE_SHA}" > "${EWTS_SHA_FILE}"; \
+        else \
+            echo "EWTS source unchanged at ${EWTS_REMOTE_SHA}; reusing cached source/build tree"; \
+        fi && \
+        cd "${EWTS_CACHE_DIR}" && \
         cmake -S . -B cmake_build \
             -DCMAKE_BUILD_TYPE=Release \
             -DEWTS_WITH_NGEN=ON \
             -DEWTS_BUILD_SHARED=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache; \
-        cmake --build cmake_build -j "$(nproc)"; \
-        cmake --install cmake_build --prefix "${EWTS_PREFIX}"; \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache && \
+        cmake --build cmake_build -j "$(nproc)" && \
+        cmake --install cmake_build --prefix "${EWTS_PREFIX}" && \
         jq -n \
             --arg commit_hash "$(git rev-parse HEAD)" \
             --arg branch "$(git branch -r --contains HEAD 2>/dev/null | grep -v '\->' | sed 's|origin/||' | head -n1 | xargs || echo "${EWTS_REF}")" \
@@ -398,16 +236,13 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
             --arg message "$(git log -1 --pretty=format:'%s' | tr '\n' ';')" \
             --arg build_date "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
             '{"nwm-ewts": {commit_hash: $commit_hash, branch: $branch, tags: $tags, author: $author, commit_date: $commit_date, message: $message, build_date: $build_date}}' \
-            > /ngen-app/nwm-ewts_git_info.json; \
-        pip install "${EWTS_PREFIX}"/python/dist/ewts-*.whl; \
-        cd /; \
-        rm -rf /tmp/nwm-ewts/cmake_build /tmp/nwm-ewts/.git; \
+            > /ngen-app/nwm-ewts_git_info.json && \
+        python -m pip install "${EWTS_PREFIX}"/python/dist/ewts-*.whl; \
     else \
         echo "EWTS disabled; removing any EWTS artifacts"; \
-        pip uninstall -y ewts || true; \
-        rm -rf "${EWTS_PREFIX}" /tmp/nwm-ewts /ngen-app/nwm-ewts_git_info.json; \
+        python -m pip uninstall -y ewts || true; \
+        rm -rf "${EWTS_PREFIX}" /ngen-app/nwm-ewts_git_info.json; \
     fi
-
 
 # When USE_EWTS=ON, make EWTS shared libraries (.so) discoverable at runtime.
 # Harmless when USE_EWTS=OFF because these directories will not exist.
@@ -455,10 +290,10 @@ COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
 COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
 
 # Install Python dependencies and remove the temporary requirements files.
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     set -eux && \
-        pip3 install -r /tmp/test_bmi_py_requirements.txt && \
-        pip3 install -r /tmp/t-route_requirements.txt && \
+        python -m pip install -r /tmp/test_bmi_py_requirements.txt && \
+        python -m pip install -r /tmp/t-route_requirements.txt && \
         rm /tmp/test_bmi_py_requirements.txt /tmp/t-route_requirements.txt
 
 # Copy only the extern/submodule trees that are built independently below.
@@ -488,8 +323,8 @@ COPY extern/t-route extern/t-route
 # separate t-route cache mount (e.g. /root/.cache/t-route) does not help unless
 # the scripts explicitly write build artifacts there. pip/uv caches are the
 # useful reusable caches here.
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
+    --mount=type=cache,target=/root/.cache/uv,id=uv-cache-rocky \
     set -eux && \
     export CC="gcc" && \
     export CXX="g++" && \
@@ -522,7 +357,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
 # ──────────────────────────────────────────────────────────────────────────────
 
 ARG LASAM_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "LASAM cache bust: ${LASAM_CACHE_BUST}" && \
@@ -540,7 +375,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     find /ngen-app/ngen/extern/LASAM -name '*.o' -exec rm -f {} +
 
 ARG SNOW17_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SNOW17 cache bust: ${SNOW17_CACHE_BUST}" && \
@@ -557,7 +392,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     find /ngen-app/ngen/extern/snow17 -name '*.o' -exec rm -f {} +
 
 ARG SACSMA_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SACSMA cache bust: ${SACSMA_CACHE_BUST}" && \
@@ -574,7 +409,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     find /ngen-app/ngen/extern/sac-sma -name '*.o' -exec rm -f {} +
 
 ARG SMP_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SMP cache bust: ${SMP_CACHE_BUST}" && \
@@ -592,7 +427,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     find /ngen-app/ngen/extern/SoilMoistureProfiles -name '*.o' -exec rm -f {} +
 
 ARG SFT_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "SFT cache bust: ${SFT_CACHE_BUST}" && \
@@ -610,7 +445,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     find /ngen-app/ngen/extern/SoilFreezeThaw -name '*.o' -exec rm -f {} +
 
 ARG UEB_CACHE_BUST=0
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "UEB cache bust: ${UEB_CACHE_BUST}" && \
@@ -619,7 +454,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     rm -rf extern/ueb-bmi/cmake_build && \
     cmake -B extern/ueb-bmi/cmake_build -S extern/ueb-bmi/ \
       -DUEB_SUPPRESS_OUTPUTS=ON \
-      -DCMAKE_PREFIX_PATH="${EWTS_PREFIX}" \
+      -DCMAKE_PREFIX_PATH="${EWTS_PREFIX};/usr/local" \
       -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
       -DBMICXX_INCLUDE_DIRS=/ngen-app/ngen/extern/bmi-cxx/ \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -628,10 +463,10 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     cmake --build extern/ueb-bmi/cmake_build/ && \
     find /ngen-app/ngen/extern/ueb-bmi/ -name '*.o' -exec rm -f {} +
 
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     set -eux; \
     cd extern/lstm; \
-    pip install .
+    python -m pip install .
 
 
 # Copy the full ngen application source only after the standalone submodules
@@ -643,17 +478,17 @@ COPY . /ngen-app/ngen/
 # topoflow-glacier uses setuptools-scm/VCS versioning and requires Git
 # metadata to be available when `pip install .` runs. Therefore this must
 # be built after the full repository COPY step.
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     set -eux; \
     cd extern/topoflow-glacier; \
-    pip install .
+    python -m pip install .
 
 # Configure ngen using ccache for compiler caching.
 # -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} tells cmake where
 # to find the ewtsConfig.cmake package file so that ngen's
 # CMakeLists.txt line find_package(ewts CONFIG REQUIRED) succeeds.
 # ngen links against ewts::ewts_ngen_bridge (the C++/MPI bridge).
-RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
+RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-rocky \
     set -eux && \
     USE_EWTS="${USE_EWTS:-ON}" && \
     echo "ngen USE_EWTS=${USE_EWTS}" && \
@@ -663,7 +498,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     export CMAKE_Fortran_FLAGS="-fPIC" && \
     rm -rf cmake_build && \
     cmake -B cmake_build -S . \
-        -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+        -DCMAKE_PREFIX_PATH="${EWTS_PREFIX};/usr/local" \
         -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
         -DNGEN_WITH_MPI=ON \
         -DNGEN_WITH_NETCDF=ON \
