@@ -64,7 +64,9 @@ NgenSimulation::NgenSimulation(
     , mpi_num_procs_(mpi_num_procs)
 {
     catchment_outflows_.reserve(catchment_indexes_.size() * get_num_output_times());
+#if NGEN_WITH_NEXUSES
     nexus_downstream_flows_.reserve(nexus_indexes_.size() * get_num_output_times());
+#endif // NGEN_WITH_NEXUSES
 }
 
 NgenSimulation::~NgenSimulation() = default;
@@ -77,7 +79,9 @@ void NgenSimulation::run_catchments()
     for (; simulation_step_ < num_times; simulation_step_++) {
         // Make room for this output step's results
         catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
+#if NGEN_WITH_NEXUSES
         nexus_downstream_flows_.resize(nexus_downstream_flows_.size() + nexus_indexes_.size(), 0.0);
+#endif // NGEN_WITH_NEXUSES
 
         advance_models_one_output_step();
 
@@ -174,6 +178,7 @@ void NgenSimulation::advance_models_one_output_step()
 
                 boost::span<double> catchment_span(catchment_outflows_.data() + (simulation_step_ * catchment_indexes_.size()),
                                                    catchment_indexes_.size());
+#if NGEN_WITH_NEXUSES
                 boost::span<double> nexus_span(nexus_downstream_flows_.data() + (simulation_step_ * nexus_indexes_.size()),
                                                nexus_indexes_.size());
                 layer->update_models(
@@ -183,6 +188,13 @@ void NgenSimulation::advance_models_one_output_step()
                                      nexus_indexes_,
                                      simulation_step_
                                      ); // assume update_models() calls time->advance_timestep()
+#else // NGEN_WITH_NEXUSES
+                layer->update_models(
+                                     catchment_span,
+                                     catchment_indexes_,
+                                     simulation_step_
+                                     ); // assume update_models() calls time->advance_timestep()
+#endif // NGEN_WITH_NEXUSES
                 prev_layer_time = layer_next_time;
             } else {
                 layer_min_next_time = prev_layer_time = layer->current_timestep_epoch_time();
@@ -427,6 +439,7 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         this->py_troute_->set_value_unchecked("ngen_dt", &delta_time, 1);
     }
     // set the inputs from catchment and nexus results
+#if NGEN_WITH_NEXUSES
     this->set_troute_inputs(
         &this->nexus_downstream_flows_,
         &this->nexus_indexes_,
@@ -434,6 +447,7 @@ void NgenSimulation::run_routing(NgenSimulation::hy_features_t &features, std::s
         "land_surface_water_source__volume_flow_rate",
         features
     );
+#endif // NGEN_WITH_NEXUSES
     this->set_troute_inputs(
         &this->catchment_outflows_,
         &this->catchment_indexes_,
@@ -470,6 +484,8 @@ void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
     // the set of catchments remains consistent
     ar & catchment_indexes_;
     ar & catchment_outflows_;
+#if NGEN_WITH_NEXUSES
     ar & nexus_indexes_;
     ar & nexus_downstream_flows_;
+#endif //NGEN_WITH_NEXUSES
 }

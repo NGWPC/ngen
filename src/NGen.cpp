@@ -737,11 +737,13 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     std::chrono::duration<double> time_elapsed_simulation = time_done_simulation - time_done_init;
     LOG("[TIMING]: Catchment simulation: " + std::to_string(time_elapsed_simulation.count()), LogLevel::INFO);
 
+#if NGEN_WITH_NEXUSES
     // Write nexus outflow CSV files in bulk at the end of the run,
     // rather than as the simulation runs, to avoid issues when
     // restarting an interrupted run. This would be less of an issue
     // if the data were written to a more resilient structured format.
     write_nexus_outflow_csv_files(manager->get_output_root(), simulation, features);
+#endif // NGEN_WITH_NEXUSES
 
 #if NGEN_WITH_MPI
     MPI_Barrier(MPI_COMM_WORLD);
