@@ -1,13 +1,13 @@
 #include "SurfaceLayer.hpp"
 #include "Logger.hpp"
 
+#if NGEN_WITH_NEXUSES
 #if NGEN_WITH_MPI
 #include "HY_Features_MPI.hpp"
 #else
 #include "HY_Features.hpp"
 #endif
 
-#if NGEN_WITH_NEXUSES
 void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows, 
                                        std::unordered_map<std::string, int> &catchment_indexes,
                                        boost::span<double> nexus_downstream_flows,

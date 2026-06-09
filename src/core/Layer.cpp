@@ -3,11 +3,14 @@
 #include <Bmi_Formulation.hpp>
 #include <string>
 
-#if NGEN_WITH_MPI
+#if NGEN_WITH_MPI && NGEN_WITH_NEXUES
 #include "HY_Features_MPI.hpp"
-#else
+#else // NGEN_WITH_MPI && NGEN_WITH_NEXUES
 #include "HY_Features.hpp"
-#endif
+#if NGEN_WITH_MPI
+#include <mpi.h>
+#endif // MPI_WITH_MPI
+#endif // NGEN_WITH_MPI && NGEN_WITH_NEXUES
 
 void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                                 std::unordered_map<std::string, int> &catchment_indexes,

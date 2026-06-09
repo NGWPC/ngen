@@ -59,8 +59,10 @@ namespace ngen
         */
         void update_models(boost::span<double> catchment_outflows, 
                            std::unordered_map<std::string, int> &catchment_indexes,
+#if NGEN_WITH_NEXUSES
                            boost::span<double> nexus_downstream_flows,
                            std::unordered_map<std::string, int> &nexus_indexes,
+#endif // NGEN_WITH_NEXUSES
                            int current_step) override {
             std::string current_timestamp = simulation_time.get_timestamp(output_time_index);
             try{

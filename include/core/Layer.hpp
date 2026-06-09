@@ -25,7 +25,7 @@ namespace ngen
     {    
         public:
 
-        #if NGEN_WITH_MPI
+        #if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
             using feature_type = hy_features::HY_Features_MPI;
         #else
             using feature_type = hy_features::HY_Features;

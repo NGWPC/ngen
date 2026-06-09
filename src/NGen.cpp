@@ -257,6 +257,11 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 #if NGEN_WITH_ROUTING
         ss << "  Routing active" << std::endl;
 #endif
+#if NGEN_WITH_NEXUSES
+        ss << "  Nexus calculations active" << std::endl;
+#else
+        ss << "  Nexus calculations disabled (nexus inputs will be ignored)" << std::endl;
+#endif
 #if NGEN_WITH_PYTHON
         ss << "Python Environment Info:" << std::endl;
         ss << "  VIRTUAL_ENV environment variable: "
@@ -400,11 +405,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 #if NGEN_WITH_NEXUSES
     // Read the collection of nexus
     ss << "Building Nexus collection" << std::endl;
-#else
-    ss << "NGEN was built without nexus support. All nexus arguments and parsing will be ignored.";
-#endif // NGEN_WITH_NEXUSES
     LOG(ss.str(), LogLevel::INFO);
     ss.str("");
+#endif // NGEN_WITH_NEXUSES
 
 #if NGEN_WITH_MPI
     PartitionData local_data;
