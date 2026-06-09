@@ -356,7 +356,11 @@ void NgenSimulation::set_troute_inputs(
         std::vector<double> receive_buffer(number_of_timesteps, 0.0);
         for (int i = 0; i < all_ids.size(); ++i) {
             std::string current_id = all_ids[i];
-            if (feature_indexes->find(current_id) != feature_indexes->end() && !features.is_remote_sender_nexus(current_id)) {
+            if (feature_indexes->find(current_id) != feature_indexes->end()
+#if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
+                && !features.is_remote_sender_nexus(current_id)
+#endif // NGEN_WITH_MPI && NGEN_WITH_NEXUSES
+            ) {
                 // if this process has the id and receives/records data, copy the values to the buffer
                 int id_index = feature_indexes->at(current_id);
                 for (int step = 0; step < number_of_timesteps; ++step) {

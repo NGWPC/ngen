@@ -216,7 +216,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     // subdivided the hydrofabric
 
     std::vector<std::string> catchment_subset_ids;
+#if NGEN_WITH_NEXUSES
     std::vector<std::string> nexus_subset_ids;
+#endif //NGEN_WITH_NEXUSES
 
     if (argc < 2) {
         // Usage
@@ -343,7 +345,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
         bool error =
             !utils::FileChecker::file_is_readable(catchmentDataFile, "Catchment data") ||
+#if NGEN_WITH_NEXUSES
             !utils::FileChecker::file_is_readable(nexusDataFile, "Nexus data") ||
+#endif // NGEN_WITH_NEXUSES
             !utils::FileChecker::file_is_readable(REALIZATION_CONFIG_PATH, "Realization config");
 
 #if NGEN_WITH_MPI
@@ -384,21 +388,21 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
         // split the subset strings into vectors
         boost::split(catchment_subset_ids, argv[2], [](char c) { return c == ','; });
-        if (catchment_subset_ids.size() == 1 && catchment_subset_ids[0] == "all")
+        if (catchment_subset_ids.size() == 1 && (catchment_subset_ids[0] == "all" || catchment_subset_ids[0] == ""))
             catchment_subset_ids.pop_back();
+#if NGEN_WITH_NEXUSES
         boost::split(nexus_subset_ids, argv[4], [](char c) { return c == ','; });
-        if (nexus_subset_ids.size() == 1 && nexus_subset_ids[0] == "all")
+        if (nexus_subset_ids.size() == 1 && (nexus_subset_ids[0] == "all" || nexus_subset_ids[0] == ""))
             nexus_subset_ids.pop_back();
-        // If a single id or no id is passed, the subset vector will have size 1 and be the id or
-        // the "" if we get an empy string, pop it from the subset list.
-        if (nexus_subset_ids.size() == 1 && nexus_subset_ids[0] == "")
-            nexus_subset_ids.pop_back();
-        if (catchment_subset_ids.size() == 1 && catchment_subset_ids[0] == "")
-            catchment_subset_ids.pop_back();
+#endif // NGEN_WITH_NEXUSES
     } // end else if (argc < 6)
 
+#if NGEN_WITH_NEXUSES
     // Read the collection of nexus
     ss << "Building Nexus collection" << std::endl;
+#else
+    ss << "NGEN was built without nexus support. All nexus arguments and parsing will be ignored.";
+#endif // NGEN_WITH_NEXUSES
     LOG(ss.str(), LogLevel::INFO);
     ss.str("");
 
@@ -412,19 +416,21 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
         std::vector<PartitionData>& partitions = partition_parser.partition_ranks;
         local_data                             = std::move(partitions[mpi_rank]);
+#if NGEN_WITH_NEXUSES
         if (!nexus_subset_ids.empty()) {
             ss << "Warning: CLI provided nexus subset will be ignored when using partition config";
             LOG(ss.str(), LogLevel::WARNING);
             ss.str("");
         }
+        nexus_subset_ids =
+            std::vector<std::string>(local_data.nexus_ids.begin(), local_data.nexus_ids.end());
+#endif //NGEN_WITH_NEXUSES
         if (!catchment_subset_ids.empty()) {
             ss << "Warning: CLI provided catchment subset will be ignored when using partition "
                   "config";
             LOG(ss.str(), LogLevel::WARNING);
             ss.str("");
         }
-        nexus_subset_ids =
-            std::vector<std::string>(local_data.nexus_ids.begin(), local_data.nexus_ids.end());
         catchment_subset_ids = std::vector<std::string>(
             local_data.catchment_ids.begin(),
             local_data.catchment_ids.end()
@@ -434,11 +440,12 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
     // TODO: Instead of iterating through a collection of FeatureBase objects mapping to nexi, we
     // instead want to iterate through HY_HydroLocation objects
-    geojson::GeoJSON nexus_collection;
+    geojson::GeoJSON feature_collection;
+#if NGEN_WITH_NEXUSES
     if (boost::algorithm::ends_with(nexusDataFile, "gpkg")) {
 #if NGEN_WITH_SQLITE3
         try {
-            nexus_collection = ngen::geopackage::read(nexusDataFile, "nexus", nexus_subset_ids);
+            feature_collection = ngen::geopackage::read(nexusDataFile, "nexus", nexus_subset_ids);
         } catch (std::exception &e) {
             // Handle all exceptions
             std::string msg = "Geopackage error occurred reading nexuses: " + nexusDataFile;
@@ -449,10 +456,13 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 #else
         LOG(LogLevel::FATAL, "SQLite3 support required to read GeoPackage files.");
         throw std::runtime_error("SQLite3 support required to read GeoPackage files.");
-#endif
+#endif // NGEN_WITH_SQLITE3
     } else {
-        nexus_collection = geojson::read(nexusDataFile, nexus_subset_ids);
+        feature_collection = geojson::read(nexusDataFile, nexus_subset_ids);
     }
+#else // NGEN_WITH_NEXUSES
+    feature_collection = std::make_shared<geojson::FeatureCollection>();
+#endif // NGEN_WITH_NEXUSES
     ss << "Building Catchment collection" << std::endl;
     LOG(ss.str(), LogLevel::INFO);
     ss.str("");
@@ -490,13 +500,13 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
     for (auto& feature : *catchment_collection) {
         // feature->set_id(feature->get_property("id").as_string());
-        nexus_collection->add_feature(feature);
+        feature_collection->add_feature(feature);
         // ss<<"Catchment "<<feature->get_id()<<" -> Nexus
         // "<<feature->get_property("toid").as_string()<<std::endl;
     }
     // Update the feature ids for the combined collection, using the alternative property 'id'
     // to map features to their primary id as well as the alternative property
-    nexus_collection->update_ids("id");
+    feature_collection->update_ids("id");
 
     boost::property_tree::ptree realization_config;
     boost::property_tree::json_parser::read_json(REALIZATION_CONFIG_PATH, realization_config);
@@ -550,9 +560,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     LOG(ss.str(), LogLevel::INFO);
     ss.str("");
     std::string link_key = "toid";
-    nexus_collection->link_features_from_property(nullptr, &link_key);
+    feature_collection->link_features_from_property(nullptr, &link_key);
 
-#if NGEN_WITH_MPI
+#if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
     // mpirun with one processor without partition file
     if (mpi_num_procs == 1) {
         Partition_One partition_one;
@@ -561,28 +571,30 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     }
     hy_features::HY_Features_MPI features = hy_features::HY_Features_MPI(
         local_data,
-        nexus_collection,
+        feature_collection,
         manager,
         mpi_rank,
         mpi_num_procs
     );
-#else
-    hy_features::HY_Features features = hy_features::HY_Features(nexus_collection, manager);
-#endif
+#else // NGEN_WITH_MPI && NGEN_WITH_NEXUSES
+    hy_features::HY_Features features = hy_features::HY_Features(feature_collection, manager);
+#endif // NGEN_WITH_MPI && NGEN_WITH_NEXUSES
 
+#if NGEN_WITH_NEXUSES
     // validate dendritic connections
     features.validate_dendritic();
+#endif // NGEN_WITH_NEXUSES
     // TODO don't really need catchment_collection once catchments are added to nexus collection
     // Still using  catchments for geometry at the moment, fix this later
     // catchment_collection.reset();
 
     // T-ROUTE data storage
     std::unordered_map<std::string, int> nexus_indexes;
-#if NGEN_WITH_ROUTING
+#if NGEN_WITH_ROUTING && NGEN_WITH_NEXUSES
     {
         int nexus_index = 0;
-        for (int i = 0; i < nexus_collection->get_size(); ++i) {
-            auto const& feature = nexus_collection->get_feature(i);
+        for (int i = 0; i < feature_collection->get_size(); ++i) {
+            auto const& feature = feature_collection->get_feature(i);
             std::string feature_id = feature->get_id();
             if (hy_features::identifiers::isNexus(feature_id.substr(0, 3))
                 && nexus_indexes.find(feature_id) == nexus_indexes.end())
@@ -592,9 +604,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
             }
         }
     }
-#endif // NGEN_WITH_ROUTING
+#endif // NGEN_WITH_ROUTING && NGEN_WITH_NEXUSES
 
-    nexus_collection.reset();
+    feature_collection.reset();
 
     ss << "Running Models" << std::endl;
     LOG(ss.str(), LogLevel::INFO);
