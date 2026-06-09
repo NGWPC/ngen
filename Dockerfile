@@ -229,6 +229,9 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Consolidated LD_LIBRARY_PATH for MPI
 ENV LD_LIBRARY_PATH="/usr/lib64/openmpi/lib:/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
 
+# Expose gcc-toolset compilers at runtime for downstream images and test scripts.
+ENV PATH="/opt/rh/gcc-toolset-10/root/usr/bin:${PATH}"
+
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
     set -eux && \
     pip3 install --upgrade pip setuptools wheel && \
