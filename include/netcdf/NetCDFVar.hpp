@@ -13,7 +13,7 @@
 
 #if NGEN_WITH_MPI
 #include <mpi.h>
-#include <netcdf_par.h>
+// #include <netcdf_par.h>
 #endif
 
 class NetCDFVar {
@@ -46,8 +46,6 @@ public:
     double get_double_attribute(const std::string& att_name) const;
     size_t get_variable_index(const int& catchment_id) const;
 
-    void write_timesliced_data(size_t timestep, size_t slice_start, size_t slice_count, const double* data);
-    
     //for mdframe_netcdf tests
     void write_int_1d(const std::vector<int>& data) const;
     void write_flattened_double_array(const std::vector<double>& data) const; 

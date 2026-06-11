@@ -215,16 +215,6 @@ void NetCDFVar::read_slice(const std::vector<size_t>& start, const std::vector<s
     NC_CHECK(nc_get_vara_double(ncid_, varid_, start.data(), count.data(), data), "Reading double data from slice failed");
 }
 
-void NetCDFVar::write_timesliced_data(size_t timestep, size_t slice_start, size_t slice_count, const double* data)
-{
-    std::vector<size_t> start = {timestep, slice_start};
-    std::vector<size_t> count = {1, slice_count};
-#if NGEN_WITH_MPI
-    NC_CHECK(nc_var_par_access(ncid_, varid_, NC_COLLECTIVE), "Setting up parallel access failed");
-#endif
-    NC_CHECK(nc_put_vara_double(ncid_, varid_, start.data(), count.data(), data) , "Writing double data as slices failed");
-}
-
 void NetCDFVar::write_int_1d(const std::vector<int>& data) const {
     std::vector<size_t> index(1);
     for (size_t i = 0; i < data.size(); ++i) {

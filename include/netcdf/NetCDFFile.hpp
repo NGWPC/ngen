@@ -12,7 +12,7 @@
 #if NGEN_WITH_MPI
 #include <mpi.h>
 #define _PARALLEL4
-#include <netcdf_par.h>
+//#include <netcdf_par.h>
 #endif
 #include "NetCDFVar.hpp"
 
