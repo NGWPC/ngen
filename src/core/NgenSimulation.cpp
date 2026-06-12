@@ -15,36 +15,11 @@
 #include "state_save_restore/vecbuf.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include "state_save_restore/State_Save_Restore.hpp"
-
-#include <boost/serialization/serialization.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/unordered_map.hpp>
-
 #include "parallel_utils.h"
 
 namespace {
+    const auto NGEN_UNIT_NAME = "ngen";
     const auto TROUTE_UNIT_NAME = "troute";
-
-    #if NGEN_WITH_MPI
-    // Merge strings from multiple MPI ranks and broadcast the results to all ranks. Duplicates will be removed.
-    std::vector<std::string> collect_unique_strings(const std::vector<std::string> &items, int mpi_rank, int mpi_num_procs) {
-        // MPI_Gather all items to rank 0
-        std::vector<std::string> all_items
-            = parallel::gather_strings(items, mpi_rank, mpi_num_procs);
-        if (mpi_rank == 0) {
-            // filter to only the unique items
-            std::sort(all_items.begin(), all_items.end());
-            all_items.erase(
-                std::unique(all_items.begin(), all_items.end()),
-                all_items.end()
-            );
-        }
-        // MPI_Broadcast unique, sorted results to all ranks
-        return parallel::broadcast_strings(all_items, mpi_rank, mpi_num_procs);
-    }
-    #endif // NGEN_WITH_MPI
 }
 
 NgenSimulation::NgenSimulation(
