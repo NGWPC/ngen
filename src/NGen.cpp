@@ -562,8 +562,10 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     ss << "Building Feature Index" << std::endl;
     LOG(ss.str(), LogLevel::INFO);
     ss.str("");
+#if NGEN_WITH_NEXUSES
     std::string link_key = "toid";
     feature_collection->link_features_from_property(nullptr, &link_key);
+#endif // NGEN_WITH_NEXUSES
 
 #if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
     // mpirun with one processor without partition file
