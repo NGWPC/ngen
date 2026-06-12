@@ -138,30 +138,10 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
     LOG("Update models completed", LogLevel::INFO);
 }
 
-std::string ngen::Layer::unit_name() const {
-    return "lyr-" + std::to_string(this->get_id());
-}
-
-std::vector<std::string> ngen::Layer::required_checkpoint_units() const {
-    std::vector<std::string> units;
-    units.push_back(this->unit_name());
-    for (auto const& id : processing_units) {
-        auto r = features.catchment_at(id);
-        auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(r);
-        units.push_back(r_c->save_state_unit_name());
-    }
-    return units;
-}
-
-void ngen::Layer::save_checkpoint(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
+void ngen::Layer::save_state_snapshot(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
 {
-    snapshot_saver->archive_unit(this->unit_name(), this);
-    // assume save_end_of_run ist just the BMI save
-    this->save_end_of_run(snapshot_saver);
-}
+    // XXX Handle any of this class's own state as a meta-data unit
 
-void ngen::Layer::save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot_saver)
-{
     for (auto const& id : processing_units) {
         auto r = features.catchment_at(id);
         auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(r);
@@ -169,9 +149,10 @@ void ngen::Layer::save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot
     }
 }
 
-void ngen::Layer::load_checkpoint(std::shared_ptr<State_Snapshot_Loader> snapshot_loader)
+void ngen::Layer::load_state_snapshot(std::shared_ptr<State_Snapshot_Loader> snapshot_loader)
 {
-    snapshot_loader->dearchive_unit(this->unit_name(), this);
+    // XXX Handle any of this class's own state as a meta-data unit
+
     for (auto const& id : processing_units) {
         auto r = features.catchment_at(id);
         auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(r);
@@ -181,7 +162,8 @@ void ngen::Layer::load_checkpoint(std::shared_ptr<State_Snapshot_Loader> snapsho
 
 void ngen::Layer::load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot_loader)
 {
-    // no Layer metadata needs to load for this
+    // XXX Handle any of this class's own state as a meta-data unit
+
     for (auto const& id : processing_units) {
         auto r = features.catchment_at(id);
         auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(r);
