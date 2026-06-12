@@ -21,6 +21,11 @@ class Bmi_C_Pet_IT;
 class Bmi_Cpp_Multi_Array_Test;
 
 namespace realization {
+    static bool is_ngen_realization_time_input(const std::string& var_name) {
+        return var_name == "ngen_realization_start_time" ||
+               var_name == "ngen_realization_end_time" ||
+               var_name == "ngen_realization_dt";
+    }
 
     /**
      * Abstraction of a formulation with a single backing model object that implements the BMI.
@@ -320,7 +325,6 @@ namespace realization {
         }
 
     protected:
-
         /**
          * @brief Get correct BMI variable name, which may be the output or something mapped to this output.
          *
@@ -404,6 +408,11 @@ namespace realization {
          * 
          */
         void set_initial_bmi_parameters(geojson::PropertyMap properties);
+
+        /**
+         * If supported by the BMI module, pass realization timing metadata through legal BMI SetValue calls.
+         */
+        void set_realization_time_inputs();
 
         /**
          * Test whether backing model has fixed time step size.

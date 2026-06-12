@@ -6,6 +6,11 @@
 #include "state_save_restore/State_Save_Utils.hpp"
 #include <state_save_restore/State_Save_Restore.hpp>
 
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+#include <boost/algorithm/string.hpp>
+
 std::stringstream bmiform_ss;
 
 namespace realization {
@@ -439,6 +444,56 @@ namespace realization {
             return bmi_model_start_time_forcing_offset_s;
         }
 
+        void Bmi_Module_Formulation::set_realization_time_inputs() {
+            auto model = get_bmi_model();
+            if (model == nullptr) {
+                return;
+            }
+
+            std::vector<std::string> input_vars = model->GetInputVarNames();
+
+            const bool has_start =
+                std::find(input_vars.begin(), input_vars.end(), "ngen_realization_start_time") != input_vars.end();
+            const bool has_end =
+                std::find(input_vars.begin(), input_vars.end(), "ngen_realization_end_time") != input_vars.end();
+            const bool has_dt =
+                std::find(input_vars.begin(), input_vars.end(), "ngen_realization_dt") != input_vars.end();
+
+            if (!has_start && !has_end && !has_dt) {
+                return;
+            }
+
+            const double start_time_value = static_cast<double>(forcing->get_data_start_time());
+            const double end_time_value = static_cast<double>(forcing->get_data_stop_time());
+            const double dt_value = static_cast<double>(forcing->record_duration());
+
+            if (dt_value <= 0.0) {
+                throw std::runtime_error(
+                    "Invalid realization record duration while setting BMI realization time inputs for catchment '" +
+                    this->get_id() + "'."
+                );
+            }
+
+            if (has_start) {
+                model->SetValue("ngen_realization_start_time", (void *)&start_time_value);
+            }
+
+            if (has_end) {
+                model->SetValue("ngen_realization_end_time", (void *)&end_time_value);
+            }
+
+            if (has_dt) {
+                model->SetValue("ngen_realization_dt", (void *)&dt_value);
+            }
+
+            std::stringstream ss;
+            ss << "Applied realization time inputs via BMI SetValue for catchment '" << this->get_id()
+               << "': start_utime=" << static_cast<long>(start_time_value)
+               << ", end_utime=" << static_cast<long>(end_time_value)
+               << ", dt_seconds=" << static_cast<long>(dt_value);
+            LOG(ss.str(), LogLevel::INFO);
+        }
+
         void Bmi_Module_Formulation::inner_create_formulation(geojson::PropertyMap properties, bool needs_param_validation) {
             if (needs_param_validation) {
                 validate_parameters(properties);
@@ -447,6 +502,11 @@ namespace realization {
             set_bmi_init_config(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__INIT_CONFIG).as_string());
             set_bmi_main_output_var(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MAIN_OUT_VAR).as_string());
             set_model_type_name(properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string());
+
+	    const std::string model_type_name =
+                boost::algorithm::to_lower_copy(
+                    properties.at(BMI_REALIZATION_CFG_PARAM_REQ__MODEL_TYPE).as_string()
+                );
 
             // Then optional ...
 
@@ -485,6 +545,9 @@ namespace realization {
             //Check if any parameter values need to be set on the BMI model,
             //and set them before it is run
             set_initial_bmi_parameters(properties);
+
+	    // Pass realization timing to BMI modules that explicitly advertise these inputs.
+            set_realization_time_inputs();
 
             // Make sure that this is able to interpret model time and convert to real time, since BMI model time is
             // usually starting at 0 and just counting up
@@ -898,6 +961,9 @@ namespace realization {
             time_t model_epoch_time = convert_model_time(model_init_time) + get_bmi_model_start_time_forcing_offset_s();
 
             for (std::string & var_name : in_var_names) {
+		if (is_ngen_realization_time_input(var_name)) {
+                    continue;
+                }
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {
@@ -985,6 +1051,9 @@ namespace realization {
             inputs << "Input variables were as follows:";
 
             for (std::string & var_name : in_var_names) {
+		if (is_ngen_realization_time_input(var_name)) {
+                    continue;
+                }
                 data_access::GenericDataProvider *provider;
                 std::string var_map_alias = get_config_mapped_variable_name(var_name);
                 if (input_forcing_providers.find(var_map_alias) != input_forcing_providers.end()) {

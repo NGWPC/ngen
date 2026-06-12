@@ -636,6 +636,9 @@ namespace realization {
             std::shared_ptr<std::map<std::string, std::string>> var_aliases;
             var_aliases = std::make_shared<std::map<std::string, std::string>>(std::map<std::string, std::string>());
             for (const std::string &var_name : mod->get_bmi_input_variables()) {
+		if (is_ngen_realization_time_input(var_name)) {
+                    continue;
+                }
                 std::string framework_alias = mod->get_config_mapped_variable_name(var_name);
                 (*var_aliases)[framework_alias] = var_name;
                 // If framework_name is not yet in collection from which we have available data sources ...
