@@ -2,18 +2,7 @@
 #define NGEN_LOGGER_HPP
 
 #ifdef USE_EWTS
-#include "ewts/module_constants.hpp"
-#include "ewts/logger.hpp"
-#include "ewts/log_levels.hpp"
-
-#define LOG(...) ::ewts::GetLogger(::ewts::modules::EWTS_ID_NGEN).Log(__VA_ARGS__)
-#define GetLogLevel() ::ewts::GetLogger(::ewts::modules::EWTS_ID_NGEN).GetLogLevel()
-#define IsLoggingEnabled() ::ewts::GetLogger(::ewts::modules::EWTS_ID_NGEN).IsLoggingEnabled()
-
-using LogLevel = ::ewts::LogLevel;
-
-inline constexpr const char* NGEN_MODULE_ID = ::ewts::modules::EWTS_ID_NGEN;
-
+#include "ewts_ngen/logger.hpp"
 #else
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 // Log messages written to STDOUT
