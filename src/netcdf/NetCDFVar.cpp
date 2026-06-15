@@ -1,6 +1,6 @@
 #if NGEN_WITH_NETCDF
 #include "NetCDFVar.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include <stdexcept>
 #include <numeric>
 #include <NGenConfig.h>

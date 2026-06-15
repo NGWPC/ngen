@@ -3,7 +3,7 @@
 #include "Formulation_Manager.hpp"
 #include "Catchment_Formulation.hpp"
 #include "simulation_time/Simulation_Time.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include <stdexcept>
 #include <NGenConfig.h>
 

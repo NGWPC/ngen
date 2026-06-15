@@ -4,7 +4,7 @@
 
 #if NGEN_WITH_NETCDF
 #include "NetCDFFile.hpp"
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
