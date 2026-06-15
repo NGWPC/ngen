@@ -219,95 +219,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: recursive
           fetch-depth: 0
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake g++ mpi-default-bin libopenmpi-dev libudunits2-dev libnetcdf-dev libnetcdf-c++4-dev
-          python3 -m pip install numpy==1.26.4 netcdf4 bmipy pandas torch pyyaml pyarrow
-          #python3 -m pip install -r extern/test_bmi_py/requirements.txt
-          #python3 -m pip install -r extern/t-route/requirements.txt
-      # Initialize CodeQL (C++ selected)
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: cpp
-      - name: Install Boost
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential curl ca-certificates bzip2 python3-dev
+          languages: c-cpp
+          build-mode: none
 
-          BOOST_VER=1.86.0
-          BOOST_UNDERSCORE=1_86_0
-          PREFIX=/usr/local
-
-          curl -fL --retry 10 --retry-delay 2 --max-time 600 \
-            -o /tmp/boost.tar.bz2 \
-            "https://sourceforge.net/projects/boost/files/boost/${BOOST_VER}/boost_${BOOST_UNDERSCORE}.tar.bz2/download"
-
-          tar -xjf /tmp/boost.tar.bz2 -C /tmp
-          cd "/tmp/boost_${BOOST_UNDERSCORE}"
-
-          ./bootstrap.sh --prefix="${PREFIX}"
-
-          # Build Boost libraries
-          sudo ./b2 -j"$(nproc)" install \
-            --with-system \
-            --with-filesystem \
-            --with-program_options \
-            --with-thread \
-            --with-regex \
-            --with-date_time \
-            --with-serialization
-          echo "BOOST_ROOT=${PREFIX}" >> "$GITHUB_ENV"
-
-      - name: Build and install EWTS
-        run: |
-          set -euo pipefail
-          EWTS_ORG="${{ inputs.EWTS_ORG || github.repository_owner }}"
-          EWTS_REF="${{ inputs.EWTS_REF || needs.setup.outputs.default_ref }}"
-          EWTS_PREFIX=/opt/ewts
-
-          git clone --depth 1 -b "${EWTS_REF}" \
-            "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
-          || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
-              cd /tmp/nwm-ewts && git checkout "${EWTS_REF}")
-
-          cd /tmp/nwm-ewts
-          cmake -S . -B cmake_build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DEWTS_WITH_NGEN=ON \
-            -DEWTS_BUILD_SHARED=ON
-          cmake --build cmake_build -j "$(nproc)"
-          sudo cmake --install cmake_build --prefix "${EWTS_PREFIX}"
-
-          echo "EWTS_PREFIX=${EWTS_PREFIX}" >> "$GITHUB_ENV"
-
-      - name: Build C++ code
-        env:
-          PYTHONPATH: ${{ env.PYTHONPATH }}
-        run: |
-          cmake -B cmake_build -S . \
-            -DCMAKE_PREFIX_PATH="${EWTS_PREFIX};${BOOST_ROOT}" \
-            -DBoost_NO_SYSTEM_PATHS=ON \
-            -DBOOST_ROOT="${BOOST_ROOT}" \
-            -DPYTHON_EXECUTABLE=$(which python3) \
-            -DNGEN_WITH_MPI=ON \
-            -DNGEN_WITH_NETCDF=ON \
-            -DNGEN_WITH_SQLITE=ON \
-            -DNGEN_WITH_UDUNITS=ON \
-            -DNGEN_WITH_BMI_FORTRAN=ON \
-            -DNGEN_WITH_BMI_C=ON \
-            -DNGEN_WITH_PYTHON=ON \
-            -DNGEN_WITH_TESTS=OFF \
-            -DNGEN_WITH_ROUTING=ON \
-            -DNGEN_QUIET=ON \
-            -DNGEN_UPDATE_GIT_SUBMODULES=OFF
-          cmake --build cmake_build --target all
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
 
