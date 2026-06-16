@@ -15,19 +15,32 @@ ARG IMAGE_NAMESPACE=ngwpc
 ARG EWTS_ORG=${GH_ORG}
 ARG EWTS_REF=development
 ARG USE_EWTS=ON
+
+############################################################################
+# Image selection
 ############################################################################
 
-# Image selection
-ARG NGEN_FORCING_IMAGE_TAG=latest
-ARG NGEN_FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:${NGEN_FORCING_IMAGE_TAG}
+# Use the ngen-bmi-forcing image as the base. This already includes the
+# inherited Rocky-based compiled dependency stack plus the ngen-bmi-forcing
+# Python package.
+#
+# Default build:
+#   docker build -t ngen .
+#
+# Build from a different published forcing image:
+#   docker build \
+#     --build-arg FORCING_IMAGE=ghcr.io/ngwpc/ngen-bmi-forcing:development \
+#     -t ngen .
+#
+# Build from a locally built forcing image:
+#   docker build \
+#     --build-arg FORCING_IMAGE=ngen-bmi-forcing \
+#     -t ngen .
+ARG FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:latest
 
-FROM ${NGEN_FORCING_IMAGE} AS base
-
-# Uncomment when building locally
-# FROM ngen-bmi-forcing AS base
+FROM ${FORCING_IMAGE} AS base
 
 # Re-expose args after FROM for the remaining build stage
-# Keeps whatever value was already set
 ARG GH_ORG
 ARG GHCR_ORG
 ARG IMAGE_NAMESPACE
@@ -42,9 +55,10 @@ ARG EWTS_REF
 ARG USE_EWTS=ON
 
 # OCI Metadata Arguments
-ARG NGEN_FORCING_IMAGE
-ARG BASE_IMAGE_DIGEST="unknown"
-ARG BASE_IMAGE_REVISION="unknown"
+ARG FORCING_IMAGE
+ARG FORCING_IMAGE_NAME="${FORCING_IMAGE}"
+ARG FORCING_IMAGE_DIGEST="unknown"
+ARG FORCING_IMAGE_REVISION="unknown"
 ARG IMAGE_SOURCE="unknown"
 ARG IMAGE_VENDOR="unknown"
 ARG IMAGE_VERSION="unknown"
@@ -52,15 +66,15 @@ ARG IMAGE_REVISION="unknown"
 ARG EWTS_REVISION="unknown"
 
 # Image Labels: OCI-spec annotations followed by custom source-repo metadata.
-LABEL org.opencontainers.image.base.name="${NGEN_FORCING_IMAGE}" \
-    org.opencontainers.image.base.digest="${BASE_IMAGE_DIGEST}" \
+LABEL org.opencontainers.image.base.name="${FORCING_IMAGE_NAME}" \
+      org.opencontainers.image.base.digest="${FORCING_IMAGE_DIGEST}" \
     org.opencontainers.image.source="${IMAGE_SOURCE}" \
     org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
     org.opencontainers.image.version="${IMAGE_VERSION}" \
     org.opencontainers.image.revision="${IMAGE_REVISION}" \
     org.opencontainers.image.title="Next Generation Water Modeling Engine and Framework Prototype" \
     org.opencontainers.image.description="Docker image for the NGEN application" \
-    io.${IMAGE_NAMESPACE}.image.base.revision="${BASE_IMAGE_REVISION}" \
+    io.${IMAGE_NAMESPACE}.image.base.revision="${FORCING_IMAGE_REVISION}" \
     io.${IMAGE_NAMESPACE}.ewts.org="${EWTS_ORG}" \
     io.${IMAGE_NAMESPACE}.ewts.ref="${EWTS_REF}" \
     io.${IMAGE_NAMESPACE}.ewts.revision="${EWTS_REVISION}"
