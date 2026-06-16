@@ -319,7 +319,6 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int6
     // Lambda helper function for writing the data to netcdf file
     auto write_data_to_netcdf = [&](const int64_t& catchment_id, const std::string& csv_output_line) {
         std::vector<double> catchment_output = string_split(csv_output_line, ',');
-        LOG("CSV Line: " + csv_output_line, LogLevel::INFO);
         auto var = nc_file_->get_ncvar("catchments");
         if (!var){
             LOG("Catchments variable/dimension not found in NetCDF", LogLevel::FATAL);

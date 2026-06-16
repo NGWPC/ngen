@@ -393,11 +393,6 @@ if(NGEN_WITH_NETCDF)
       Python::Python
    )
     # the order for the custom netcdf and hdf5 libraries is important.
-   #  target_link_libraries(NetCDFManager PUBLIC
-   #      ${NETCDF_INSTALL}/lib/libnetcdf.so
-   #      ${HDF5_INSTALL}/lib/libhdf5_hl.so
-   #      ${HDF5_INSTALL}/lib/libhdf5.so
-   #  )
     target_link_libraries(NetCDFManager PUBLIC
         ${NETCDF_LIB}
         ${HDF5_STD}

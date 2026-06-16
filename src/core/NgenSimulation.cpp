@@ -16,10 +16,16 @@
 #include "state_save_restore/vecbuf.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include "state_save_restore/State_Save_Restore.hpp"
+
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/unordered_map.hpp>
+
 #include "parallel_utils.h"
 
 namespace {
-    const auto NGEN_UNIT_NAME = "ngen";
     const auto TROUTE_UNIT_NAME = "troute";
     #if NGEN_WITH_MPI
     // Merge strings from multiple MPI ranks and broadcast the results to all ranks. Duplicates will be removed.
@@ -546,4 +552,25 @@ void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulati
 #if NGEN_WITH_NETCDF
     this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank, mpi_num_procs);
 #endif
+}
+
+void NgenSimulation::update_progress_for_payload(int time_index, int num_times, std::vector<int> milestones)
+{
+    auto it = std::find(milestones.begin(), milestones.end(), time_index);
+    if (it != milestones.end()) {
+        run_progress_updated(true);
+    }
+    else{
+        run_progress_updated(false);
+    }
+}
+
+void NgenSimulation:: log_completed_payload_msg()
+{
+    std::vector<std::string> completed_models = set_progress_complete();
+    for (const auto& model : completed_models)
+    {
+        LOG(LogLevel::INFO, generate_payload_msg(model));
+    }
+    reset_payload_attributes(); //reset all Payload variables after simulation runs
 }
