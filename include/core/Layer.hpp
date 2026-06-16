@@ -25,7 +25,7 @@ namespace ngen
     {    
         public:
 
-        #if NGEN_WITH_MPI
+        #if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
             using feature_type = hy_features::HY_Features_MPI;
         #else
             using feature_type = hy_features::HY_Features;
@@ -108,8 +108,10 @@ namespace ngen
         */
         virtual void update_models(boost::span<double> catchment_outflows, 
                                    std::unordered_map<std::string, int> &catchment_indexes,
+#if NGEN_WITH_NEXUSES
                                    boost::span<double> nexus_downstream_flows,
                                    std::unordered_map<std::string, int> &nexus_indexes,
+#endif // NGEN_WITH_NEXUSES
                                    int current_step);
 
         /**

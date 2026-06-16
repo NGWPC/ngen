@@ -20,12 +20,13 @@ namespace ngen
         {
 
         }
-
+#if NGEN_WITH_NEXUSES
         void update_models(boost::span<double> catchment_outflows, 
                            std::unordered_map<std::string, int> &catchment_indexes,
                            boost::span<double> nexus_downstream_flows,
                            std::unordered_map<std::string, int> &nexus_indexes,
                            int current_step) override;
+#endif // NGEN_WITH_NEXUSES
     };
 }
 

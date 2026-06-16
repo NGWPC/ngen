@@ -42,7 +42,7 @@ public:
 
     ~NgenSimulation();
 
-#if NGEN_WITH_MPI
+#if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
     using hy_features_t = hy_features::HY_Features_MPI;
 #else
     using hy_features_t = hy_features::HY_Features;

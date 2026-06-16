@@ -3,16 +3,21 @@
 #include <Bmi_Formulation.hpp>
 #include <string>
 
-#if NGEN_WITH_MPI
+#if NGEN_WITH_MPI && NGEN_WITH_NEXUES
 #include "HY_Features_MPI.hpp"
-#else
+#else // NGEN_WITH_MPI && NGEN_WITH_NEXUES
 #include "HY_Features.hpp"
-#endif
+#if NGEN_WITH_MPI
+#include <mpi.h>
+#endif // MPI_WITH_MPI
+#endif // NGEN_WITH_MPI && NGEN_WITH_NEXUES
 
 void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                                 std::unordered_map<std::string, int> &catchment_indexes,
+#if NGEN_WITH_NEXUSES
                                 boost::span<double> nexus_downstream_flows,
                                 std::unordered_map<std::string, int> &nexus_indexes,
+#endif // NGEN_WITH_NEXUSES
                                 int current_step)
 {
     auto idx = simulation_time.next_timestep_index();
@@ -87,6 +92,7 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             // multiply by square meters: (m/s) * (m^2) = (m^3/s)
             * area_sq_m;
 #endif // NGEN_WITH_ROUTING
+#if NGEN_WITH_NEXUSES
         // NOTE: the conversion below loos like it's missing a conversion from per timestep to per second
         // Maintaining the current code in case there's a step later that accounts for this
         double response_m_s = response * area_sq_m;
@@ -108,6 +114,7 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
               << response << ", ID = " << id << ", time-index = " << output_time_index << std::endl; */
             break;
         }
+#endif // NGEN_WITH_NEXUSES
                 
     } //done catchments   
 

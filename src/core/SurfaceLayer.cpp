@@ -1,6 +1,7 @@
 #include "SurfaceLayer.hpp"
 #include "Logger.hpp"
 
+#if NGEN_WITH_NEXUSES
 #if NGEN_WITH_MPI
 #include "HY_Features_MPI.hpp"
 #else
@@ -51,3 +52,4 @@ void ngen::SurfaceLayer::update_models(boost::span<double> catchment_outflows,
         //std::cout<<"\tNexus "<<id<<" has "<<contribution_at_t<<" m^3/s"<<std::endl;
     } //done nexuses
 }
+#endif // NGEN_WITH_NEXUSES
