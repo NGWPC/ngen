@@ -108,7 +108,7 @@ struct PayloadConfig {
         ss << "\"prog\": 1.0, ";
         ss << "\"msg\": \"Simulation runs completed\", ";
         ss << "\"modnm\": \"" << model_name << "\"";
-        return "<MSG_DATA> " + ss.str() + " </MSG_DATA>";
+        return "<MSG_DATA>{" + ss.str() + "}</MSG_DATA>";
     }
 };
 
