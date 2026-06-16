@@ -98,7 +98,7 @@ struct PayloadConfig {
             ss << "null" << ", ";
         }
         ss << "\"modnm\": \"" << model_name << "\"";   
-        return "<MSG_DATA> " + ss.str() + " </MSG_DATA>";
+        return "<MSG_DATA>{" + ss.str() + "}</MSG_DATA>";
     }
 
     //construct payload string for logging
