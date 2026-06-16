@@ -123,6 +123,8 @@ private:
         const NgenSimulation::hy_features_t &features
     );
 
+    void update_progress_for_payload(int time_index, int num_times, std::vector<int> milestones);
+    void log_completed_payload_msg();
     inline void sync_mpi_ranks() const;
 
     int simulation_step_;
@@ -151,7 +153,6 @@ private:
     friend class boost::serialization::access;
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version);
-    void serialize(Archive& ar);
 
 #if NGEN_WITH_MPI
         MPI_Comm mpi_comm_;

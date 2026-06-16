@@ -1,6 +1,7 @@
 #include <NgenSimulation.hpp>
 #include <NGenConfig.h>
 #include "Logger.hpp"
+#include "PayloadConfig.hpp"
 
 #if NGEN_WITH_MPI
 #include "HY_Features_MPI.hpp"
@@ -15,11 +16,35 @@
 #include "state_save_restore/vecbuf.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include "state_save_restore/State_Save_Restore.hpp"
+
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/unordered_map.hpp>
+
 #include "parallel_utils.h"
 
 namespace {
-    const auto NGEN_UNIT_NAME = "ngen";
     const auto TROUTE_UNIT_NAME = "troute";
+    #if NGEN_WITH_MPI
+    // Merge strings from multiple MPI ranks and broadcast the results to all ranks. Duplicates will be removed.
+    std::vector<std::string> collect_unique_strings(const std::vector<std::string> &items, int mpi_rank, int mpi_num_procs) {
+        // MPI_Gather all items to rank 0
+        std::vector<std::string> all_items
+            = parallel::gather_strings(items, mpi_rank, mpi_num_procs);
+        if (mpi_rank == 0) {
+            // filter to only the unique items
+            std::sort(all_items.begin(), all_items.end());
+            all_items.erase(
+                std::unique(all_items.begin(), all_items.end()),
+                all_items.end()
+            );
+        }
+        // MPI_Broadcast unique, sorted results to all ranks
+        return parallel::broadcast_strings(all_items, mpi_rank, mpi_num_procs);
+    }
+    #endif // NGEN_WITH_MPI
 }
 
 NgenSimulation::NgenSimulation(
@@ -49,7 +74,11 @@ NgenSimulation::~NgenSimulation() = default;
 void NgenSimulation::run_catchments()
 {
     // Now loop some time, iterate catchments, do stuff for total number of output times
-    auto num_times = get_num_output_times();
+    int num_times = get_num_output_times();
+    std::vector<int> milestones = { (num_times * 25 / 100) - 1, (num_times * 50 / 100) - 1, (num_times * 75 / 100) - 1 };
+    //LOG(LogLevel::INFO, std::to_string(milestones[0]));
+    //LOG(LogLevel::INFO, std::to_string(milestones[1]));
+    //LOG(LogLevel::INFO, std::to_string(milestones[2]));
     for (; simulation_step_ < num_times; simulation_step_++) {
         // Make room for this output step's results
         catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
@@ -60,13 +89,19 @@ void NgenSimulation::run_catchments()
         advance_models_one_output_step();
 
         if (simulation_step_ + 1 < num_times) {
+            update_progress_for_payload(simulation_step_, num_times, milestones);
             sim_time_->advance_timestep();
+        }
+        if(simulation_step_ + 1 == num_times){
+            // indicates end of simulations
+            log_completed_payload_msg();
         }
     }
 }
 
 void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_saver, int frequency) {
     int num_times = get_num_output_times();
+    std::vector<int> milestones = { (num_times * 25 / 100) - 1, (num_times * 50 / 100) - 1, (num_times * 75 / 100) - 1 };
     if (frequency > num_times) {
         LOG(LogLevel::WARNING, "The frequency of checkpoints (%d) is less than the number of simulation steps (%d). No checkpoints will be generated.", frequency, num_times);
     }
@@ -83,7 +118,12 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
         this->simulation_step_++;
 
         if (simulation_step_ < num_times) {
+            update_progress_for_payload(simulation_step_, num_times, milestones);
             sim_time_->advance_timestep();
+        }
+        if(simulation_step_ == num_times){
+            // indicates end of simulations
+            log_completed_payload_msg();
         }
 
         // this position allows creating a checkpoint on the very last step. This might be useful if t-route fails and we want to "skip" the final steps
@@ -482,4 +522,25 @@ void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulati
 #if NGEN_WITH_NETCDF
     this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank, mpi_num_procs);
 #endif
+}
+
+void NgenSimulation::update_progress_for_payload(int time_index, int num_times, std::vector<int> milestones)
+{
+    auto it = std::find(milestones.begin(), milestones.end(), time_index);
+    if (it != milestones.end()) {
+        run_progress_updated(true);
+    }
+    else{
+        run_progress_updated(false);
+    }
+}
+
+void NgenSimulation:: log_completed_payload_msg()
+{
+    std::vector<std::string> completed_models = set_progress_complete();
+    for (const auto& model : completed_models)
+    {
+        LOG(LogLevel::INFO, generate_payload_msg(model));
+    }
+    reset_payload_attributes(); //reset all Payload variables after simulation runs
 }

@@ -2,13 +2,15 @@
 #define __NGEN_LAYER__
 
 #include <NGenConfig.h>
-#include "ewts_ngen/logger.hpp"
+#include "Logger.hpp"
 
 #include "LayerData.hpp"
 #include "Simulation_Time.hpp"
 #include "State_Exception.hpp"
 #include "geojson/FeatureBuilder.hpp"
+#include "state_save_restore/State_Save_Restore.hpp"
 #include <boost/core/span.hpp>
+#include <boost/serialization/serialization.hpp>
 #include <map>
 
 namespace hy_features
@@ -116,9 +118,20 @@ namespace ngen
 #endif // NGEN_WITH_NEXUSES
                                    int current_step);
 
-        virtual void save_state_snapshot(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
-        virtual void load_state_snapshot(std::shared_ptr<State_Snapshot_Loader> snapshot_loader);
+        /**
+         * Save the current state including metatdata related to current layer times
+         */
+        virtual void save_checkpoint(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
+        /**
+         * Save the current state excluding metatdata related to current layer times
+         */
+        virtual void save_end_of_run(std::shared_ptr<State_Snapshot_Saver> snapshot_saver);
+        virtual void load_checkpoint(std::shared_ptr<State_Snapshot_Loader> snapshot_loader);
         virtual void load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot_loader);
+
+        std::string unit_name() const;
+        virtual std::vector<std::string> required_checkpoint_units() const;
+
         virtual std::map<std::string, std::string> get_catchment_output_data_for_timestep();
         virtual void set_simulations_output_format(std::vector<std::string> out_formats);
         virtual std::vector<std::string> get_simulations_output_format();
@@ -135,7 +148,14 @@ namespace ngen
         long output_time_index;       
         std::map<std::string, std::string> catchment_output_values;
         std::vector<std::string> output_formats;
+
+        // Serialization template will be defined and instantiated in the .cpp file
+        friend class boost::serialization::access;
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned int version) {
+            ar & this->output_time_index;
+            ar & this->simulation_time;
+        }
     };
 }
-
 #endif

@@ -348,22 +348,6 @@ add_dependencies(ngen surfacebmi)
 endif()
 
 if(NGEN_WITH_NETCDF)
-   #  if(NGEN_WITH_MPI)
-   #    set(HDF5_INSTALL "$ENV{HOME}/MyInstalls/hdf5_mpi_parallel")
-   #    set(NETCDF_INSTALL "$ENV{HOME}/MyInstalls/netcdf_mpi_parallel")
-   #    set(NETCDF_LIB_DIR "$ENV{HOME}/MyInstalls/netcdf_mpi_parallel/lib")
-   #    set(HDF5_LIB_DIR   "$ENV{HOME}/MyInstalls/hdf5_mpi_parallel/lib")
-   #  else()
-   #    set(HDF5_INSTALL "$ENV{HOME}/MyInstalls/hdf5_serial")
-   #    set(NETCDF_INSTALL "$ENV{HOME}/MyInstalls/netcdf_serial")
-   #    set(NETCDF_LIB_DIR "$ENV{HOME}/MyInstalls/netcdf_serial/lib")
-   #    set(HDF5_LIB_DIR   "$ENV{HOME}/MyInstalls/hdf5_serial/lib")
-   #  endif()
-
-   #  set(NETCDF_LIB "${NETCDF_LIB_DIR}/libnetcdf.so")
-   #  set(HDF5_HL "${HDF5_LIB_DIR}/libhdf5_hl.so")
-   #  set(HDF5_STD "${HDF5_LIB_DIR}/libhdf5.so")
-
       set(HDF5_INSTALL "usr/local")
       set(NETCDF_INSTALL "usr/local")
       set(NETCDF_LIB_DIR "usr/local/lib")
@@ -381,7 +365,6 @@ if(NGEN_WITH_NETCDF)
     add_library(NetCDFManager STATIC ${WRAPPER_SOURCES})
     set_target_properties(NetCDFManager PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
     target_include_directories(NetCDFManager PUBLIC
-        ${EWTS_PREFIX}/include
         ${NGEN_INC_DIR}
         ${NGEN_INC_DIR}/netcdf
         ${NGEN_INC_DIR}/core
@@ -410,11 +393,6 @@ if(NGEN_WITH_NETCDF)
       Python::Python
    )
     # the order for the custom netcdf and hdf5 libraries is important.
-   #  target_link_libraries(NetCDFManager PUBLIC
-   #      ${NETCDF_INSTALL}/lib/libnetcdf.so
-   #      ${HDF5_INSTALL}/lib/libhdf5_hl.so
-   #      ${HDF5_INSTALL}/lib/libhdf5.so
-   #  )
     target_link_libraries(NetCDFManager PUBLIC
         ${NETCDF_LIB}
         ${HDF5_STD}

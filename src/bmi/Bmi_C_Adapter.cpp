@@ -4,6 +4,7 @@
 #include <utility>
 #include <stdexcept>
 #include "Logger.hpp"
+#include "PayloadConfig.hpp"
 
 using namespace models::bmi;
 
@@ -63,7 +64,18 @@ Bmi_C_Adapter::Bmi_C_Adapter(const std::string &type_name, std::string library_f
 {
     if (do_initialization) {
         try {
+            std::string tag = type_name + "|" + "INITIALIZING";
+            if(write_payload_msg(tag)){
+                update_payload_config(type_name, "INITIALIZING");
+                LOG(LogLevel::INFO, generate_payload_msg());
+            }
             construct_and_init_backing_model_for_type();
+
+            tag = type_name + "|" + "INITIALIZED";
+            if(write_payload_msg(tag)){
+                update_payload_config(type_name, "INITIALIZED");
+                LOG(LogLevel::INFO, generate_payload_msg());
+            }
             // Make sure this is set to 'true' after this function call finishes
             model_initialized = true;
             bmi_model_time_convert_factor = get_time_convert_factor();

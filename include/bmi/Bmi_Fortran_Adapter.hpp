@@ -3,6 +3,7 @@
 
 #include <NGenConfig.h>
 #include "Logger.hpp"
+#include "PayloadConfig.hpp"
 
 #if NGEN_WITH_BMI_FORTRAN
 
@@ -46,7 +47,17 @@ namespace models {
                                                                                       registration_func
                                                                                       ) {
                 try {
+                    std::string tag = type_name + "|" + "INITIALIZING";
+                    if(write_payload_msg(tag)){
+                        update_payload_config(type_name, "INITIALIZING");
+                        LOG(LogLevel::INFO, generate_payload_msg());
+                    }
                     construct_and_init_backing_model_for_fortran();
+                    tag = type_name + "|" + "INITIALIZED";
+                    if(write_payload_msg(tag)){
+                        update_payload_config(type_name, "INITIALIZED");
+                        LOG(LogLevel::INFO, generate_payload_msg());
+                    }
                     // Make sure this is set to 'true' after this function call finishes
                     model_initialized = true;
                     bmi_model_time_convert_factor = get_time_convert_factor();

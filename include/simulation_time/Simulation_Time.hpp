@@ -7,6 +7,7 @@
 #include <time.h>
 #include <string>
 #include <stdexcept>
+#include <boost/serialization/serialization.hpp>
 
 /**
  * @brief simulation_time_params providing configuration information for simulation time period.
@@ -176,6 +177,13 @@ class Simulation_Time
 
 
     private:
+
+    friend class boost::serialization::access;
+    template <class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & this->current_date_time_epoch;
+    }
+    
     int total_output_times;
     int simulation_total_time_seconds;
     int output_interval_seconds;

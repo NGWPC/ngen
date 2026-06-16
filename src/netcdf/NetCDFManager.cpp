@@ -314,7 +314,6 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int,
     // Lambda helper function for writing the data to netcdf file
     auto write_data_to_netcdf = [&](const int& catchment_id, const std::string& csv_output_line) {
         std::vector<double> catchment_output = string_split(csv_output_line, ',');
-        LOG("CSV Line: " + csv_output_line, LogLevel::INFO);
         auto var = nc_file_->get_ncvar("catchments");
         if (!var){
             LOG("Catchments variable/dimension not found in NetCDF", LogLevel::FATAL);
@@ -344,17 +343,13 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int,
     for (int proc = 1; proc < num_procs_; ++proc) {
         int catchment_count = 0;
         MPI_Recv(&catchment_count, 1, MPI_INT, proc, 200, comm_, MPI_STATUS_IGNORE);
-        LOG("Rank receiving: " + std::to_string(rank_) + "; catchment count: " + std::to_string(catchment_count), LogLevel::INFO);
         for (int i = 0; i < catchment_count; ++i) {
             int catchment_id = 0;
             MPI_Recv(&catchment_id, 1, MPI_INT, proc, 201, comm_, MPI_STATUS_IGNORE);
-            LOG("Rank receiving: " + std::to_string(rank_) + "; catchment id: " + std::to_string(catchment_id), LogLevel::INFO);
             int data_len = 0;
             MPI_Recv(&data_len, 1, MPI_INT, proc, 202, comm_, MPI_STATUS_IGNORE);
-            LOG("Rank receiving: " + std::to_string(rank_) + "; data length: " + std::to_string(data_len), LogLevel::INFO);
             std::string csv_data(data_len, ' ');
             MPI_Recv(&csv_data[0], data_len, MPI_CHAR, proc, 203, comm_, MPI_STATUS_IGNORE);
-            LOG("Rank receiving: " + std::to_string(rank_) + "; catchment data: " + csv_data, LogLevel::INFO);
             write_data_to_netcdf(catchment_id, csv_data);
         }
     }
@@ -366,15 +361,11 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int,
 void NetCDFManager::secondary_netcdf_worker(const std::map<int, std::string>& catchment_output_values) {
     int catchment_count = catchment_output_values.size();
     MPI_Send(&catchment_count, 1, MPI_INT, 0, 200, comm_);
-    LOG("Rank sending: " + std::to_string(rank_) + "; catchment count: " + std::to_string(catchment_count), LogLevel::INFO);
     for (const auto& [catchment_id, csv_data] : catchment_output_values) {
         MPI_Send(&catchment_id, 1, MPI_INT, 0, 201, comm_);
-        LOG("Rank sending: " + std::to_string(rank_) + "; catchment id: " + std::to_string(catchment_id), LogLevel::INFO);
         int data_len = csv_data.size();
         MPI_Send(&data_len, 1, MPI_INT, 0, 202, comm_);
-        LOG("Rank sending: " + std::to_string(rank_) + "; data length: " + std::to_string(data_len), LogLevel::INFO);
         MPI_Send(const_cast<char*>(csv_data.data()), data_len, MPI_CHAR, 0, 203, comm_);
-        LOG("Rank sending: " + std::to_string(rank_) + "; catchment data: " + csv_data, LogLevel::INFO);
     }
 }
 #endif
