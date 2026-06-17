@@ -83,7 +83,6 @@ LABEL org.opencontainers.image.base.name="${FORCING_IMAGE_NAME}" \
 RUN set -eux && \
     dnf install -y \
         ccache \
-        udunits2 udunits2-devel \
         xz xz-devel \
     && dnf clean all && rm -rf /var/cache/dnf
 
