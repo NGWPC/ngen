@@ -6,10 +6,12 @@
 #   EWTS_ORG, EWTS_REF
 ############################################################################
 
+# Ownership / branding overrides
 ARG GH_ORG=NGWPC
 ARG GHCR_ORG=ngwpc
 ARG IMAGE_NAMESPACE=ngwpc
 
+# External repository sources (org and ref/branch overrides)
 ARG EWTS_ORG=${GH_ORG}
 ARG EWTS_REF=development
 ARG USE_EWTS=ON
@@ -18,13 +20,27 @@ ARG USE_EWTS=ON
 # Image selection
 ############################################################################
 
-ARG NGEN_FORCING_IMAGE_TAG=latest
-ARG NGEN_FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing-bookworm:${NGEN_FORCING_IMAGE_TAG}
-# FROM ${NGEN_FORCING_IMAGE} AS base
+# Use the ngen-bmi-forcing image as the base. This already includes the
+# inherited Bookworm-based compiled dependency stack plus the ngen-bmi-forcing
+# Python package.
+#
+# Default build:
+#   docker build -t ngen .
+#
+# Build from a different published forcing image:
+#   docker build \
+#     --build-arg FORCING_IMAGE=ghcr.io/ngwpc/ngen-bmi-forcing:development \
+#     -t ngen .
+#
+# Build from a locally built forcing image:
+#   docker build \
+#     --build-arg FORCING_IMAGE=ngen-bmi-forcing \
+#     -t ngen .
+ARG FORCING_IMAGE=ghcr.io/${GHCR_ORG}/ngen-bmi-forcing:latest
 
-# Uncomment when building from a locally built forcing image.
-FROM ngen-bmi-forcing-bookworm AS base
+FROM ${FORCING_IMAGE} AS base
 
+# Re-expose args after FROM for the remaining build stage.
 ARG GH_ORG
 ARG GHCR_ORG
 ARG IMAGE_NAMESPACE
@@ -32,27 +48,30 @@ ARG EWTS_ORG
 ARG EWTS_REF
 ARG USE_EWTS=ON
 
-ARG NGEN_FORCING_IMAGE
-ARG BASE_IMAGE_DIGEST="unknown"
-ARG BASE_IMAGE_REVISION="unknown"
+# OCI Metadata Arguments
+ARG FORCING_IMAGE
+ARG FORCING_IMAGE_NAME="${FORCING_IMAGE}"
+ARG FORCING_IMAGE_DIGEST="unknown"
+ARG FORCING_IMAGE_REVISION="unknown"
 ARG IMAGE_SOURCE="unknown"
 ARG IMAGE_VENDOR="unknown"
 ARG IMAGE_VERSION="unknown"
 ARG IMAGE_REVISION="unknown"
 ARG EWTS_REVISION="unknown"
 
-LABEL org.opencontainers.image.base.name="${NGEN_FORCING_IMAGE}" \
-    org.opencontainers.image.base.digest="${BASE_IMAGE_DIGEST}" \
-    org.opencontainers.image.source="${IMAGE_SOURCE}" \
-    org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
-    org.opencontainers.image.version="${IMAGE_VERSION}" \
-    org.opencontainers.image.revision="${IMAGE_REVISION}" \
-    org.opencontainers.image.title="Next Generation Water Modeling Engine and Framework Prototype" \
-    org.opencontainers.image.description="Docker image for the NGEN application" \
-    io.${IMAGE_NAMESPACE}.image.base.revision="${BASE_IMAGE_REVISION}" \
-    io.${IMAGE_NAMESPACE}.ewts.org="${EWTS_ORG}" \
-    io.${IMAGE_NAMESPACE}.ewts.ref="${EWTS_REF}" \
-    io.${IMAGE_NAMESPACE}.ewts.revision="${EWTS_REVISION}"
+# Image Labels: OCI-spec annotations followed by custom source-repo metadata.
+LABEL org.opencontainers.image.base.name="${FORCING_IMAGE_NAME}" \
+      org.opencontainers.image.base.digest="${FORCING_IMAGE_DIGEST}" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
+      org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.title="Next Generation Water Modeling Engine and Framework Prototype" \
+      org.opencontainers.image.description="Docker image for the NGEN application" \
+      io.${IMAGE_NAMESPACE}.image.base.revision="${FORCING_IMAGE_REVISION}" \
+      io.${IMAGE_NAMESPACE}.ewts.org="${EWTS_ORG}" \
+      io.${IMAGE_NAMESPACE}.ewts.ref="${EWTS_REF}" \
+      io.${IMAGE_NAMESPACE}.ewts.revision="${EWTS_REVISION}"
 
 ############################################################################
 # Runtime/build environment inherited from ngen-bmi-forcing-bookworm
@@ -61,10 +80,7 @@ LABEL org.opencontainers.image.base.name="${NGEN_FORCING_IMAGE}" \
 # Reuse the shared venv created by ngen-dependencies-bookworm and populated by
 # ngen-bmi-forcing-bookworm. Do not recreate it here.
 ENV VIRTUAL_ENV="/ngen-app/ngen-python" \
-    PATH="${VIRTUAL_ENV}/bin:${PATH}" \
-    PYTHONPATH="${VIRTUAL_ENV}/lib/python3.14/site-packages:/usr/local/lib/python3.14/site-packages:${PYTHONPATH}"
-
-ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/openmpi/lib:/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
+    PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # ngen-specific runtime/build dependencies not already provided by the dependency image.
 RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-bookworm,sharing=locked \
@@ -73,7 +89,6 @@ RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-bookworm,sharing=locke
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ccache \
-        libudunits2-dev \
         xz-utils && \
     rm -rf /var/lib/apt/lists/*
 
@@ -85,12 +100,6 @@ ENV CCACHE_DIR="/root/.cache/ccache" \
 # Fix OpenMPI support within container.
 ENV PSM3_HAL=loopback \
     PSM3_DEVICES=self
-
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-bookworm \
-    set -eux; \
-    python -m pip install --upgrade pip setuptools wheel; \
-    python -m pip install bmipy pandas pyyml; \
-    python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 WORKDIR /ngen-app/
 
@@ -249,8 +258,6 @@ FROM ewts-build AS submodules
 
 SHELL ["/bin/bash", "-c"]
 
-ENV LD_LIBRARY_PATH="/usr/local/lib64:${LD_LIBRARY_PATH}"
-
 # USE_EWTS defaults to ON globally, but this value is also passed into CMake as
 # a cached option. If a prior Docker build configured a module with USE_EWTS=OFF,
 # a reused CMake build directory may retain that OFF value. Keep the Docker ARG
@@ -261,7 +268,7 @@ ARG USE_EWTS=ON
 WORKDIR /ngen-app/
 
 # Copy only the requirements files first for dependency installation caching.
-# Changes to ngen source files will not invalidate this python -m pip install layer unless
+# Changes to ngen source files will not invalidate this dependency install layer unless
 # one of these requirements files changes.
 COPY extern/test_bmi_py/requirements.txt /tmp/test_bmi_py_requirements.txt
 COPY extern/t-route/requirements.txt /tmp/t-route_requirements.txt
@@ -592,10 +599,11 @@ RUN set -eux && \
     mv /ngen-app/merged_git_info.json $GIT_INFO_PATH && \
     rm -rf /ngen-app/submodules-json /ngen-app/nwm-ewts_git_info.json
 
-# Extend PYTHONPATH for LSTM models (preserve venv path from ngen-bmi-forcing)
-ENV PYTHONPATH="${PYTHONPATH}:/ngen-app/ngen/extern/lstm:/ngen-app/ngen/extern/lstm/lstm"
+# Make LSTM source-tree modules importable at runtime.
+# Do not add venv site-packages; the active venv already handles installed packages.
+ENV PYTHONPATH="/ngen-app/ngen/extern/lstm:/ngen-app/ngen/extern/lstm/lstm"
 
-# Extend PYTHONPATH for Topoflow-Glacier
+# Make Topoflow-Glacier source-tree modules importable at runtime.
 ENV PYTHONPATH="${PYTHONPATH}:/ngen-app/ngen/extern/topoflow-glacier:/ngen-app/ngen/extern/topoflow-glacier/src/topoflow-glacier"
 
 WORKDIR /
