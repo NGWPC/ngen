@@ -212,8 +212,10 @@ void NgenSimulation::advance_models_one_output_step()
 
                 #if NGEN_WITH_NETCDF
                     std::vector<std::string> output_formats = layer->get_simulations_output_format();
+                    LOG("NgenSimulation: got output format: " + output_formats[0], LogLevel::INFO);
                     if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
                         std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
+                        LOG("NgenSimulation: got output values", LogLevel::INFO);
                         nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
                     }
                 #endif //NGEN_WITH_NETCDF
@@ -517,10 +519,10 @@ void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
 #endif //NGEN_WITH_NEXUSES
 }
 
-void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name, int mpi_rank, int mpi_num_procs)
+void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name)
 {
 #if NGEN_WITH_NETCDF
-    this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank, mpi_num_procs);
+    this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank_, mpi_num_procs_);
 #endif
 }
 

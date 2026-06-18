@@ -48,6 +48,9 @@ public:
                  const std::vector<size_t>& count, const std::vector<int>& data);
 
     void write_data_to_ncvar(int ncid, int varid, const std::vector<size_t>& start, 
+                 const std::vector<size_t>& count, const std::vector<int64_t>& data);
+
+    void write_data_to_ncvar(int ncid, int varid, const std::vector<size_t>& start, 
                  const std::vector<size_t>& count, const std::vector<std::string>& data);
     
     void write_catchment_output_data(const std::string& name, std::vector<size_t> start,

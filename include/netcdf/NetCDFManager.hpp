@@ -15,6 +15,7 @@
 #include <string>
 #include <map>
 #include <stdexcept>
+#include <cstdint>
 
 
 namespace realization { 
@@ -40,7 +41,7 @@ public:
     void open_file();
     void close_file();
 
-    void gather_all_catchments(const std::vector<int>& catchments_in_proc);
+    void gather_all_catchments(const std::vector<int64_t>& catchments_in_proc);
 
     //set up netcdf dimensions and variables
     void define_catchment_netcdf_components();
@@ -70,8 +71,8 @@ public:
 
     // Add catchment output data to the file (for writing)
     void write_simulations_response_from_formulation(size_t time_index, std::map<std::string, std::string> catchment_output_values);
-    void primary_netcdf_writer(size_t time_index, const std::map<int, std::string>& catchment_output_values);
-    void secondary_netcdf_worker(const std::map<int, std::string>& catchment_output_values);
+    void primary_netcdf_writer(size_t time_index, const std::map<int64_t, std::string>& catchment_output_values);
+    void secondary_netcdf_worker(const std::map<int64_t, std::string>& catchment_output_values);
 
     ~NetCDFManager();
 
@@ -84,15 +85,15 @@ private:
     std::shared_ptr<Simulation_Time> sim_time_;
     size_t num_timesteps_;
     int num_catchments_ = 0;
-    std::vector<int> catchments_;
+    std::vector<int64_t> catchments_;
     std::map<std::string, std::shared_ptr<NetCDFVar>> variables_map_;
     std::vector<std::string> nc_output_variables_;
 
 #if NGEN_WITH_MPI
     MPI_Comm comm_;
 #endif
-    int rank_ = 0;
-    int num_procs_ = 1;
+    int rank_;
+    int num_procs_;
     bool is_mpi_ = false;
 };
 #endif // NGEN_WITH_NETCDF

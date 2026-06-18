@@ -101,6 +101,11 @@ void NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<siz
 }
 
 void NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
+                 const std::vector<size_t>& count, const std::vector<int64_t>& data) {
+    NC_CHECK(nc_put_vara_longlong(ncid_, varid, start.data(), count.data(), (const long long*)data.data()), "Writing big integer value failed");
+}
+
+void NetCDFFile::write_data_to_ncvar(int ncid_, int varid, const std::vector<size_t>& start, 
                  const std::vector<size_t>& count, const std::vector<std::string>& data) {
     std::vector<const char*> cstrs(data.size());
     for (size_t i = 0; i < data.size(); ++i) {
@@ -123,7 +128,7 @@ void NetCDFFile::write_variable_data(const std::string& name, const std::vector<
     // At this moment, we need this only for catchments
 
     if (name == "catchments") {
-        var->build_variables_index(data.size());
+        var->build_catchments_index(data.size());
     }
 }
 
@@ -328,5 +333,6 @@ NetCDFFile::~NetCDFFile() {
 
 template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<double>& data, size_t start_index);
 template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<int>& data, size_t start_index);
+template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<int64_t>& data, size_t start_index);
 template void NetCDFFile::write_variable_data(const std::string& name, const std::vector<std::string>& data, size_t start_index);
 #endif // NGEN_WITH_NETCDF

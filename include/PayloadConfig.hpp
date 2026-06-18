@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <algorithm>
 
 //Struct to write Payload messages for RTE status communications
@@ -107,7 +108,7 @@ struct PayloadConfig {
         ss << "\"status\": \"COMPLETE\", "; 
         ss << "\"prog\": 1.0, ";
         ss << "\"msg\": \"Simulation runs completed\", ";
-        ss << "\"modnm\": \"" << model_name << "\"";
+        ss << "\"modnm\": \"" << model << "\"";
         return "<MSG_DATA>{" + ss.str() + "}</MSG_DATA>";
     }
 };

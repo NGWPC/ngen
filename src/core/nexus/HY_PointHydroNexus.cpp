@@ -143,6 +143,7 @@ double HY_PointHydroNexus::get_downstream_flow(std::string catchment_id, time_st
 
 void HY_PointHydroNexus::add_upstream_flow(double val, std::string catchment_id, time_step_t t)
 {
+    LOG("In Add upstream flow function", LogLevel::INFO);
      if ( t < min_timestep ) {
         LOG(LogLevel::FATAL, "Time step %d before minimum time step requested %d", t, min_timestep);
         BOOST_THROW_EXCEPTION(invalid_time_step());
@@ -151,7 +152,7 @@ void HY_PointHydroNexus::add_upstream_flow(double val, std::string catchment_id,
         LOG(LogLevel::FATAL, "Can not operate on a completed time step");
         BOOST_THROW_EXCEPTION(completed_time_step());
     }
-
+    LOG("In Add upstream flow function 1", LogLevel::INFO);
     auto s1 = upstream_flows.find(t);
     if (  s1 == upstream_flows.end() )
     {
@@ -162,6 +163,7 @@ void HY_PointHydroNexus::add_upstream_flow(double val, std::string catchment_id,
         flow_vector v;
         v.push_back(flows(catchment_id,val));
          upstream_flows[t] = v;
+         LOG("In Add upstream flow function end", LogLevel::INFO);
     }
     else
     {
@@ -173,6 +175,7 @@ void HY_PointHydroNexus::add_upstream_flow(double val, std::string catchment_id,
             // this means there have been no downstream request and we can add water
 
              s1->second.push_back(flows(catchment_id,val));
+             LOG("In Add upstream flow function add", LogLevel::INFO);
         }
         else
         {
@@ -182,6 +185,7 @@ void HY_PointHydroNexus::add_upstream_flow(double val, std::string catchment_id,
             BOOST_THROW_EXCEPTION(add_to_summed_nexus());
          }
     }
+    LOG("In Add upstream flow function - complete", LogLevel::INFO);
 }
 
 std::pair<double, int> HY_PointHydroNexus::inspect_upstream_flows(time_step_t t)

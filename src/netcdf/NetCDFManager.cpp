@@ -5,6 +5,7 @@
 #include "simulation_time/Simulation_Time.hpp"
 #include "Logger.hpp"
 #include <stdexcept>
+#include <cstdint>
 #include <NGenConfig.h>
 
 NetCDFManager::NetCDFManager(std::shared_ptr<realization::Formulation_Manager> manager, 
@@ -13,35 +14,36 @@ NetCDFManager::NetCDFManager(std::shared_ptr<realization::Formulation_Manager> m
     manager_ = manager;
     sim_time_ = std::make_shared<Simulation_Time>(sim_time);
     nc_filename_ = manager_->get_output_root() + output_name + ".nc";
-#if NGEN_WITH_MPI
     rank_ = mpi_rank;
     num_procs_ = mpi_num_procs;
+#if NGEN_WITH_MPI
     is_mpi_ = (num_procs_ > 1);
     comm_ = (num_procs_ > 1) ? MPI_COMM_WORLD : MPI_COMM_NULL;
 #else
     is_mpi_ = false;
 #endif
-
+    LOG("NetCDFManager: instantiation", LogLevel::INFO);
     int num_catchments = manager_->get_size();
-    std::vector<int> catchments_in_proc; 
+    std::vector<int64_t> catchments_in_proc; 
     catchments_in_proc.reserve(num_catchments);
     for (auto const& formulation_info : manager_->get_all_formulations())
     {
-        int catchment_id;
+        int64_t catchment_id;
         std::string catchm = formulation_info.first;
         if (catchm.rfind("cat-", 0) == 0){
-            catchment_id = std::stoi(catchm.substr(4));
+            catchment_id = std::stoll(catchm.substr(4));
         }
         else{
-            catchment_id = std::stoi(formulation_info.first);
+            catchment_id = std::stoll(formulation_info.first);
         }
         catchments_in_proc.push_back(catchment_id);
     }
     gather_all_catchments(catchments_in_proc);
-    
+    LOG("NetCDFManager: gathered catchments", LogLevel::INFO);
     if (rank_ == 0){
         nc_file_ = std::make_unique<NetCDFFile>(nc_filename_, true, is_mpi_);
         define_catchment_netcdf_components();
+        LOG("NetCDFManager: defined netcdf metadata", LogLevel::INFO);
     }
 #if NGEN_WITH_MPI
     MPI_Barrier(comm_);
@@ -86,7 +88,7 @@ int NetCDFManager::create_file(const std::string& filename)
     return nc_file_ ->get_ncid();
 }
 
-void NetCDFManager::gather_all_catchments(const std::vector<int>& catchments_in_proc)
+void NetCDFManager::gather_all_catchments(const std::vector<int64_t>& catchments_in_proc)
 {
     if (!is_mpi_)
     {
@@ -103,8 +105,8 @@ void NetCDFManager::gather_all_catchments(const std::vector<int>& catchments_in_
             MPI_Recv(&count, 1, MPI_INT, proc, 100, comm_, MPI_STATUS_IGNORE);
             for (int i = 0;i < count; ++i)
             {
-                int catchment_id;
-                MPI_Recv(&catchment_id, 1, MPI_INT, proc, 101, comm_, MPI_STATUS_IGNORE);
+                int64_t catchment_id;
+                MPI_Recv(&catchment_id, 1, MPI_LONG_LONG, proc, 101, comm_, MPI_STATUS_IGNORE);
                 catchments_.push_back(catchment_id);
             }
         }
@@ -115,8 +117,8 @@ void NetCDFManager::gather_all_catchments(const std::vector<int>& catchments_in_
         MPI_Send( &count, 1, MPI_INT, 0, 100, comm_);
         for (const auto& catchment : catchments_in_proc)
         {
-            int catchment_id = catchment;
-            MPI_Send( &catchment_id, 1, MPI_INT, 0, 101, comm_);
+            int64_t catchment_id = catchment;
+            MPI_Send( &catchment_id, 1, MPI_LONG_LONG, 0, 101, comm_);
         }
     }
 #endif
@@ -165,7 +167,7 @@ void NetCDFManager::define_catchment_netcdf_components()
         dim_id = add_dimension(name, num_catchments);
         dim_ids = {dim_id};
         names = {name};
-        add_variable(name, NC_INT, dim_ids, names);
+        add_variable(name, NC_INT64, dim_ids, names);
         nc_file_->write_variable_data(name, catchments_);
         nc_file_->write_attribute_to_ncvar(name, "Catchment ID", "Catchment identifier in input");
     }
@@ -234,17 +236,18 @@ static std::vector<double> string_split(std::string str, char delimiter)
 
 void NetCDFManager::write_simulations_response_from_formulation(size_t time_index, std::map<std::string, std::string> catchment_output_values)
 {
-    std::map<int, std::string> output_values;
+    LOG("NetCDFManager: write_simulations_response_from_formulation", LogLevel::INFO);
+    std::map<int64_t, std::string> output_values;
     try{
         for (auto const& catchment_val : catchment_output_values)
         {
-            int catchment_id;
+            int64_t catchment_id;
             std::string catchm = catchment_val.first;
             if (catchm.rfind("cat-", 0) == 0){
-                catchment_id = std::stoi(catchm.substr(4));
+                catchment_id = std::stoll(catchm.substr(4));
             }
             else{
-                catchment_id = std::stoi(catchment_val.first);
+                catchment_id = std::stoll(catchment_val.first);
             }
             output_values[catchment_id] = catchment_val.second;
         }
@@ -254,7 +257,7 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
         LOG(std::string("Error in reading simulation response line string: ") + e.what(), LogLevel::FATAL);
         throw std::runtime_error(std::string("Error in reading simulation response line string: ") + e.what());
     }
-
+    LOG("NetCDFManager: output_values gathered", LogLevel::INFO);
     try{
         if(!is_mpi_){
             auto var = nc_file_->get_ncvar("catchments");
@@ -264,12 +267,12 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
             } 
             for (auto const& catchment_val : output_values)
             {
-                int catchment_id;
+                int64_t catchment_id;
                 catchment_id = catchment_val.first;
-                size_t catchment_index = var->get_variable_index(catchment_id);
+                size_t catchment_index = var->get_catchment_index(catchment_id);
                 if (catchment_index < 0) {
                     LOG("Catchments not found in NetCDF", LogLevel::FATAL);
-                    throw std::runtime_error("Catchment not found in NetCDF: " + catchment_id);
+                    throw std::runtime_error("Catchment not found in NetCDF: " + std::to_string(catchment_id));
                 }
                 std::vector<double> catchment_output = string_split(catchment_val.second, ',');
                 std::vector<size_t> start = {time_index, catchment_index};
@@ -293,9 +296,11 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
     try{
         if (is_mpi_){
             if (rank_ == 0){
+                LOG("NetCDFManager: rank 0 calling writer", LogLevel::INFO);
                 primary_netcdf_writer(time_index, output_values);
             }
             else{
+                LOG("NetCDFManager: rank > 0 calling worker", LogLevel::INFO);
                 secondary_netcdf_worker(output_values);
             }
             MPI_Barrier(comm_);
@@ -309,23 +314,24 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
 #endif
 }
 
-void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int, std::string>& catchment_output_values)
+void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int64_t, std::string>& catchment_output_values)
 {
     // Lambda helper function for writing the data to netcdf file
-    auto write_data_to_netcdf = [&](const int& catchment_id, const std::string& csv_output_line) {
+    auto write_data_to_netcdf = [&](const int64_t& catchment_id, const std::string& csv_output_line) {
         std::vector<double> catchment_output = string_split(csv_output_line, ',');
         auto var = nc_file_->get_ncvar("catchments");
         if (!var){
             LOG("Catchments variable/dimension not found in NetCDF", LogLevel::FATAL);
             throw std::runtime_error("Catchments variable/dimension not found");
         }
-        size_t catchment_index = var->get_variable_index(catchment_id);
+        size_t catchment_index = var->get_catchment_index(catchment_id);
         if (catchment_index < 0) {
             LOG("Catchments not found in NetCDF", LogLevel::FATAL);
-            throw std::runtime_error("Catchment not found in NetCDF: " + catchment_id);
+            throw std::runtime_error("Catchment not found in NetCDF: " + std::to_string(catchment_id));
         }
         std::vector<size_t> start = {time_index, catchment_index};
         std::vector<size_t> count = {1, 1};
+        LOG("ready to write data for time index: " + std::to_string(time_index), LogLevel::INFO);
         for(int var_index = 0; var_index < nc_output_variables_.size(); ++var_index)
         {
             nc_file_ ->write_catchment_output_data(nc_output_variables_[var_index], start, count, catchment_output[var_index]);
@@ -334,39 +340,52 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int,
     //Rank 0 writer
     for (auto const& catchment_val : catchment_output_values)
     {
-        int catchment_id = catchment_val.first;
+        int64_t catchment_id = catchment_val.first;
         write_data_to_netcdf(catchment_id, catchment_val.second);
     }
+    LOG("NetCDFManager: rank 0 wrote its data", LogLevel::INFO);
 
 #if NGEN_WITH_MPI
     // Other ranks - data sender to rank 0
     for (int proc = 1; proc < num_procs_; ++proc) {
         int catchment_count = 0;
         MPI_Recv(&catchment_count, 1, MPI_INT, proc, 200, comm_, MPI_STATUS_IGNORE);
+        LOG("Catchment count recvd: " + std::to_string(catchment_count), LogLevel::INFO);
         for (int i = 0; i < catchment_count; ++i) {
-            int catchment_id = 0;
-            MPI_Recv(&catchment_id, 1, MPI_INT, proc, 201, comm_, MPI_STATUS_IGNORE);
+            int64_t catchment_id = 0;
+            MPI_Recv(&catchment_id, 1, MPI_LONG_LONG, proc, 201, comm_, MPI_STATUS_IGNORE);
+            LOG("Catchment ID recvd: " + std::to_string(catchment_id), LogLevel::INFO);
             int data_len = 0;
             MPI_Recv(&data_len, 1, MPI_INT, proc, 202, comm_, MPI_STATUS_IGNORE);
+            LOG("Catchment Data length recvd: " + std::to_string(data_len), LogLevel::INFO);
             std::string csv_data(data_len, ' ');
             MPI_Recv(&csv_data[0], data_len, MPI_CHAR, proc, 203, comm_, MPI_STATUS_IGNORE);
+            LOG("Catchment Data recvd: " + csv_data, LogLevel::INFO);
             write_data_to_netcdf(catchment_id, csv_data);
         }
     }
+    LOG("NetCDFManager: rank 0 received data and wrote", LogLevel::INFO);
 #endif
     nc_sync(nc_file_->get_ncid()); 
 }
 
 #if NGEN_WITH_MPI
-void NetCDFManager::secondary_netcdf_worker(const std::map<int, std::string>& catchment_output_values) {
+void NetCDFManager::secondary_netcdf_worker(const std::map<int64_t, std::string>& catchment_output_values) {
     int catchment_count = catchment_output_values.size();
     MPI_Send(&catchment_count, 1, MPI_INT, 0, 200, comm_);
-    for (const auto& [catchment_id, csv_data] : catchment_output_values) {
-        MPI_Send(&catchment_id, 1, MPI_INT, 0, 201, comm_);
+    LOG("Catchment count sent: " + std::to_string(catchment_count), LogLevel::INFO);
+    for (const auto& [id, csv_output] : catchment_output_values) {
+        int64_t catchment_id = id;
+        std::string csv_data = csv_output;
+        MPI_Send(&catchment_id, 1, MPI_LONG_LONG, 0, 201, comm_);
+        LOG("Catchment ID sent: " + std::to_string(catchment_id), LogLevel::INFO);
         int data_len = csv_data.size();
         MPI_Send(&data_len, 1, MPI_INT, 0, 202, comm_);
+        LOG("Catchment Data length sent: " + std::to_string(data_len), LogLevel::INFO);
         MPI_Send(const_cast<char*>(csv_data.data()), data_len, MPI_CHAR, 0, 203, comm_);
+        LOG("Catchment Data sent: " + csv_data, LogLevel::INFO);
     }
+    LOG("NetCDFManager: rank > 0 sending data", LogLevel::INFO);
 }
 #endif
 

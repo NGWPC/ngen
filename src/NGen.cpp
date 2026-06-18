@@ -715,7 +715,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                                                        mpi_num_procs);
     #if NGEN_WITH_NETCDF
         if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
-            simulation->create_netcdf_writer(manager, "catchment_output", mpi_rank, mpi_num_procs);
+            simulation->create_netcdf_writer(manager, "catchment_output");
         }
     #endif //NGEN_WITH_NETCDF
     auto time_done_init                             = std::chrono::steady_clock::now();

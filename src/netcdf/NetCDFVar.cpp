@@ -77,6 +77,36 @@ std::vector<std::string> NetCDFVar::get_string_array_values() const {
     return array_items;
 }
 
+std::vector<std::string> NetCDFVar::get_int64_array_values() const {
+
+    // Safety check for zero dimensions
+    if (dim_ids_.empty()) {
+        LOG("Variable '" + name_ + "' has no dimensions.", LogLevel::FATAL);
+        throw std::runtime_error("Variable '" + name_ + "' has no dimensions");
+    }
+    std::vector<std::string> array_items;
+    if (type_ == NC_STRING) {
+        if (dim_ids_.size() != 1) {
+            LOG("Retrieving 1D array values: NC_STRING variable must be 1D", LogLevel::FATAL);
+            throw std::runtime_error("Retrieving 1D array values: NC_STRING variable must be 1D");
+        }
+        size_t items_count = get_dim_size(dim_ids_[0]);
+        std::vector<char*> raw_strings(items_count, nullptr);
+        NC_CHECK(nc_get_var_string(ncid_, varid_, raw_strings.data()), "Retrieving 1D string array values failed");
+
+        array_items.reserve(items_count);
+        for (size_t i = 0; i < items_count; ++i) {
+            array_items.emplace_back(raw_strings[i] ? raw_strings[i] : "");
+        }
+        NC_CHECK(nc_free_string(items_count, raw_strings.data()), "Memory free up failed");
+    }
+    if (array_items.empty()) {
+        LOG("Unsupported variable type called for this function.", LogLevel::FATAL);
+        throw std::runtime_error("Unsupported variable type called for this function.");
+    }
+    return array_items;
+}
+
 std::vector<double> NetCDFVar::get_time_values() const
 {
     // Safety checks for dimensions and data type
@@ -124,6 +154,15 @@ int NetCDFVar::get_int_value_at_index(const std::vector<size_t>& index) const {
         return value;
     }
     NC_CHECK(nc_get_var1_int(ncid_, varid_, index.data(), &value), "Retrieving integer value failed");
+    return value;
+}
+
+int64_t NetCDFVar::get_int64_value_at_index(const std::vector<size_t>& index) const {
+    int64_t value = -1;
+    if (index.empty()) {
+        return value;
+    }
+    NC_CHECK(nc_get_var1_longlong(ncid_, varid_, index.data(), (long long*)&value), "Retrieving integer value failed");
     return value;
 }
 
@@ -190,23 +229,23 @@ double NetCDFVar::get_double_attribute(const std::string& att_name) const {
     throw std::runtime_error("Double attribute not found: " + att_name);
 }
 
-size_t NetCDFVar::get_variable_index(const int& catchment_id) const
+size_t NetCDFVar::get_catchment_index(const int64_t& catchment_id) const
 {
-    auto it = variable_index_.find(catchment_id);
-    if (it == variable_index_.end()) {
+    auto it = catchment_index_.find(catchment_id);
+    if (it == catchment_index_.end()) {
         LOG("Variable not found in NetCDF: " + std::to_string(catchment_id), LogLevel::FATAL);
         throw std::runtime_error(std::string("Variable not found in NetCDF: ") + std::to_string(catchment_id));
     }
     return it->second;
 }
 
-void NetCDFVar::build_variables_index(size_t num_items)
+void NetCDFVar::build_catchments_index(size_t num_items)
 {
-    std::vector<int> data(num_items);
-    NC_CHECK(nc_get_var_int(ncid_, varid_, data.data()), "Building variables index failed");
+    std::vector<int64_t> data(num_items);
+    NC_CHECK(nc_get_var_longlong(ncid_, varid_, (long long*)data.data()), "Building variables index failed");
     for (size_t index = 0; index < num_items; ++index) {
-        int key = data[index];
-        variable_index_[key] = index;
+        int64_t key = data[index];
+        catchment_index_[key] = index;
     }
 }
 
