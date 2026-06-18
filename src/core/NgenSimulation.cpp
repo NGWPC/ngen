@@ -76,9 +76,6 @@ void NgenSimulation::run_catchments()
     // Now loop some time, iterate catchments, do stuff for total number of output times
     int num_times = get_num_output_times();
     std::vector<int> milestones = { (num_times * 25 / 100) - 1, (num_times * 50 / 100) - 1, (num_times * 75 / 100) - 1 };
-    //LOG(LogLevel::INFO, std::to_string(milestones[0]));
-    //LOG(LogLevel::INFO, std::to_string(milestones[1]));
-    //LOG(LogLevel::INFO, std::to_string(milestones[2]));
     for (; simulation_step_ < num_times; simulation_step_++) {
         // Make room for this output step's results
         catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
@@ -212,10 +209,8 @@ void NgenSimulation::advance_models_one_output_step()
 
                 #if NGEN_WITH_NETCDF
                     std::vector<std::string> output_formats = layer->get_simulations_output_format();
-                    LOG("NgenSimulation: got output format: " + output_formats[0], LogLevel::INFO);
                     if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
                         std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
-                        LOG("NgenSimulation: got output values", LogLevel::INFO);
                         nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
                     }
                 #endif //NGEN_WITH_NETCDF
@@ -517,34 +512,6 @@ void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
     ar & nexus_indexes_;
     ar & nexus_downstream_flows_;
 #endif //NGEN_WITH_NEXUSES
-}
-
-void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name)
-{
-#if NGEN_WITH_NETCDF
-    this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank_, mpi_num_procs_);
-#endif
-}
-
-void NgenSimulation::update_progress_for_payload(int time_index, int num_times, std::vector<int> milestones)
-{
-    auto it = std::find(milestones.begin(), milestones.end(), time_index);
-    if (it != milestones.end()) {
-        run_progress_updated(true);
-    }
-    else{
-        run_progress_updated(false);
-    }
-}
-
-void NgenSimulation:: log_completed_payload_msg()
-{
-    std::vector<std::string> completed_models = set_progress_complete();
-    for (const auto& model : completed_models)
-    {
-        LOG(LogLevel::INFO, generate_payload_msg(model));
-    }
-    reset_payload_attributes(); //reset all Payload variables after simulation runs
 }
 
 void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name)

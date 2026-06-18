@@ -39,7 +39,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
     std::string current_timestamp = simulation_time.get_timestamp(output_time_index);
     for(const auto& id : processing_units) {
         int sub_time = output_time_index;
-        LOG("Timestep: " + std::to_string(sub_time) + "; Running cat " + id, LogLevel::INFO);
         auto r = features.catchment_at(id);
         //TODO redesign to avoid this cast
         auto r_c = std::dynamic_pointer_cast<realization::Catchment_Formulation>(r);
@@ -75,7 +74,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                     //capture all the output values for this timestep to write to netcdf
                     #if NGEN_WITH_NETCDF
                         catchment_output_values[id] = output_line;
-                        LOG("Run output: " + output_line, LogLevel::INFO);
                     #endif //NGEN_WITH_NETCDF
                 }
             }
@@ -102,7 +100,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
             / simulation_time.get_output_interval_seconds()
             // multiply by square meters: (m/s) * (m^2) = (m^3/s)
             * area_sq_m;
-        LOG("Catchment outflows computed", LogLevel::INFO);
 #endif // NGEN_WITH_ROUTING
 #if NGEN_WITH_NEXUSES
         // NOTE: the conversion below loos like it's missing a conversion from per timestep to per second
@@ -122,7 +119,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                 throw std::runtime_error(throw_msg);
             }
             nexus->add_upstream_flow(response_m_h, id, output_time_index);
-            LOG("nexus upstream flow computed for id: " + id, LogLevel::INFO);
             /*std::cerr << "Add water to nexus ID = " << nexus->get_id() << " from catchment ID = " << id << " value = "
               << response << ", ID = " << id << ", time-index = " << output_time_index << std::endl; */
             break;
@@ -135,7 +131,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
     if ( output_time_index < simulation_time.get_total_output_times() ) {
         simulation_time.advance_timestep();
     }
-    LOG("Update models completed", LogLevel::INFO);
 }
 
 std::string ngen::Layer::unit_name() const {
