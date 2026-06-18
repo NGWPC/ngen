@@ -350,7 +350,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     export LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
         echo "Running compiler_bmi.sh (EWTS enabled)"; \
-        ./compiler_bmi.sh no-e; \
+        ./compiler_bmi.sh no-e --gh-org "${GH_ORG}" --ewts-ref "${EWTS_REF}" ; \
     else \
         echo "Running compiler.sh (EWTS disabled)"; \
         ./compiler.sh no-e; \
