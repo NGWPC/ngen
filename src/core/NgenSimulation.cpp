@@ -90,7 +90,7 @@ void NgenSimulation::run_catchments()
             sim_time_->advance_timestep();
         }
         if(simulation_step_ + 1 == num_times){
-            // indicates end of simulations
+            // last simulation run just completed
             log_completed_payload_msg();
         }
     }
@@ -119,7 +119,7 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
             sim_time_->advance_timestep();
         }
         if(simulation_step_ == num_times){
-            // indicates end of simulations
+            // last simulation run just completed
             log_completed_payload_msg();
         }
 

@@ -6,6 +6,28 @@
 #include <iostream>
 #include <algorithm>
 
+// Enum for model status mimicing Payload class in EWTS
+enum class ModelStatus {
+    INITIALIZING,
+    INITIALIZED,
+    STARTING,
+    IN_PROGRESS,
+    COMPLETE,
+    ERROR
+};
+
+// Helper function to convert enum to string
+constexpr std::string_view status_string(ModelStatus status) {
+    switch (status) {
+        case ModelStatus::INITIALIZING: return "INITIALIZING";
+        case ModelStatus::INITIALIZED: return "INITIALIZED";
+        case ModelStatus::STARTING: return "STARTING";
+        case ModelStatus::IN_PROGRESS: return "IN_PROGRESS";
+        case ModelStatus::COMPLETE: return "COMPLETE";
+        default: return "ERROR";
+    }
+}
+
 //Struct to write Payload messages for RTE status communications
 struct PayloadConfig {
     std::string model_name;
@@ -17,9 +39,9 @@ struct PayloadConfig {
     std::vector<std::string> payload_model_keys;
         
     // Set payload values - model name and status
-    void set_payload_values(const std::string& name, const std::string& status) {
+    void set_payload_values(const std::string& name, const ModelStatus& status) {
         model_name = name;
-        prog_status = status;
+        prog_status = std::string(status_string(status));
         std::string tag = model_name + "|" + prog_status;
         auto it = std::find(payload_model_keys.begin(), payload_model_keys.end(), tag);
         if (it == payload_model_keys.end()) {
@@ -45,9 +67,11 @@ struct PayloadConfig {
     // Gather models list after simulations are complete
     std::vector<std::string> set_payload_complete()
     {
+        std::string_view in_prog_status = status_string(ModelStatus::IN_PROGRESS);
         std::vector<std::string> completed_models;
         for (const std::string& item : payload_model_keys) {
-            if (item.find("IN_PROGRESS") != std::string::npos) {
+
+            if (item.find(in_prog_status) != std::string::npos) {
                 std::stringstream ss(item);
                 std::string model_name;
                 if (std::getline(ss, model_name, '|')) {
@@ -64,7 +88,7 @@ struct PayloadConfig {
     }
 
     // Check if payload key exists. Required not to repeat the same message for each catchment.
-    bool payload_key_exists(std::string tag){
+    bool can_write_payload(std::string tag){
         auto it = std::find(payload_model_keys.begin(), payload_model_keys.end(), tag);
         if (it == payload_model_keys.end()) {
             return true;
@@ -103,9 +127,10 @@ struct PayloadConfig {
     }
 
     //construct payload string for logging
+    //this overloaded function is used for just COMPLETE status.
     std::string construct_payload_string(std::string model) const {
         std::stringstream ss;
-        ss << "\"status\": \"COMPLETE\", "; 
+        ss << "\"status\": \"" << std::string(status_string(ModelStatus::COMPLETE)) << "\", "; 
         ss << "\"prog\": 1.0, ";
         ss << "\"msg\": \"Simulation runs completed\", ";
         ss << "\"modnm\": \"" << model << "\"";
@@ -120,31 +145,38 @@ inline PayloadConfig& get_pld_config() {
 }
 
 //Inline functions for writing payload messages
-inline void update_payload_config(const std::string& name, const std::string& status, const std::string& msg = "") {
-    // Add validation here
-    get_pld_config().set_payload_values(name, status);
-    get_pld_config().set_custom_msg(msg);
+inline bool update_payload_config(const std::string& name, const ModelStatus& status, const std::string& msg = "") {
+    std::string tag = name + "|" + std::string(status_string(status));
+    bool can_log_status = false;
+    //For IN_PROGRESS status, in addition to model name and status, 
+    //we have to look at progress percentage as well. Currently, we are not reporting progress pct.
+    //For other statuses, we just check if that key exists.
+    if (tag.find(status_string(ModelStatus::IN_PROGRESS)) != std::string::npos) {
+        can_log_status = get_pld_config().is_progress_reported() && get_pld_config().can_write_payload(tag);
+    } else {
+        can_log_status = get_pld_config().can_write_payload(tag);
+    }
+    if(can_log_status){
+        get_pld_config().set_payload_values(name, status);
+        get_pld_config().set_custom_msg(msg);
+    }
+    return can_log_status;
 }
 
+//Set progress percent updated boolean variable. 
 inline void run_progress_updated(bool progress_update, double pct = -1.0)
 {
     get_pld_config().set_progress_reported(progress_update);
-
 }
 
-inline bool write_payload_msg(const std::string& tag){
-    if (tag.find("IN_PROGRESS") != std::string::npos) {
-        return get_pld_config().is_progress_reported() && get_pld_config().payload_key_exists(tag);
-    } else {
-        return get_pld_config().payload_key_exists(tag);
-    }
-
-}
-
+//This function is called from NgenSimulation as soon as the last simulation
+//is run. We don't know the models there. So, we are looking at the 
+//models list in progress and gather that list as completed models for logging.
 inline std::vector<std::string> set_progress_complete(){
     return get_pld_config().set_payload_complete();
 }
 
+//This function generates the paylod json string for status logging.
 inline std::string generate_payload_msg(const std::string& model = "") {
     if(model.empty()){
         return get_pld_config().construct_payload_string();
@@ -152,6 +184,7 @@ inline std::string generate_payload_msg(const std::string& model = "") {
     else return get_pld_config().construct_payload_string(model);
 }
 
+//reset all struct variables
 inline void reset_payload_attributes(){
     get_pld_config().reset();
 }

@@ -138,16 +138,12 @@ namespace realization {
                 throw std::invalid_argument("Getting response of previous time step in BMI formulation of type '" + get_formulation_type() + "' is not allowed.");
             }
 
-            std::string tag = get_bmi_model()->get_model_name() + "|" + "STARTING";
-            if(t_index == 0 && write_payload_msg(tag)){
+            if(t_index == 0 && update_payload_config(get_bmi_model()->get_model_name(), ModelStatus::STARTING)){
                 // report payload progress as starting
-                update_payload_config(get_bmi_model()->get_model_name(), "STARTING");
                 LOG(LogLevel::INFO, generate_payload_msg());
             }
             else if (t_index > 0){
-                tag = get_bmi_model()->get_model_name() + "|" + "IN_PROGRESS";
-                if (write_payload_msg(tag)){
-                    update_payload_config(get_bmi_model()->get_model_name(), "IN_PROGRESS");
+                if (update_payload_config(get_bmi_model()->get_model_name(), ModelStatus::IN_PROGRESS)){
                     LOG(LogLevel::INFO, generate_payload_msg());
                 }
             }
