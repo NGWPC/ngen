@@ -89,13 +89,10 @@ RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-bookworm,sharing=locke
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ccache \
-        xz xz-devel \
-    && dnf clean all && rm -rf /var/cache/dnf
+        xz-utils && \
+    rm -rf /var/lib/apt/lists/*
 
-SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
-
-
-# Use ccache so repeated Docker builds can reuse previously 
+# Use ccache so repeated Docker builds can reuse previously
 # compiled C/C++/Fortran objects even when a Docker layer 
 # containing source files is invalidated.
 # ccache computes a hash based on things like:
@@ -161,6 +158,7 @@ SHELL ["/bin/bash", "-c"]
 # default explicit in this stage and normalize/default it before passing it to
 # CMake so an unset or empty value never becomes -DUSE_EWTS=.
 ARG USE_EWTS=ON
+ARG GH_ORG
 ARG EWTS_ORG
 ARG EWTS_REF
 ARG EWTS_CACHE_BUST=0
@@ -276,6 +274,8 @@ SHELL ["/bin/bash", "-c"]
 # default explicit in this stage and normalize/default it before passing it to
 # CMake so an unset or empty value never becomes -DUSE_EWTS=.
 ARG USE_EWTS=ON
+ARG GH_ORG
+ARG EWTS_REF
 
 WORKDIR /ngen-app/
 
@@ -442,8 +442,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-bookworm \
 # separate t-route cache mount (e.g. /root/.cache/t-route) does not help unless
 # the scripts explicitly write build artifacts there. pip/uv caches are the
 # useful reusable caches here.
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
-    --mount=type=cache,target=/root/.cache/uv,id=uv-cache-rocky \
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-bookworm \
+    --mount=type=cache,target=/root/.cache/uv,id=uv-cache-bookworm \
     set -eux && \
     export CC="gcc" && \
     export CXX="g++" && \
