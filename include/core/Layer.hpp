@@ -150,6 +150,7 @@ namespace ngen
         std::vector<std::string> output_formats;
 
         // Serialization template will be defined and instantiated in the .cpp file
+        friend class boost::serialization::access;
         template <class Archive>
         void serialize(Archive& ar, const unsigned int version) {
             ar & this->output_time_index;

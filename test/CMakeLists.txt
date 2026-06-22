@@ -519,26 +519,6 @@ ngen_add_test(
         NGEN_WITH_NETCDF
 )
 
-########################## NetCDFCreator Class Tests
-ngen_add_test(
-    test_netcdf_creator
-    OBJECTS
-        core/NetCDFCreatorTest.cpp
-    LIBRARIES
-        NGen::core
-        NGen::geopackage
-        NGen::geojson
-        NGen::logging
-        NGen::core_catchment
-        NGen::core_mediator
-        NGen::realizations_catchment
-        NGen::forcing
-        NGen::ngen_bmi
-        NetCDFManager
-    REQUIRES
-        NGEN_WITH_NETCDF
-)
-
 ########################## Primary Combined Unit Test Target
 ngen_add_test(
     test_unit

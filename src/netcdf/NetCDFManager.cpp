@@ -5,6 +5,7 @@
 #include "simulation_time/Simulation_Time.hpp"
 #include "Logger.hpp"
 #include <stdexcept>
+#include <filesystem>
 #include <cstdint>
 #include <NGenConfig.h>
 
@@ -13,7 +14,14 @@ NetCDFManager::NetCDFManager(std::shared_ptr<realization::Formulation_Manager> m
 {
     manager_ = manager;
     sim_time_ = std::make_shared<Simulation_Time>(sim_time);
-    nc_filename_ = manager_->get_output_root() + output_name + ".nc";
+    std::filesystem::path check_path(output_name);
+    if(check_path.is_absolute()){
+        nc_filename_ = output_name;
+    }
+    else{
+        nc_filename_ = manager_->get_output_root() + output_name + ".nc";
+    }
+
     rank_ = mpi_rank;
     num_procs_ = mpi_num_procs;
 #if NGEN_WITH_MPI

@@ -331,34 +331,6 @@ COPY extern/lstm extern/lstm
 # relatively expensive t-route rebuild.
 COPY extern/t-route extern/t-route
 
-# Build/install the t-route submodule.
-# t-route's compiler scripts run make/pip commands inside the source tree, so a
-# separate t-route cache mount (e.g. /root/.cache/t-route) does not help unless
-# the scripts explicitly write build artifacts there. pip/uv caches are the
-# useful reusable caches here.
-RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
-    --mount=type=cache,target=/root/.cache/uv,id=uv-cache-rocky \
-    set -eux && \
-    export CC="gcc" && \
-    export CXX="g++" && \
-    export F90="gfortran" && \
-    export FC="gfortran" && \
-    USE_EWTS="${USE_EWTS:-ON}" && \
-    echo "T-Route USE_EWTS=${USE_EWTS}" && \
-    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
-    cd extern/t-route && \
-    export LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
-    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
-        echo "Running compiler_bmi.sh (EWTS enabled)"; \
-        ./compiler_bmi.sh no-e --gh-org "${GH_ORG}" --ewts-ref "${EWTS_REF}" ; \
-    else \
-        echo "Running compiler.sh (EWTS disabled)"; \
-        ./compiler.sh no-e; \
-    fi && \
-    rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
-    find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
-    find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Build each submodule in a separate layer.
 #
@@ -481,6 +453,34 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     cd extern/lstm; \
     python -m pip install .
 
+
+# Build/install the t-route submodule.
+# t-route's compiler scripts run make/pip commands inside the source tree, so a
+# separate t-route cache mount (e.g. /root/.cache/t-route) does not help unless
+# the scripts explicitly write build artifacts there. pip/uv caches are the
+# useful reusable caches here.
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
+    --mount=type=cache,target=/root/.cache/uv,id=uv-cache-rocky \
+    set -eux && \
+    export CC="gcc" && \
+    export CXX="g++" && \
+    export F90="gfortran" && \
+    export FC="gfortran" && \
+    USE_EWTS="${USE_EWTS:-ON}" && \
+    echo "T-Route USE_EWTS=${USE_EWTS}" && \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
+    cd extern/t-route && \
+    export LDFLAGS='-Wl,-L/usr/local/lib64/,-L/usr/local/lib/,-rpath,/usr/local/lib64/,-rpath,/usr/local/lib/' && \
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Running compiler_bmi.sh (EWTS enabled)"; \
+        ./compiler_bmi.sh no-e --gh-org "${GH_ORG}" --ewts-ref "${EWTS_REF}" ; \
+    else \
+        echo "Running compiler.sh (EWTS disabled)"; \
+        ./compiler.sh no-e; \
+    fi && \
+    rm -rf /ngen-app/ngen/extern/t-route/test/LowerColorado_TX_v4 && \
+    find /ngen-app/ngen/extern/t-route -name "*.o" -exec rm -f {} + && \
+    find /ngen-app/ngen/extern/t-route -name "*.a" -exec rm -f {} +
 
 # Copy the full ngen application source only after the standalone submodules
 # above have been built. This keeps ordinary ngen code changes from invalidating

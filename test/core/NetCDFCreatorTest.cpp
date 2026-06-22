@@ -3,6 +3,7 @@
 
 #if NGEN_WITH_NETCDF
 #include <memory>
+#include <filesystem>
 #include "gtest/gtest.h"
 #include "netcdf/NetCDFManager.hpp"
 #include "netcdf/NetCDFFile.hpp"
@@ -16,7 +17,6 @@
 #include <features/Features.hpp>
 #include <JSONGeometry.hpp>
 #include <JSONProperty.hpp>
-#include "ewts_ngen/logger.hpp"
 
 class NetCDFCreatorTest : public ::testing::Test {
     // public:
@@ -211,7 +211,9 @@ class NetCDFCreatorTest : public ::testing::Test {
 
 TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
 {
-    nc_manager = std::make_unique<NetCDFManager>(manager_,"catchment_test", *sim_time_, 0, 1);
+    std::filesystem::path full_file_path = std::filesystem::temp_directory_path() / "catchment_test.nc";
+    std::string file_path = full_file_path.string();
+    nc_manager = std::make_unique<NetCDFManager>(manager_, file_path, *sim_time_, 0, 1);
     NetCDFFile* nc_file = nc_manager->get_file_handle();
     std::shared_ptr<NetCDFVar> catchments_var = nc_file->get_ncvar("catchments");
     size_t len = catchments_var->get_dim_size("catchments");
@@ -227,30 +229,24 @@ TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
     }
     //delete the netcdf file that was created once the information is obtained.
     nc_file->close_file();
+    std::filesystem::remove(full_file_path);
 
-    nc_creator = std::make_unique<NetCDFCreator>(manager_,"catchment_test", *sim_time_, 0, 1);
-    netCDF::NcVar catchments_var = ncFile.getVar("catchments");
-    std::vector<netCDF::NcDim> nc_dims = catchments_var.getDims();
-    size_t len = nc_dims[0].getSize();
-    int item_index = 0;
-    std::vector<size_t> index;
-    index.resize(1);
-    std::vector<std::string> catchments;
-    std::string catchment;
-    for(size_t i = 0; i < len; ++i){
-        index[0] = i;
-        catchment = catchments_var->get_int_value_at_index(index);
-        catchments.push_back("cat-" + std::to_string(catchment));
-    }
-    //delete the netcdf file that was created once the information is obtained.
-    ncFile.close();
+    ASSERT_EQ("cat-52", catchments[0]);
+    ASSERT_EQ("cat-67", catchments[1]);
+}
+
+TEST_F(NetCDFCreatorTest, TestCatchmentOutputValues)
+{
+    std::filesystem::path full_file_path = std::filesystem::temp_directory_path() / "catchment_test.nc";
+    std::string file_path = full_file_path.string();
+    nc_manager = std::make_unique<NetCDFManager>(manager_, file_path, *sim_time_, 0, 1);
+    NetCDFFile* nc_file = nc_manager->get_file_handle();
     std::map<std::string, std::string> catchment_output_values;
     auto c_form = std::dynamic_pointer_cast<realization::Catchment_Formulation>(manager_->get_formulation("cat-52"));
     double resp = c_form->get_response(0, 3600);
     std::string out_resp = c_form->get_output_line_for_timestep(0);
-    catchment_output_values["cat-52"] = out_resp;
+    catchment_output_values["52"] = out_resp;
     nc_manager->write_simulations_response_from_formulation(0, catchment_output_values);
-
 
     auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(manager_->get_formulation("cat-52"));
     if(r_c->get_output_header_count() > 0){
@@ -261,6 +257,7 @@ TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
         //find the index for "cat-52" and retrieve the values for the output variables
         double catchment_output_nc;
         std::string output_str;
+        std::shared_ptr<NetCDFVar> catchments_var = nc_file->get_ncvar("catchments");
         size_t len = catchments_var->get_dim_size("catchments");
         int item_index = 0;
         std::vector<size_t> index;
@@ -283,8 +280,7 @@ TEST_F(NetCDFCreatorTest, TestCatchmentIdentifiers)
 
         //delete the netcdf file that was created once the information is obtained.
         nc_file->close_file();
-
-        netCDF::NcFile& ncFile = nc_creator->get_ncfile(); //get a handle to the netcdf file object
+        std::filesystem::remove(full_file_path);
 
         //find the index for "cat-52" and retrieve the values for the output variables
         ASSERT_EQ(out_resp, output_str);

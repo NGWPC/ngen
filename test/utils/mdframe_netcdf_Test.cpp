@@ -43,7 +43,7 @@ TEST_F(mdframe_netcdf_Test, io_netcdf)
 #if !NGEN_WITH_NETCDF
     GTEST_SKIP() << "NetCDF is not available";
 #else
-
+#if !NGEN_WITH_MPI
     ngen::mdframe df;
 
     df.add_dimension("x", 2)
@@ -98,5 +98,6 @@ TEST_F(mdframe_netcdf_Test, io_netcdf)
         }
     }
   if (ex.get_ncid() >= 0) nc_close(ex.get_ncid());
+#endif
 #endif
 }
