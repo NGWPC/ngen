@@ -213,10 +213,17 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-bookworm \
             cd /tmp/nwm-ewts && git checkout "${EWTS_REF}"); \
         rm -rf /tmp/nwm-ewts/cmake_build && \
         cd /tmp/nwm-ewts; \
+        export PATH="${VIRTUAL_ENV}/bin:${PATH}"; \
+        export PYTHONNOUSERSITE=1; \
+        export PYTHONPATH=; \
+        python -m pip install --upgrade pip setuptools wheel build pyproject_hooks packaging; \
+        python -c "import sys, setuptools, wheel, build, packaging; print(sys.executable); print(setuptools.__version__)"; \
         cmake -S . -B cmake_build \
             -DCMAKE_BUILD_TYPE=Release \
             -DEWTS_WITH_NGEN=ON \
             -DEWTS_BUILD_SHARED=ON \
+            -DPython_EXECUTABLE="${VIRTUAL_ENV}/bin/python" \
+            -DPython3_EXECUTABLE="${VIRTUAL_ENV}/bin/python" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache; \
         cmake --build cmake_build -j "$(nproc)"; \
