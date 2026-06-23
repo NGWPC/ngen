@@ -11,7 +11,7 @@ ARG GH_ORG=NGWPC
 ARG GHCR_ORG=ngwpc
 ARG IMAGE_NAMESPACE=ngwpc
 
-# External repository sources (org and ref/branch overrides)
+# External repository source and branch overrides
 ARG EWTS_ORG=${GH_ORG}
 ARG EWTS_REF=development
 ARG USE_EWTS=ON
@@ -79,8 +79,8 @@ LABEL org.opencontainers.image.base.name="${FORCING_IMAGE_NAME}" \
 
 # Reuse the shared venv created by ngen-dependencies-bookworm and populated by
 # ngen-bmi-forcing-bookworm. Do not recreate it here.
-ENV VIRTUAL_ENV="/ngen-app/ngen-python" \
-    PATH="${VIRTUAL_ENV}/bin:${PATH}"
+ENV VIRTUAL_ENV="/ngen-app/ngen-python"
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # ngen-specific runtime/build dependencies not already provided by the dependency image.
 RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-bookworm,sharing=locked \
@@ -88,8 +88,7 @@ RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-bookworm,sharing=locke
     set -eux && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        ccache \
-        xz-utils && \
+        findutils && \
     rm -rf /var/lib/apt/lists/*
 
 # Use ccache so repeated Docker builds can reuse previously
@@ -102,9 +101,6 @@ RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-bookworm,sharing=locke
 #   included headers
 
 SHELL ["/bin/bash", "-c"]
-
-ENV CCACHE_DIR="/root/.cache/ccache" \
-    CCACHE_MAXSIZE="10G"
 
 # Fix OpenMPI support within container.
 ENV PSM3_HAL=loopback \
@@ -144,9 +140,8 @@ WORKDIR /ngen-app/
 #        ewts::ewts_ngen_bridge  – ngen↔EWTS bridge lib  (linked by ngen itself)
 #        EWTS Python wheel       – python -m pip installed package  (lstm, topoflow-glacier, t-route)
 #
-# Build args – override at build time to pin a branch, tag, or full commit SHA:
-#   docker build --build-arg EWTS_REF=v1.2.3 ...
-#   docker build --build-arg EWTS_REF=abc123def456 ...
+# Build args – override at build time to select a remote branch:
+#   docker build --build-arg EWTS_REF=development ...
 ##############################
 FROM base AS ewts-build
 
@@ -186,10 +181,13 @@ ENV EWTS_PREFIX=/opt/ewts
 # when USE_EWTS is enabled.
 ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 
-# Clone nwm-ewts, build, install, capture git metadata for provenance,
-# then remove the source tree.
-# Try shallow clone by branch/tag name first; fall back to full clone + checkout
-# for bare commit SHAs (which git clone -b doesn't support).
+# Clone the requested nwm-ewts branch, build and install EWTS, capture git
+# metadata for provenance, and then remove the build artifacts and Git metadata.
+#
+# The shallow clone is expected to succeed because the validation above confirms
+# that EWTS_REF identifies an existing remote branch. The fallback clone and
+# checkout are retained to provide a clearer failure path if the shallow clone
+# cannot be completed.
 #
 # Ensures an unset or empty USE_EWTS defaults to ON.
 #
@@ -216,7 +214,6 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-bookworm \
         export PATH="${VIRTUAL_ENV}/bin:${PATH}"; \
         export PYTHONNOUSERSITE=1; \
         export PYTHONPATH=; \
-        python -m pip install --upgrade pip setuptools wheel build pyproject_hooks packaging; \
         python -c "import sys, setuptools, wheel, build, packaging; print(sys.executable); print(setuptools.__version__)"; \
         cmake -S . -B cmake_build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -251,7 +248,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-bookworm \
 # Harmless when USE_EWTS=OFF because these directories will not exist.
 # We include both lib/ and lib64/ because cmake may install to either depending
 # on the platform/distro convention.
-ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:/usr/lib/x86_64-linux-gnu/openmpi/lib:/usr/local/lib:/usr/local/lib64"
+ENV LD_LIBRARY_PATH="${EWTS_PREFIX}/lib:${EWTS_PREFIX}/lib64:${LD_LIBRARY_PATH}"
 
 ##############################
 # Stage: Submodules Build
@@ -502,6 +499,8 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-bookworm \
     rm -rf cmake_build && \
     cmake -B cmake_build -S . \
         -DCMAKE_PREFIX_PATH=${EWTS_PREFIX} \
+        -DPython_EXECUTABLE="${VIRTUAL_ENV}/bin/python" \
+        -DPython3_EXECUTABLE="${VIRTUAL_ENV}/bin/python" \
         -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
         -DNGEN_WITH_MPI=ON \
         -DNGEN_WITH_NETCDF=ON \
