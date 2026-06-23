@@ -91,7 +91,11 @@ void NgenSimulation::run_catchments()
         if(simulation_step_ + 1 == num_times){
             // last simulation run just completed
             log_completed_payload_msg();
-            nc_manager_->close_file();
+#if NGEN_WITH_NETCDF
+            if (produce_netcdf_format_){
+                nc_manager_->close_file();
+            }
+#endif
         }
     }
 }
@@ -121,6 +125,11 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
         if(simulation_step_ == num_times){
             // last simulation run just completed
             log_completed_payload_msg();
+#if NGEN_WITH_NETCDF
+            if (produce_netcdf_format_){
+                nc_manager_->close_file();
+            }
+#endif
         }
 
         // this position allows creating a checkpoint on the very last step. This might be useful if t-route fails and we want to "skip" the final steps
@@ -210,6 +219,7 @@ void NgenSimulation::advance_models_one_output_step()
                 #if NGEN_WITH_NETCDF
                     std::vector<std::string> output_formats = layer->get_simulations_output_format();
                     if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
+                        produce_netcdf_format_ = true;
                         std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
                         nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
                     }

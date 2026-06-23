@@ -148,6 +148,7 @@ private:
 
     int mpi_rank_;
     int mpi_num_procs_;
+    bool produce_netcdf_format_ = false;
 
     // Serialization template will be defined and instantiated in the .cpp file
     friend class boost::serialization::access;

@@ -303,7 +303,6 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
             else{
                 secondary_netcdf_worker(output_values);
             }
-            //MPI_Barrier(comm_);
         }
     }
     catch(const std::runtime_error& e)
