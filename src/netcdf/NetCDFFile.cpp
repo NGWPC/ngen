@@ -29,7 +29,6 @@ NetCDFFile::NetCDFFile(const std::string& filename, bool write_only, bool is_mpi
     int mode = NC_NETCDF4;
     if(write_only){
         read_only_ = false;
-        LOG(filename, LogLevel::INFO);
         NC_CHECK(nc_create(nc_file_name_.c_str(), NC_NETCDF4 | NC_CLOBBER, &ncid_), "Creating NetCDF file failed");
     }
     else{

@@ -84,7 +84,6 @@ void NgenSimulation::run_catchments()
 #endif // NGEN_WITH_NEXUSES
 
         advance_models_one_output_step();
-
         if (simulation_step_ + 1 < num_times) {
             update_progress_for_payload(simulation_step_, num_times, milestones);
             sim_time_->advance_timestep();
@@ -92,6 +91,7 @@ void NgenSimulation::run_catchments()
         if(simulation_step_ + 1 == num_times){
             // last simulation run just completed
             log_completed_payload_msg();
+            nc_manager_->close_file();
         }
     }
 }

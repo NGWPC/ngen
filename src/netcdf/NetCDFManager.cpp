@@ -286,7 +286,6 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
                     nc_file_ ->write_catchment_output_data(nc_output_variables_[var_index], start, count, catchment_output[var_index]);
                 }
             }
-            nc_sync(nc_file_->get_ncid()); 
             return;
         }
     }
@@ -304,7 +303,7 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
             else{
                 secondary_netcdf_worker(output_values);
             }
-            MPI_Barrier(comm_);
+            //MPI_Barrier(comm_);
         }
     }
     catch(const std::runtime_error& e)
@@ -334,7 +333,7 @@ void NetCDFManager::primary_netcdf_writer(size_t time_index, const std::map<int6
         std::vector<size_t> count = {1, 1};
         for(int var_index = 0; var_index < nc_output_variables_.size(); ++var_index)
         {
-            nc_file_ ->write_catchment_output_data(nc_output_variables_[var_index], start, count, catchment_output[var_index]);
+            nc_file_->write_catchment_output_data(nc_output_variables_[var_index], start, count, catchment_output[var_index]);
         }
     };
     //Rank 0 writer
@@ -418,14 +417,9 @@ void NetCDFManager::open_file()
 
 void NetCDFManager::close_file()
 {
-    nc_file_->close_file();
+    if (rank_ == 0 && nc_file_->get_ncid() != -1)
+        nc_file_->close_file();
 }
 
-NetCDFManager::~NetCDFManager() {
-    #if NGEN_WITH_MPI
-        if(num_procs_ > 1 && comm_ != MPI_COMM_NULL) {
-            MPI_Comm_free(&comm_);
-        }
-    #endif
-}
+NetCDFManager::~NetCDFManager() {}
 #endif // NGEN_WITH_NETCDF
