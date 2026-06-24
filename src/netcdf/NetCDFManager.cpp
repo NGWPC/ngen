@@ -51,7 +51,8 @@ NetCDFManager::NetCDFManager(std::shared_ptr<realization::Formulation_Manager> m
         define_catchment_netcdf_components();
     }
 #if NGEN_WITH_MPI
-    MPI_Barrier(comm_);
+    if (comm_ != MPI_COMM_NULL) //This check is important if the user runs MPI with a single process.
+        MPI_Barrier(comm_);
 #endif
 }
 
@@ -267,7 +268,7 @@ void NetCDFManager::write_simulations_response_from_formulation(size_t time_inde
             if (!var){
                 LOG("Catchments variable/dimension not found in NetCDF", LogLevel::FATAL);
                 throw std::runtime_error("Catchments variable/dimension not found");
-            } 
+            }
             for (auto const& catchment_val : output_values)
             {
                 int64_t catchment_id;
