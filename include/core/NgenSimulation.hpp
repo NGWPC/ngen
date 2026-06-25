@@ -1,17 +1,25 @@
 #ifndef NGENSIMULATION_HPP
 #define NGENSIMULATION_HPP
 
-#include <NGenConfig.h>
+#if NGEN_WITH_MPI
+   #include <mpi.h>
+#endif
 
+#include <NGenConfig.h>
 #include <Simulation_Time.hpp>
+#include <Formulation_Manager.hpp>
 #include <Layer.hpp>
+
+#if NGEN_WITH_NETCDF
+    #include "netcdf/NetCDFManager.hpp"
+#endif
+
 
 namespace hy_features
 {
     class HY_Features;
     class HY_Features_MPI;
 }
-
 class State_Snapshot_Saver;
 class State_Snapshot_Loader;
 
@@ -93,6 +101,7 @@ public:
      * @param merge_all_ranks Whether to also get the units from other MPI ranks. This should only be `true` when calling blocking MPI processes is safe for the program.
      */
     std::vector<std::string> required_checkpoint_units(bool merge_all_ranks) const;
+    void create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name);
 
 private:
     void advance_models_one_output_step();
@@ -114,6 +123,8 @@ private:
         const NgenSimulation::hy_features_t &features
     );
 
+    void update_progress_for_payload(int time_index, int num_times, std::vector<int> milestones);
+    void log_completed_payload_msg();
     inline void sync_mpi_ranks() const;
 
     int simulation_step_;
@@ -137,11 +148,20 @@ private:
 
     int mpi_rank_;
     int mpi_num_procs_;
+    bool produce_netcdf_format_ = false;
 
     // Serialization template will be defined and instantiated in the .cpp file
     friend class boost::serialization::access;
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version);
+
+#if NGEN_WITH_MPI
+        MPI_Comm mpi_comm_;
+#endif
+
+#if NGEN_WITH_NETCDF
+    std::unique_ptr<NetCDFManager> nc_manager_;
+#endif
 };
 
 #endif

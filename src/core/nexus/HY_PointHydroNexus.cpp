@@ -151,7 +151,6 @@ void HY_PointHydroNexus::add_upstream_flow(double val, std::string catchment_id,
         LOG(LogLevel::FATAL, "Can not operate on a completed time step");
         BOOST_THROW_EXCEPTION(completed_time_step());
     }
-
     auto s1 = upstream_flows.find(t);
     if (  s1 == upstream_flows.end() )
     {

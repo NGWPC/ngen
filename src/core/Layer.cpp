@@ -3,14 +3,14 @@
 #include <Bmi_Formulation.hpp>
 #include <string>
 
-#if NGEN_WITH_MPI && NGEN_WITH_NEXUES
+#if NGEN_WITH_MPI && NGEN_WITH_NEXUSES
 #include "HY_Features_MPI.hpp"
-#else // NGEN_WITH_MPI && NGEN_WITH_NEXUES
+#else // NGEN_WITH_MPI && NGEN_WITH_NEXUSES
 #include "HY_Features.hpp"
 #if NGEN_WITH_MPI
 #include <mpi.h>
 #endif // MPI_WITH_MPI
-#endif // NGEN_WITH_MPI && NGEN_WITH_NEXUES
+#endif // NGEN_WITH_MPI && NGEN_WITH_NEXUSES
 
 void ngen::Layer::update_models(boost::span<double> catchment_outflows,
                                 std::unordered_map<std::string, int> &catchment_indexes,
@@ -39,7 +39,6 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
     std::string current_timestamp = simulation_time.get_timestamp(output_time_index);
     for(const auto& id : processing_units) {
         int sub_time = output_time_index;
-        //std::cout<<"Running cat "<<id<<std::endl;
         auto r = features.catchment_at(id);
         //TODO redesign to avoid this cast
         auto r_c = std::dynamic_pointer_cast<realization::Catchment_Formulation>(r);
@@ -65,9 +64,19 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
         }
         if (r_c->get_output_header_count() > 0) {
             // only write output if config specifies output values
-            std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
-                r_c->get_output_line_for_timestep(output_time_index)+"\n";
-            r_c->write_output(output);
+            std::string output_line = r_c->get_output_line_for_timestep(output_time_index);
+            for (const auto& fmt : output_formats)
+            {
+                if (fmt == "csv"){
+                    r_c->write_output(std::to_string(output_time_index)+","+current_timestamp+","+output_line+"\n");
+                }
+                if(fmt == "netcdf"){
+                    //capture all the output values for this timestep to write to netcdf
+                    #if NGEN_WITH_NETCDF
+                        catchment_output_values[id] = output_line;
+                    #endif //NGEN_WITH_NETCDF
+                }
+            }
         }
         //TODO put this somewhere else.  For now, just trying to ensure we get m^3/s into nexus output
         double area_sq_km;
@@ -117,11 +126,11 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
 #endif // NGEN_WITH_NEXUSES
                 
     } //done catchments   
-
+    
     ++output_time_index;
     if ( output_time_index < simulation_time.get_total_output_times() ) {
         simulation_time.advance_timestep();
-    }       
+    }
 }
 
 std::string ngen::Layer::unit_name() const {
@@ -173,4 +182,16 @@ void ngen::Layer::load_hot_start(std::shared_ptr<State_Snapshot_Loader> snapshot
         auto r_c = std::dynamic_pointer_cast<realization::Bmi_Formulation>(r);
         r_c->load_hot_start(snapshot_loader);
     }
+}
+
+std::map<std::string, std::string> ngen::Layer::get_catchment_output_data_for_timestep(){
+    return catchment_output_values;
+}
+
+void ngen::Layer::set_simulations_output_format(std::vector<std::string> out_formats){
+    output_formats = out_formats;
+}
+
+std::vector<std::string> ngen::Layer::get_simulations_output_format(){
+    return output_formats;
 }

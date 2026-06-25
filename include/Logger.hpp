@@ -29,7 +29,8 @@ enum class LogLevel {
     INFO = 20,
     WARNING = 30,
     SEVERE = 40,
-    FATAL = 50
+    FATAL = 50,
+    STATUS = 60
 };
 
 #define NGEN_FALLBACK_LOGGING_ENABLED   1
@@ -68,6 +69,7 @@ inline const char* ngen_level_to_string(LogLevel level) {
         case LogLevel::WARNING: return "WARN";
         case LogLevel::SEVERE:  return "ERROR";
         case LogLevel::FATAL:   return "FATAL";
+        case LogLevel::STATUS:  return "STATUS";
         default:                return "LOG";
     }
 }

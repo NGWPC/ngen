@@ -79,6 +79,20 @@ namespace realization {
                     global_config = realization::config::Config(*possible_global_config);
                 }
 
+                // check for user requested file output option
+                auto possible_output_format_configs = tree.get_child_optional("output_format");
+                if (possible_output_format_configs) {
+                    for (const auto& output_format : *possible_output_format_configs) {
+                        std::string fmt = output_format.second.get_value<std::string>();
+                        //std::transform(fmt.begin(), fmt.end(), fmt.begin(), ::tolower);
+                        output_formats.push_back(boost::algorithm::to_lower_copy(fmt));
+                    }
+                }
+                else{
+                    //default to csv
+                    output_formats.push_back("csv");
+                }
+
                 // Log layer descriptions
                 // try to get the json node
                 auto layers_json_array = tree.get_child_optional("layers");
@@ -114,7 +128,9 @@ namespace realization {
                             );
                             auto formulation = domain_formulations.at(layer_desc.id);
                             if (formulation->get_output_header_count() > 0) {
-                                formulation->set_output_stream(get_output_root() + layer_desc.name + "_layer_"+std::to_string(layer_desc.id) + ".csv");
+                                if (std::find(output_formats.begin(), output_formats.end(), "csv") != output_formats.end()){
+                                    formulation->set_output_stream(get_output_root() + layer_desc.name + "_layer_"+std::to_string(layer_desc.id) + ".csv");
+                                }
                             }
                         }
                         //TODO for each layer, create deferred providers for use by other layers
@@ -237,6 +253,10 @@ namespace realization {
                 return this->formulations.at(id);
             }
 
+            std::map<std::string, std::shared_ptr<Catchment_Formulation>> get_all_formulations() const {
+                return this->formulations;
+            }
+
             std::shared_ptr<Catchment_Formulation> get_domain_formulation(long id) const {
                 return this->domain_formulations.at(id);
             }
@@ -291,6 +311,9 @@ namespace realization {
                     return "";
             }
 
+            std::vector<std::string> get_simulation_output_format(){
+                return output_formats;
+            }
             /**
              * Release any resources that should not be held as the run is shutting down
              *
@@ -799,6 +822,8 @@ namespace realization {
             std::map<int, std::shared_ptr<Catchment_Formulation> > domain_formulations;
 
             std::shared_ptr<routing_params> routing_config;
+
+            std::vector<std::string> output_formats;
 
             bool using_routing = false;
 

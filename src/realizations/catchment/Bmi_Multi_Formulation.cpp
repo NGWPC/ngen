@@ -295,6 +295,7 @@ void Bmi_Multi_Formulation::create_multi_formulation(geojson::PropertyMap proper
             output_var_units[i] = get_provider_units_for_variable(names[i]);
         }
     }
+    set_output_variable_units(output_var_units);
 
     //check if output variable indices (for vector variables) are specified in config. If not, default to zero (first index).
     if(output_var_indices.size() == 0){
@@ -475,7 +476,6 @@ std::string Bmi_Multi_Formulation::get_output_line_for_timestep(int timestep, st
     if (timestep != (next_time_step_index - 1)) {
         throw std::invalid_argument("Only current time step valid when getting multi-module BMI formulation output");
     }
-
     // Start by first checking whether we are just using the last module's values
     if (is_out_vars_from_last_mod) {
         // The default behavior, which means we either

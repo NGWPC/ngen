@@ -43,8 +43,11 @@ namespace ngen
                 std::shared_ptr<realization::Catchment_Formulation> formulation):
                     Layer(desc, s_t, features, idx), formulation(formulation)
         {
+            output_formats = get_simulations_output_format();
             if (formulation->get_output_header_count() > 0)
-                formulation->write_output("Time Step,""Time,"+formulation->get_output_header_line(",")+"\n");
+                if (std::find(output_formats.begin(), output_formats.end(), "csv") != output_formats.end()){
+                    formulation->write_output("Time Step,""Time,"+formulation->get_output_header_line(",")+"\n");
+                }
         }
 
         /***
@@ -75,10 +78,12 @@ namespace ngen
                             +" at domain layer "+description.name
                             +" (layer id: "+std::to_string(description.id)+")";
                 throw models::external::State_Exception(msg);
-            } 
-            std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
-            formulation->get_output_line_for_timestep(output_time_index)+"\n";
-            formulation->write_output(output);
+            }
+            if (std::find(output_formats.begin(), output_formats.end(), "csv") != output_formats.end()){ 
+                std::string output = std::to_string(output_time_index)+","+current_timestamp+","+
+                formulation->get_output_line_for_timestep(output_time_index)+"\n";
+                formulation->write_output(output);
+            }
             ++output_time_index;
             if ( output_time_index < simulation_time.get_total_output_times() )
             {
@@ -89,6 +94,7 @@ namespace ngen
 
         private:
         std::shared_ptr<realization::Catchment_Formulation> formulation;
+        std::vector<std::string> output_formats;
     };
 }
 

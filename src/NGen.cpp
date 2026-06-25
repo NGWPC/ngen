@@ -11,6 +11,10 @@
 #include <Catchment_Formulation.hpp>
 #include <HY_Features.hpp>
 
+#if NGEN_WITH_NETCDF
+#include <NetCDFManager.hpp>
+#endif
+
 #if NGEN_WITH_SQLITE3
 #include <geopackage.hpp>
 #endif
@@ -500,7 +504,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
     } else {
         catchment_collection = geojson::read(catchmentDataFile, catchment_subset_ids);
     }
-
+    std::cout << catchment_collection << std::endl;
     for (auto& feature : *catchment_collection) {
         // feature->set_id(feature->get_property("id").as_string());
         feature_collection->add_feature(feature);
@@ -543,6 +547,9 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
         throw;
     }
     LOG("Formulation Initialized", LogLevel::DEBUG);
+
+    //pass on the user requested output format to the layers.
+    std::vector<std::string> output_formats  = manager->get_simulation_output_format();
 
 // TODO refactor manager->read so certain configs can be queried before the entire
 // realization collection is created
@@ -651,7 +658,6 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
 
     std::vector<std::shared_ptr<ngen::Layer>> layers;
     layers.resize(keys.size());
-
     for (long i = 0; i < keys.size(); ++i) {
         auto& desc = layer_meta_data.get_layer(keys[i]);
         std::vector<std::string> cat_ids;
@@ -687,6 +693,7 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                 );
             }
         }
+        layers[i]->set_simulations_output_format(output_formats); //set the output format for catchments
     }
 
     // T-ROUTE data storage
@@ -706,7 +713,11 @@ int run_ngen(int argc, char* argv[], int mpi_num_procs, int mpi_rank) {
                                                        std::move(nexus_indexes),
                                                        mpi_rank,
                                                        mpi_num_procs);
-
+    #if NGEN_WITH_NETCDF
+        if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
+            simulation->create_netcdf_writer(manager, "catchment_output");
+        }
+    #endif //NGEN_WITH_NETCDF
     auto time_done_init                             = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_elapsed_init = time_done_init - time_start;
     LOG("[TIMING]: Init: " + std::to_string(time_elapsed_init.count()), LogLevel::INFO);

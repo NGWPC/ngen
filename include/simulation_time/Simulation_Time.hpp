@@ -7,7 +7,6 @@
 #include <time.h>
 #include <string>
 #include <stdexcept>
-
 #include <boost/serialization/serialization.hpp>
 
 /**
@@ -184,7 +183,7 @@ class Simulation_Time
     void serialize(Archive& ar, const unsigned int version) {
         ar & this->current_date_time_epoch;
     }
-
+    
     int total_output_times;
     int simulation_total_time_seconds;
     int output_interval_seconds;

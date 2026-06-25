@@ -3,6 +3,7 @@
 
 #include <NGenConfig.h>
 #include "Logger.hpp"
+#include "PayloadConfig.hpp"
 
 #if NGEN_WITH_BMI_FORTRAN
 
@@ -46,7 +47,13 @@ namespace models {
                                                                                       registration_func
                                                                                       ) {
                 try {
+                    if(update_payload_config(type_name, ModelStatus::INITIALIZING)){
+                        LOG(LogLevel::STATUS, generate_payload_msg());
+                    }
                     construct_and_init_backing_model_for_fortran();
+                    if(update_payload_config(type_name, ModelStatus::INITIALIZED)){
+                        LOG(LogLevel::STATUS, generate_payload_msg());
+                    }
                     // Make sure this is set to 'true' after this function call finishes
                     model_initialized = true;
                     bmi_model_time_convert_factor = get_time_convert_factor();

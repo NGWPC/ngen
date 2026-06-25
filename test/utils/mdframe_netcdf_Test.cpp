@@ -3,7 +3,9 @@
 #include "gtest/gtest.h"
 
 #if NGEN_WITH_NETCDF
-#include <netcdf>
+#include "netcdf/NetCDFManager.hpp"
+#include "netcdf/NetCDFFile.hpp"
+#include "netcdf/NetCDFVar.hpp"
 #endif
 
 #include "mdframe.hpp"
@@ -41,7 +43,7 @@ TEST_F(mdframe_netcdf_Test, io_netcdf)
 #if !NGEN_WITH_NETCDF
     GTEST_SKIP() << "NetCDF is not available";
 #else
-
+#if !NGEN_WITH_MPI
     ngen::mdframe df;
 
     df.add_dimension("x", 2)
@@ -61,40 +63,41 @@ TEST_F(mdframe_netcdf_Test, io_netcdf)
 
     df.to_netcdf(this->path);
 
-    netCDF::NcFile ex;
-    ex.open(this->path, netCDF::NcFile::read);
+    NetCDFFile ex(this->path, false, false);
 
-    const auto xdim = ex.getDim("x");
-    ASSERT_FALSE(xdim.isNull());
-    ASSERT_EQ(xdim.getSize(), 2);
+    int dim_id = ex.get_dim_id("x");
+    ASSERT_FALSE(dim_id == -1);
+    ASSERT_EQ(ex.get_dim_size("x"), 2);
 
-    const auto ydim = ex.getDim("y");
-    ASSERT_FALSE(ydim.isNull());
-    ASSERT_EQ(ydim.getSize(), 2);
+    dim_id = ex.get_dim_id("y");
+    ASSERT_FALSE(dim_id == -1);
+    ASSERT_EQ(ex.get_dim_size("y"), 2);
 
-    const auto xvar = ex.getVar("x");
-    const auto yvar = ex.getVar("y");
-    const auto vvar = ex.getVar("v");
+    auto xvar = ex.get_ncvar("x");
+    auto yvar = ex.get_ncvar("y");
+    auto vvar = ex.get_ncvar("v");
 
-    EXPECT_EQ(xvar.getDimCount(), 1);
-    EXPECT_EQ(yvar.getDimCount(), 1);
-    EXPECT_EQ(vvar.getDimCount(), 2);
+    EXPECT_EQ(xvar->get_dim_count(), 1);
+    EXPECT_EQ(yvar->get_dim_count(), 1);
+    EXPECT_EQ(vvar->get_dim_count(), 2);
 
     int    xval = 0;
     int    yval = 0;
     double vval = 0;
     for (size_t x = 0; x < 2; x++) {
-        xvar.getVar({ x }, &xval);
+        std::vector<size_t> index = {x};
+        int xval = xvar->get_int_value_at_index(index);
         EXPECT_EQ(xval, x + 1);
         for (size_t y = 0; y < 2; y++) {
-            yvar.getVar({ y }, &yval);
+            index = {y};
+            int yval = yvar->get_int_value_at_index(index);
             EXPECT_EQ(yval, y + 1);
-            
-            vvar.getVar({ x, y}, &vval);
+            index = {x, y};
+            double vval = vvar->get_dbl_value_at_index(index);
             EXPECT_EQ(vval, (x + 1) * (y + 1));
         }
     }
-
-  ex.close();
+  if (ex.get_ncid() >= 0) nc_close(ex.get_ncid());
+#endif
 #endif
 }

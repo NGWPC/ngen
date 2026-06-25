@@ -15,5 +15,5 @@ if(USE_EWTS)
 endif()
 
 if(NGEN_WITH_NETCDF)
-    target_link_libraries(mdframe PUBLIC NetCDF)
+    target_link_libraries(mdframe PUBLIC NetCDFManager)
 endif()

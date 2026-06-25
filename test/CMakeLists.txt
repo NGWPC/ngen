@@ -60,6 +60,14 @@ endif()
 # =============================================================================
 
 add_executable(test_all)
+if(NGEN_WITH_NETCDF)
+    target_link_libraries(test_all PRIVATE NetCDFManager)
+    target_compile_definitions(test_all PRIVATE NGEN_WITH_NETCDF=1)
+    if(NGEN_WITH_MPI)
+        target_compile_definitions(test_all PRIVATE NGEN_WITH_MPI=1)
+        target_link_libraries(test_all PRIVATE MPI::MPI_CXX)
+    endif()
+endif()
 target_link_libraries(test_all PRIVATE gtest gtest_main)
 set_target_properties(test_all PROPERTIES FOLDER test)
 target_include_directories(test_all PRIVATE ${CMAKE_CURRENT_LIST_DIR}/bmi)
@@ -107,7 +115,13 @@ function(ngen_add_test TESTNAME)
     if(NGEN_TEST_CREATE)
         add_executable(${TESTNAME} ${NGEN_TEST_OBJECTS})
         target_include_directories(${TESTNAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/bmi)
-        target_link_libraries(${TESTNAME} PRIVATE gtest gtest_main ${NGEN_TEST_LIBRARIES})
+        target_link_libraries(${TESTNAME} PRIVATE ${NGEN_TEST_LIBRARIES} gtest gtest_main ) # order is important.
+        set(LOOK_FOR NGEN_WITH_NETCDF)
+        list(FIND NGEN_TEST_REQUIRES ${LOOK_FOR} INDEX)
+        if(NOT INDEX EQUAL -1) # IF NGEN_WITH_NETCDF
+            target_compile_definitions(${TESTNAME} PRIVATE NGEN_WITH_NETCDF=1)
+        endif()
+
         set_target_properties(${TESTNAME} PROPERTIES FOLDER test)
 
         # Iterate over each dependency, and add as a dependency for the test
@@ -232,7 +246,9 @@ ngen_add_test(
     LIBRARIES
         NGen::mdarray
         NGen::mdframe
-        
+        NetCDFManager
+    REQUIRES
+        NGEN_WITH_NETCDF
 )
 
 ########################## Logging Unit Tests
@@ -470,12 +486,35 @@ ngen_add_test(
     OBJECTS
         forcing/NetCDFPerFeatureDataProvider_Test.cpp
     LIBRARIES
+        NGen::realizations_catchment
+        NGen::core_catchment
         NGen::core
         NGen::core_nexus
         NGen::core_mediator
         NGen::forcing
         NGen::geojson
         NGen::realizations_catchment
+        NetCDFManager
+    REQUIRES
+        NGEN_WITH_NETCDF
+)
+
+########################## NetCDFCreator Class Tests
+ngen_add_test(
+    test_netcdf_creator
+    OBJECTS
+        core/NetCDFCreatorTest.cpp
+    LIBRARIES
+        NGen::core
+        NGen::geopackage
+        NGen::geojson
+        NGen::logging
+        NGen::core_catchment
+        NGen::core_mediator
+        NGen::realizations_catchment
+        NGen::forcing
+        NGen::ngen_bmi
+        NetCDFManager
     REQUIRES
         NGEN_WITH_NETCDF
 )

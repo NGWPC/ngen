@@ -29,6 +29,7 @@ HY_Features_MPI::HY_Features_MPI( PartitionData partition_data, geojson::GeoJSON
         remote_connection_direction[remote_nexi][remote_catchments] = std::get<3>(remote_tuple);
       }
 
+      std::vector<std::string> output_formats = formulations->get_simulation_output_format();
       for(const auto& feat_idx : network){
         feat_id = network.get_id(feat_idx);//feature->get_id();
         feat_type = feat_id.substr(0, 3);
@@ -41,10 +42,12 @@ HY_Features_MPI::HY_Features_MPI( PartitionData partition_data, geojson::GeoJSON
           //Find and prepare formulation
           auto formulation = formulations->get_formulation(feat_id);
           if (formulation->get_output_header_count() > 0) {
-            formulation->set_output_stream(formulations->get_output_root() + feat_id + ".csv");
+            if (std::find(output_formats.begin(), output_formats.end(), "csv") != output_formats.end()){
+              formulation->set_output_stream(formulations->get_output_root() + feat_id + ".csv");
             // TODO: add command line or config option to have this be omitted
             //FIXME why isn't default param working here??? get_output_header_line() fails.
-            formulation->write_output("Time Step,""Time,"+formulation->get_output_header_line(",")+"\n");
+              formulation->write_output("Time Step,""Time,"+formulation->get_output_header_line(",")+"\n");
+            }
           }
           
           // get the catchment layer from the hydro fabric

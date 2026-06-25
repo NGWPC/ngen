@@ -11,12 +11,16 @@
 #include "state_save_restore/State_Save_Restore.hpp"
 #include <boost/core/span.hpp>
 #include <boost/serialization/serialization.hpp>
+#include <map>
 
 namespace hy_features
 {
     class HY_Features;
     class HY_Features_MPI;
 }
+
+class State_Snapshot_Saver;
+class State_Snapshot_Loader;
 
 namespace ngen
 {
@@ -128,6 +132,9 @@ namespace ngen
         std::string unit_name() const;
         virtual std::vector<std::string> required_checkpoint_units() const;
 
+        virtual std::map<std::string, std::string> get_catchment_output_data_for_timestep();
+        virtual void set_simulations_output_format(std::vector<std::string> out_formats);
+        virtual std::vector<std::string> get_simulations_output_format();
         protected:
 
         const LayerDescription description;
@@ -138,7 +145,9 @@ namespace ngen
         feature_type& features;
         //TODO is this really required at the top level? or can this be moved to SurfaceLayer?
         const geojson::GeoJSON catchment_data;
-        long output_time_index;   
+        long output_time_index;       
+        std::map<std::string, std::string> catchment_output_values;
+        std::vector<std::string> output_formats;
 
         // Serialization template will be defined and instantiated in the .cpp file
         friend class boost::serialization::access;
@@ -147,8 +156,6 @@ namespace ngen
             ar & this->output_time_index;
             ar & this->simulation_time;
         }
-
     };
 }
-
 #endif

@@ -38,6 +38,10 @@ if (NGEN_WITH_PYTHON)
     target_link_libraries(core PUBLIC NGen::python)
 endif ()
 
+if(NGEN_WITH_NETCDF)
+    target_link_libraries(core PUBLIC NetCDFManager)
+endif()
+
 if(NGEN_WITH_MPI)
     target_link_libraries(core PUBLIC MPI::MPI_C MPI::MPI_CXX)
 endif()

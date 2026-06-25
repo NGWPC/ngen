@@ -1,6 +1,7 @@
 #include <NgenSimulation.hpp>
 #include <NGenConfig.h>
 #include "Logger.hpp"
+#include "PayloadConfig.hpp"
 
 #if NGEN_WITH_MPI
 #include "HY_Features_MPI.hpp"
@@ -26,7 +27,6 @@
 
 namespace {
     const auto TROUTE_UNIT_NAME = "troute";
-
     #if NGEN_WITH_MPI
     // Merge strings from multiple MPI ranks and broadcast the results to all ranks. Duplicates will be removed.
     std::vector<std::string> collect_unique_strings(const std::vector<std::string> &items, int mpi_rank, int mpi_num_procs) {
@@ -54,7 +54,7 @@ NgenSimulation::NgenSimulation(
     std::unordered_map<std::string, int> nexus_indexes,
     int mpi_rank,
     int mpi_num_procs
-                               )
+    )
     : simulation_step_(0)
     , sim_time_(std::make_shared<Simulation_Time>(sim_time))
     , layers_(std::move(layers))
@@ -74,8 +74,8 @@ NgenSimulation::~NgenSimulation() = default;
 void NgenSimulation::run_catchments()
 {
     // Now loop some time, iterate catchments, do stuff for total number of output times
-    auto num_times = get_num_output_times();
-
+    int num_times = get_num_output_times();
+    std::vector<int> milestones = { (num_times * 25 / 100) - 1, (num_times * 50 / 100) - 1, (num_times * 75 / 100) - 1 };
     for (; simulation_step_ < num_times; simulation_step_++) {
         // Make room for this output step's results
         catchment_outflows_.resize(catchment_outflows_.size() + catchment_indexes_.size(), 0.0);
@@ -84,15 +84,25 @@ void NgenSimulation::run_catchments()
 #endif // NGEN_WITH_NEXUSES
 
         advance_models_one_output_step();
-
         if (simulation_step_ + 1 < num_times) {
+            update_progress_for_payload(simulation_step_, num_times, milestones);
             sim_time_->advance_timestep();
+        }
+        if(simulation_step_ + 1 == num_times){
+            // last simulation run just completed
+            log_completed_payload_msg();
+#if NGEN_WITH_NETCDF
+            if (produce_netcdf_format_){
+                nc_manager_->close_file();
+            }
+#endif
         }
     }
 }
 
 void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_saver, int frequency) {
     int num_times = get_num_output_times();
+    std::vector<int> milestones = { (num_times * 25 / 100) - 1, (num_times * 50 / 100) - 1, (num_times * 75 / 100) - 1 };
     if (frequency > num_times) {
         LOG(LogLevel::WARNING, "The frequency of checkpoints (%d) is less than the number of simulation steps (%d). No checkpoints will be generated.", frequency, num_times);
     }
@@ -109,7 +119,17 @@ void NgenSimulation::run_catchments(std::shared_ptr<State_Saver> checkpoint_save
         this->simulation_step_++;
 
         if (simulation_step_ < num_times) {
+            update_progress_for_payload(simulation_step_, num_times, milestones);
             sim_time_->advance_timestep();
+        }
+        if(simulation_step_ == num_times){
+            // last simulation run just completed
+            log_completed_payload_msg();
+#if NGEN_WITH_NETCDF
+            if (produce_netcdf_format_){
+                nc_manager_->close_file();
+            }
+#endif
         }
 
         // this position allows creating a checkpoint on the very last step. This might be useful if t-route fails and we want to "skip" the final steps
@@ -195,6 +215,16 @@ void NgenSimulation::advance_models_one_output_step()
                                      simulation_step_
                                      ); // assume update_models() calls time->advance_timestep()
 #endif // NGEN_WITH_NEXUSES
+
+                #if NGEN_WITH_NETCDF
+                    std::vector<std::string> output_formats = layer->get_simulations_output_format();
+                    if (std::find(output_formats.begin(), output_formats.end(), "netcdf") != output_formats.end()){
+                        produce_netcdf_format_ = true;
+                        std::map<std::string, std::string> catchment_output_vals = layer->get_catchment_output_data_for_timestep();
+                        nc_manager_->write_simulations_response_from_formulation(simulation_step_,catchment_output_vals);
+                    }
+                #endif //NGEN_WITH_NETCDF
+                
                 prev_layer_time = layer_next_time;
             } else {
                 layer_min_next_time = prev_layer_time = layer->current_timestep_epoch_time();
@@ -492,4 +522,32 @@ void NgenSimulation::serialize(Archive& ar, const unsigned int version) {
     ar & nexus_indexes_;
     ar & nexus_downstream_flows_;
 #endif //NGEN_WITH_NEXUSES
+}
+
+void NgenSimulation::create_netcdf_writer(std::shared_ptr<realization::Formulation_Manager> manager, std::string nc_output_file_name)
+{
+#if NGEN_WITH_NETCDF
+    this->nc_manager_ = std::make_unique<NetCDFManager>(manager, nc_output_file_name, *sim_time_, mpi_rank_, mpi_num_procs_);
+#endif
+}
+
+void NgenSimulation::update_progress_for_payload(int time_index, int num_times, std::vector<int> milestones)
+{
+    auto it = std::find(milestones.begin(), milestones.end(), time_index);
+    if (it != milestones.end()) {
+        run_progress_updated(true);
+    }
+    else{
+        run_progress_updated(false);
+    }
+}
+
+void NgenSimulation:: log_completed_payload_msg()
+{
+    std::vector<std::string> completed_models = set_progress_complete();
+    for (const auto& model : completed_models)
+    {
+        LOG(LogLevel::INFO, generate_payload_msg(model));
+    }
+    reset_payload_attributes(); //reset all Payload variables after simulation runs
 }

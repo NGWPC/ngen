@@ -5,6 +5,7 @@
 #include "Logger.hpp"
 #include "state_save_restore/State_Save_Utils.hpp"
 #include <state_save_restore/State_Save_Restore.hpp>
+#include "PayloadConfig.hpp"
 
 #include <ctime>
 #include <iomanip>
@@ -135,6 +136,16 @@ namespace realization {
             if (t_index < (next_time_step_index - 1)) {
                 // TODO: consider whether we should (optionally) store and return historic values
                 throw std::invalid_argument("Getting response of previous time step in BMI formulation of type '" + get_formulation_type() + "' is not allowed.");
+            }
+
+            if(t_index == 0 && update_payload_config(get_bmi_model()->get_model_name(), ModelStatus::STARTING)){
+                // report payload progress as starting
+                LOG(LogLevel::INFO, generate_payload_msg());
+            }
+            else if (t_index > 0){
+                if (update_payload_config(get_bmi_model()->get_model_name(), ModelStatus::IN_PROGRESS)){
+                    LOG(LogLevel::INFO, generate_payload_msg());
+                }
             }
 
             // The time step delta size, expressed in the units internally used by the model
@@ -692,6 +703,7 @@ namespace realization {
                     output_var_units[i] = get_provider_units_for_variable(names[i]);
                 }
             }
+            set_output_variable_units(output_var_units);
 
             //check if output variable indices (for vector variables) are specified in config. If not, default to zero (first index).
             if(output_var_indices.size() == 0){

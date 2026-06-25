@@ -4,7 +4,10 @@
 
 #if NGEN_WITH_NETCDF
 
-#include <netcdf>
+#include <boost/variant.hpp>
+#include "netcdf/NetCDFManager.hpp"
+#include "netcdf/NetCDFFile.hpp"
+#include "netcdf/NetCDFVar.hpp"
 
 namespace ngen {
 
@@ -12,66 +15,73 @@ namespace visitors {
 
 struct mdarray_netcdf_putvar : public boost::static_visitor<void>
 {
+    std::shared_ptr<NetCDFVar> var;
 
+    mdarray_netcdf_putvar(std::shared_ptr<NetCDFVar> v) : var(v) {}
+    
     template<typename T>
-    void operator()(const mdarray<T>& arr, netCDF::NcVar& var)
+    void operator()(const mdarray<T>& arr) const
     {
-        typename mdarray<T>::size_type rank = arr.rank();
-        std::vector<typename mdarray<T>::size_type> expanded_index(rank);
-        
-        for (auto it = arr.begin(); it != arr.end(); it++) {
-            it.mdindex(expanded_index);
-            var.putVar(expanded_index, *it);
+        if (arr.rank() == 1) { //1D array, assumes int values.
+            std::vector<int> arr_1D;
+            for (auto it = arr.begin(); it != arr.end(); ++it) {
+                arr_1D.push_back(*it);
+            }
+            var->write_int_1d(arr_1D);
+        } else if (arr.rank() == 2) { //2D array, assumes double values.
+            std::vector<double> arr_2D;
+            for (auto it = arr.begin(); it != arr.end(); ++it) {
+                arr_2D.push_back(*it);
+            }
+            var->write_flattened_double_array(arr_2D);
         }
     }
-
 };
-
 } // namespace visitors
 
 void mdframe::to_netcdf(const std::string& path) const
 {
-    netCDF::NcFile output{path, netCDF::NcFile::replace};
-
-    std::unordered_map<std::string, netCDF::NcDim> dimmap;
-    std::unordered_map<std::string, netCDF::NcVar> varmap;
-
+    NetCDFManager nc_manager;
+    int ncid = nc_manager.create_file(path);
+    std::unordered_map<std::string, int> dimmap;
     for (const auto& dim : this->m_dimensions)
-        dimmap[dim.name()] = output.addDim(dim.name(), dim.size());
-
+        dimmap[dim.name()] = nc_manager.add_dimension(dim.name(), dim.size());
+    
+    std::unordered_map<std::string, std::shared_ptr<NetCDFVar>> varmap;
     for (const auto& pair : this->m_variables) {
-        netCDF::NcType* type = nullptr;
-        decltype(auto) var = pair.second;
-        switch (var.values().which()) {
-            case 0: // int
-                type = &netCDF::ncInt;
-                break;
+        nc_type type;
+        auto& var = pair.second;
 
-            case 1: // float
-                type = &netCDF::ncFloat;
+        switch (var.values().which()) { 
+            case 0: 
+                type = NC_INT; 
                 break;
-
-            case 2: // double
-            default:
-                type = &netCDF::ncDouble;
+            case 1: 
+                type = NC_FLOAT; 
+                break;
+            case 2:
+                default: type = NC_DOUBLE; 
                 break;
         }
-
-        std::vector<netCDF::NcDim> dimensions;
-        dimensions.reserve(var.rank());
+        std::vector<int> dim_ids;
+        std::vector<std::string> dim_names;
+        dim_ids.reserve(var.rank());
+        dim_names.reserve(var.rank());
         for (const auto& dimname : var.dimensions())
-            dimensions.push_back(dimmap[dimname]);
+        {
+            auto it = dimmap.find(dimname);
+            if(it == dimmap.end())
+                throw std::runtime_error("NetCDF dimension not found: " + dimname);
 
-        const auto& nc_var = output.addVar(var.name(), *type, dimensions);
+            dim_ids.push_back(it->second);
+            dim_names.push_back(it->first);
+        }
+
+        nc_manager.add_variable(var.name(), type, dim_ids, dim_names);
+        const auto& nc_var = nc_manager.get_ncvar_by_name(var.name());
         varmap[var.name()] = nc_var;
-
-        auto visitor = std::bind(
-            visitors::mdarray_netcdf_putvar{},
-            std::placeholders::_1,
-            nc_var
-        );
-
-        var.values().apply_visitor(visitor);
+        visitors::mdarray_netcdf_putvar visitor(nc_var);
+        boost::apply_visitor(visitor, var.values());
     }
 }
 
