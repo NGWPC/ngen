@@ -547,7 +547,7 @@ void NgenSimulation:: log_completed_payload_msg()
     std::vector<std::string> completed_models = set_progress_complete();
     for (const auto& model : completed_models)
     {
-        LOG(LogLevel::INFO, generate_payload_msg(model));
+        LOG(LogLevel::STATUS, generate_payload_msg(model));
     }
     reset_payload_attributes(); //reset all Payload variables after simulation runs
 }

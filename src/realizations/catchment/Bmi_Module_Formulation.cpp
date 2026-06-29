@@ -140,11 +140,11 @@ namespace realization {
 
             if(t_index == 0 && update_payload_config(get_bmi_model()->get_model_name(), ModelStatus::STARTING)){
                 // report payload progress as starting
-                LOG(LogLevel::INFO, generate_payload_msg());
+                LOG(LogLevel::STATUS, generate_payload_msg());
             }
             else if (t_index > 0){
                 if (update_payload_config(get_bmi_model()->get_model_name(), ModelStatus::IN_PROGRESS)){
-                    LOG(LogLevel::INFO, generate_payload_msg());
+                    LOG(LogLevel::STATUS, generate_payload_msg());
                 }
             }
 

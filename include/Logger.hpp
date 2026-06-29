@@ -3,6 +3,9 @@
 
 #ifdef USE_EWTS
 #include "ewts_ngen/logger.hpp"
+
+inline constexpr const char* NGEN_MODULE_ID = ewts_ngen::modules::EWTS_ID_NGEN;
+
 #else
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 // Log messages written to STDOUT

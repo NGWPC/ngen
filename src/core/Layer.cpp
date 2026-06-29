@@ -25,16 +25,20 @@ void ngen::Layer::update_models(boost::span<double> catchment_outflows,
 
     //std::cout<<"Output Time Index: "<<output_time_index<<std::endl;
 
-#if NGEN_WITH_MPI
     if (output_time_index%1000 == 0) {
+#if NGEN_WITH_MPI
         int rank = 0;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         std::string msg = "[rank " + std::to_string(rank) + "] Running timestep " + std::to_string(output_time_index);
         std::cout << msg << std::endl;
-    }
 #else
-    if (output_time_index%1000 == 0) std::cout << "Running timestep " << output_time_index << std::endl;
+        std::cout << "Running timestep " << output_time_index << std::endl;
 #endif
+#ifdef USE_EWTS
+        // Heartbeat
+        PAYLOAD_STATUS(NGEN_MODULE_ID,ewts::PAYLOAD_INPROG,static_cast<double>(output_time_index),"Timestep",NGEN_MODULE_ID);
+#endif
+    }
 
     std::string current_timestamp = simulation_time.get_timestamp(output_time_index);
     for(const auto& id : processing_units) {
