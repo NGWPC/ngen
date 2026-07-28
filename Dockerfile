@@ -168,6 +168,7 @@ SHELL [ "/usr/bin/scl", "enable", "gcc-toolset-10" ]
 # default explicit in this stage and normalize/default it before passing it to
 # CMake so an unset or empty value never becomes -DUSE_EWTS=.
 ARG USE_EWTS=ON
+ARG GH_ORG
 ARG EWTS_ORG
 ARG EWTS_REF
 ARG EWTS_CACHE_BUST=0
@@ -293,6 +294,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
 # default explicit in this stage and normalize/default it before passing it to
 # CMake so an unset or empty value never becomes -DUSE_EWTS=.
 ARG USE_EWTS=ON
+ARG GH_ORG
+ARG EWTS_REF
 
 WORKDIR /ngen-app/
 
