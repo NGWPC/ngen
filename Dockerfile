@@ -178,10 +178,10 @@ RUN set -eux && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
         echo "Checking EWTS branch/tag: ${EWTS_REF}"; \
-        if ! git ls-remote --exit-code --heads \
+        if ! git ls-remote --exit-code --heads --tags \
             "https://github.com/${EWTS_ORG}/nwm-ewts.git" \
             "${EWTS_REF}" >/dev/null 2>&1; then \
-            echo "ERROR: EWTS branch '${EWTS_REF}' not found in ${EWTS_ORG}/nwm-ewts. Make sure it has been pushed." >&2; \
+            echo "ERROR: EWTS branch/tag '${EWTS_REF}' not found in ${EWTS_ORG}/nwm-ewts. Make sure it has been pushed." >&2; \
             exit 1; \
         fi; \
     fi
@@ -219,11 +219,12 @@ RUN --mount=type=cache,target=/root/.cache/ewts,id=ewts-source-rocky \
     USE_EWTS="${USE_EWTS:-ON}" && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
-        # Current HEAD commit of the requested branch.
-        EWTS_REMOTE_SHA="$(git ls-remote "https://github.com/${EWTS_ORG}/nwm-ewts.git" "refs/heads/${EWTS_REF}" | awk '{print $1}')" && \
+        # Current commit of the requested branch or tag. ls-remote sorts the
+        # matches, so tail -n1 prefers the peeled ^{} commit of an annotated tag.
+        EWTS_REMOTE_SHA="$(git ls-remote "https://github.com/${EWTS_ORG}/nwm-ewts.git" "refs/heads/${EWTS_REF}" "refs/tags/${EWTS_REF}" "refs/tags/${EWTS_REF}^{}" | tail -n1 | awk '{print $1}')" && \
         EWTS_CACHE_DIR="/root/.cache/ewts/nwm-ewts-${EWTS_REF}" && \
         EWTS_SHA_FILE="/root/.cache/ewts/nwm-ewts-${EWTS_REF}.sha" && \
-        # Re-clone only when the branch HEAD has changed.
+        # Re-clone only when the ref's commit has changed.
         if [ ! -d "${EWTS_CACHE_DIR}" ] || [ ! -f "${EWTS_SHA_FILE}" ] || [ "$(cat "${EWTS_SHA_FILE}")" != "${EWTS_REMOTE_SHA}" ]; then \
             echo "EWTS changed or missing; cloning ${EWTS_REF} at ${EWTS_REMOTE_SHA}"; \
             rm -rf "${EWTS_CACHE_DIR}"; \
