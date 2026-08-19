@@ -163,10 +163,10 @@ RUN set -eux && \
     USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')" && \
     if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
         echo "Checking EWTS branch/tag: ${EWTS_REF}"; \
-        if ! git ls-remote --exit-code --heads \
+        if ! git ls-remote --exit-code --heads --tags \
             "https://github.com/${EWTS_ORG}/nwm-ewts.git" \
             "${EWTS_REF}" >/dev/null 2>&1; then \
-            echo "ERROR: EWTS branch '${EWTS_REF}' not found in ${EWTS_ORG}/nwm-ewts. Make sure it has been pushed." >&2; \
+            echo "ERROR: EWTS branch/tag '${EWTS_REF}' not found in ${EWTS_ORG}/nwm-ewts. Make sure it has been pushed." >&2; \
             exit 1; \
         fi; \
     fi
@@ -181,11 +181,11 @@ ENV EWTS_PREFIX=/opt/ewts
 # when USE_EWTS is enabled.
 ENV EWTS_PY_ROOT=/tmp/nwm-ewts/runtime/python/ewts
 
-# Clone the requested nwm-ewts branch, build and install EWTS, capture git
+# Clone the requested nwm-ewts branch or tag, build and install EWTS, capture git
 # metadata for provenance, and then remove the build artifacts and Git metadata.
 #
 # The shallow clone is expected to succeed because the validation above confirms
-# that EWTS_REF identifies an existing remote branch. The fallback clone and
+# that EWTS_REF identifies an existing remote branch or tag. The fallback clone and
 # checkout are retained to provide a clearer failure path if the shallow clone
 # cannot be completed.
 #
