@@ -132,9 +132,11 @@ public:
      */
     template <class T>
     void archive_unit(const std::string &unit_name, T *item) {
-        vecbuf<char> buffer;
-        boost::archive::binary_oarchive archive(buffer);
+        vecbuf buffer;
+        OStreamType stream(buffer);
+        boost::archive::binary_oarchive archive(stream);
         archive << (*item);
+        stream.flush();
         boost::span<char> data(buffer.data(), buffer.size());
         this->save_unit(unit_name, data);
     }

@@ -28,10 +28,12 @@ using namespace realization;
 
 void Bmi_Multi_Formulation::save_state(std::shared_ptr<State_Snapshot_Saver> saver) {
     LOG(LogLevel::DEBUG, "Saving state for Multi-BMI %s", this->save_state_unit_name().c_str());
-    vecbuf<char> data;
-    boost::archive::binary_oarchive archive(data);
+    vecbuf data;
+    OStreamType stream(data);
+    boost::archive::binary_oarchive archive(stream);
     // serialization function handles freeing the sub-BMI states after archiving them
     archive << (*this);
+    stream.flush();
     // it's recommended to keep data pointers around until serialization completes,
     //   so freeing the BMI states is done after the data buffer has been completely written to
     for (const nested_module_ptr &m : modules) {
