@@ -74,6 +74,10 @@ on:
         description: 'NWM_METRICS_REF'
         required: false
         type: string
+      NGEN_TAG_NAME:
+        description: 'NGEN_TAG_NAME (if set, used as the final promoted tag instead of latest/latest-pw)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -102,6 +106,7 @@ jobs:
       ngen_forcing_digest: ${{ steps.vars.outputs.ngen_forcing_digest }}
       ngen_forcing_revision: ${{ steps.vars.outputs.ngen_forcing_revision }}
       ewts_revision: ${{ steps.vars.outputs.ewts_revision }}
+      ngen_tag_name: ${{ steps.vars.outputs.ngen_tag_name }}
     steps:
       - name: Compute image vars
         id: vars
@@ -205,6 +210,8 @@ jobs:
           # reinstalls EWTS instead of a stale cache.
           EWTS_REVISION=$(resolve_sha "https://github.com/${{ inputs.EWTS_ORG || github.repository_owner }}/nwm-ewts.git" "$(ref_or_default "${{ inputs.EWTS_REF }}")")
 
+          NGEN_TAG_NAME="${{ inputs.NGEN_TAG_NAME || '' }}"
+
           # save outputs
           cat >> "$GITHUB_OUTPUT" <<EOF
           org=${ORG}
@@ -219,6 +226,7 @@ jobs:
           ngen_forcing_digest=${NGEN_FORCING_DIGEST}
           ngen_forcing_revision=${NGEN_FORCING_REVISION}
           ewts_revision=${EWTS_REVISION}
+          ngen_tag_name=${NGEN_TAG_NAME}
           EOF
 
   # CodeQL scan
@@ -392,6 +400,7 @@ jobs:
           IMAGE_BASE="${{ needs.setup.outputs.image_base }}"
           TEST_TAG="${{ needs.setup.outputs.test_image_tag }}"
           ALIAS_TAG="${{ needs.setup.outputs.alias_tag }}"
+          NGEN_TAG_NAME="${{ needs.setup.outputs.ngen_tag_name }}"
 
           # apply the primary alias (pr tag or timestamp-branch)
           skopeo copy \
@@ -400,12 +409,20 @@ jobs:
             --all \
             "docker://${IMAGE_BASE}:${TEST_TAG}" "docker://${IMAGE_BASE}:${ALIAS_TAG}"
 
+          # if NGEN_TAG_NAME was provided, use it as the final promoted tag,
+          # bypassing the branch-keyed lane logic below. Otherwise:
           # Branch-keyed promotion: development promotes 'latest' (bookworm/AWS
           # lane); development-pw promotes 'latest-pw' (rocky/PW lane). Do not
           # manually dispatch a cross-lane build from either branch: promotion
           # keys off the branch name, so the tested image would promote under
           # the wrong alias.
-          if [ "$GITHUB_REF_NAME" = "development" ]; then
+          if [ -n "$NGEN_TAG_NAME" ]; then
+            skopeo copy \
+              --src-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+              --dest-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+              --all \
+              "docker://${IMAGE_BASE}:${TEST_TAG}" "docker://${IMAGE_BASE}:${NGEN_TAG_NAME}"
+          elif [ "$GITHUB_REF_NAME" = "development" ]; then
             skopeo copy \
               --src-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
               --dest-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
