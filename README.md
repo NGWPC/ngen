@@ -83,6 +83,112 @@ Or, if the build system has not yet been properly generated:
 
 See the [Testing ReadMe](test/README.md) file and [wiki/Quickstart](https://github.com/NOAA-OWP/ngen/wiki/NGen-Tutorial) for a more thorough discussion of testing.
 
+## How to use state saving
+
+State saving is managed in the realization configuration JSON. The optional property `state_saving` may be included as an array of state saving and loading definitions. Each object in the state saving array has properties used to define whether the state is to be loaded or saved out, where the data is and how it's formatted, and when in the simulation the state processing should occur.
+
+The simulation JSON has the following properties:
+ - direction (string): "save" for exporting simulation states or "load" for importing prior states.
+ - label (string): identifier used for identifying states in EWTS logs
+ - path (string): location states will be exported to or imported from
+ - type (string): mechanic used for storing states; currently only accepts "FilePerUnit" for one file per catchment
+ - when (string): timing indicator for when states are saved
+ - frequency (int): how frequently states will be saved when checkpointing; only used when saving checkpoints
+
+### Checkpointing
+
+Checkpointing allows the simulation to occationally save its state midway through processing, and a subsequent run can load a checkpoint state at the beginning of another run to jump ahead in the simulation to the checkpointed state.
+
+This example will generate states every 100 simulation steps. Each time a state needs to be generated, a new subfolder with the name of the simulation step number will be created, and NGEN and each catchment will have a binary data file created. When the step's state files have all been saved, any states from piror steps will be deleted. Specific to saving checkpoints, a `frequency` property must be included to indicate how often checkpoints need to be generated.
+```json
+{
+    "direction": "save",
+    "label": "checkpoint 100",
+    "path": "./checkpoints",
+    "type": "FilePerUnit",
+    "when": "Checkpoint",
+    "frequency": 100
+}
+```
+
+This example will load a prior checkpoint state. The checkpoint files are located in the step 300 subfolder from the example above, and the simulation will continue from step 300 as if it had never been stopped.
+```json
+{
+    "direction": "load",
+    "label": "checkpoint load",
+    "path": "./checkpoints/300",
+    "type": "FilePerUnit",
+    "when": "Checkpoint"
+}
+```
+
+### Hot Starting
+
+Hot Starting is starting NGEN from the final state of a prior NGEN run.
+
+This example will store a hot start state at the end of the simulation in the `./hot_start` folder. A file will be made for each catchment and the t-route state.
+```json
+{
+    "direction": "save",
+    "label": "hot start save",
+    "path": "./hot_start",
+    "type": "FilePerUnit",
+    "when": "EndOfRun"
+}
+```
+
+This example will load the hot start state from the prior simulation in the `./hot_start` folder.
+```json
+{
+    "direction": "load",
+    "label": "hot start load",
+    "path": "./hot_start",
+    "type": "FilePerUnit",
+    "when": "StartOfRun"
+}
+```
+
+### Combining State Saving
+
+Multiple state saving instructions can be combined in a single run.
+
+For this example of constructing an array of instructions in the realization configuration JSON, NGEN will load a prior hot start state at the beginning of the run, save checkpoints every 100 steps, and save a hot start state at the end of the run. These instructions can be in any order in the configuration.
+```json
+{
+    ...
+    "state_saving": [
+        {
+            "direction": "load",
+            "label": "hot start load",
+            "path": "~/ngen_states/20260501_000000",
+            "type": "FilePerUnit",
+            "when": "StartOfRun"
+        },
+        {
+            "direction": "save",
+            "label": "checkpointing",
+            "path": "./checkpoints",
+            "type": "FilePerUnit",
+            "when": "Checkpoint",
+            "frequency": 100
+        },
+        {
+            "direction": "save",
+            "label": "hot start save",
+            "path": "~/ngen_states/20260601_000000",
+            "type": "FilePerUnit",
+            "when": "EndOfRun"
+        }
+    ]
+}
+```
+
+### Notes on State Saving
+
+1) Hot start and checkpoint states _cannot_ be used interchangably. Primarily, because t-route runs at the end of the NGEN simulation, a valid hot start state for t-route is not available until after the simulation has completed.
+
+2) There are no checks on model backing data when loading a state. For instance, LASAM inputs include soil properties, and these are assumed to be the exact same for the instances saving and loading with no check if a different configuration was used. The lack of checks means state save sizes can be kept small, but the user is required to keep saved states organized to prevent loading states from different backing data.
+
 ## How to debug the software
 
 This is all developed via **CMake**, so a specific setting must be active within the root `CMakeList.txt` file:
