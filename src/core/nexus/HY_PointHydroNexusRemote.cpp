@@ -11,6 +11,8 @@
 
 // TODO add loggin to this function
 
+static constexpr long MPI_TAG_LIMIT = 32767;
+
 void MPI_Handle_Error(int status)
 {
     if ( status == MPI_SUCCESS )
@@ -139,7 +141,7 @@ double HY_PointHydroNexusRemote::get_downstream_flow(std::string catchment_id, t
                 stored_receives.resize(stored_receives.size() + 1);
                 stored_receives.back().buffer = std::make_shared<time_step_and_flow_t>();
 
-       		int tag = extract(id);
+       		int tag = static_cast<int>(extract(id) % MPI_TAG_LIMIT);
 
        		//Receive downstream_flow from Upstream Remote Nexus to this Downstream Remote Nexus
        		status = MPI_Irecv(
@@ -204,7 +206,7 @@ void HY_PointHydroNexusRemote::add_upstream_flow(double val, std::string catchme
 		    // get the correct amount of flow using the inherted function this means are local bookkeeping is accurate
 		    stored_sends.back().buffer->flow = HY_PointHydroNexus::get_downstream_flow(id, t, 100.0);;
 
-		    int tag = extract(id);
+		    int tag = static_cast<int>(extract(id) % MPI_TAG_LIMIT);
 
 		    //Send downstream_flow from this Upstream Remote Nexus to the Downstream Remote Nexus
 		    MPI_Isend(

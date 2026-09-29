@@ -503,6 +503,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache-bookworm \
         -DUSE_EWTS="${USE_EWTS_NORMALIZED}" \
         -DNGEN_WITH_MPI=ON \
         -DNGEN_WITH_NETCDF=ON \
+        -DNGEN_WITH_NEXUSES=ON \
         -DNGEN_WITH_SQLITE=ON \
         -DNGEN_WITH_UDUNITS=ON \
         -DNGEN_WITH_BMI_FORTRAN=ON \

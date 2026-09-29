@@ -16,6 +16,7 @@
 #cmakedefine01 NGEN_WITH_BMI_FORTRAN
 #cmakedefine01 NGEN_WITH_BMI_C
 #cmakedefine01 NGEN_WITH_PYTHON
+#cmakedefine01 NGEN_WITH_NEXUSES
 #cmakedefine01 NGEN_WITH_ROUTING
 #cmakedefine01 NGEN_WITH_TESTS
 #cmakedefine01 NGEN_QUIET
